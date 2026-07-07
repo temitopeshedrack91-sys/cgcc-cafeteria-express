@@ -82,9 +82,12 @@ function MenuAdmin() {
                       key={item.id}
                       className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-soft"
                     >
-                      <div className="grid h-12 w-12 place-items-center rounded-lg bg-gradient-brand text-2xl">
-                        {item.emoji}
-                      </div>
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        loading="lazy"
+                        className="h-12 w-12 rounded-lg object-cover"
+                      />
                       <div className="flex-1">
                         <p className="font-semibold">{item.name}</p>
                         <p className="text-sm text-muted-foreground">

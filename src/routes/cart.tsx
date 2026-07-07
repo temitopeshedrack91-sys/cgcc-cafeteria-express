@@ -37,9 +37,12 @@ function CartPage() {
           if (!item) return null;
           return (
             <div key={c.itemId} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3 shadow-soft">
-              <div className="grid h-16 w-16 place-items-center rounded-xl bg-gradient-brand text-3xl">
-                {item.emoji}
-              </div>
+              <img
+                src={item.image}
+                alt={item.name}
+                loading="lazy"
+                className="h-16 w-16 rounded-xl object-cover"
+              />
               <div className="flex-1">
                 <p className="font-semibold">{item.name}</p>
                 <p className="text-sm text-muted-foreground">{formatNaira(item.price)}</p>
