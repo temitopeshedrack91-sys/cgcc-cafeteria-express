@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Download, MessageCircle, CheckCircle2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
@@ -25,10 +25,19 @@ function ReceiptPage() {
   const order = useStore((s) => s.orders.find((o) => o.code === code));
 
   if (!order) {
-    // Client-side hydration: order may not be in memory during SSR
-    if (typeof window !== "undefined") throw notFound();
-    return null;
+    return (
+      <div className="mx-auto max-w-md px-4 py-16 text-center">
+        <h1 className="font-display text-2xl font-bold">Receipt not found</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          This order code doesn't exist on this device.
+        </p>
+        <Button asChild className="mt-6 rounded-full">
+          <Link to="/">Go home</Link>
+        </Button>
+      </div>
+    );
   }
+
 
   function download() {
     if (!order) return;
