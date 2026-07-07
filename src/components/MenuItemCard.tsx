@@ -13,8 +13,13 @@ export function MenuItemCard({ item }: { item: MenuItem }) {
 
   return (
     <div className="group relative overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition hover:-translate-y-0.5 hover:shadow-elegant">
-      <div className="relative flex h-32 items-center justify-center bg-gradient-brand text-6xl">
-        <span aria-hidden>{item.emoji}</span>
+      <div className="relative h-32 overflow-hidden bg-muted">
+        <img
+          src={item.image}
+          alt={item.name}
+          loading="lazy"
+          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+        />
         {soldOut && (
           <span className="absolute right-2 top-2 rounded-full bg-destructive px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-destructive-foreground">
             Sold out
@@ -24,9 +29,6 @@ export function MenuItemCard({ item }: { item: MenuItem }) {
       <div className="space-y-3 p-4">
         <div>
           <h3 className="font-display text-base font-semibold leading-tight">{item.name}</h3>
-          {item.description && (
-            <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{item.description}</p>
-          )}
         </div>
         <div className="flex items-center justify-between">
           <p className="text-lg font-bold text-primary">{formatNaira(item.price)}</p>
