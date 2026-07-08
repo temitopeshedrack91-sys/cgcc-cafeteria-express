@@ -159,9 +159,9 @@ function PaymentPage() {
         size="lg"
         className="mt-6 h-14 w-full rounded-full shadow-elegant"
         onClick={confirm}
-        disabled={submitting}
+        disabled={submitting || !confirmed}
       >
-        Confirm Payment
+        Continue
       </Button>
     </div>
   );
