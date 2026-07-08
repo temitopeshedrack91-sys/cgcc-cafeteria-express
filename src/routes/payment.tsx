@@ -26,7 +26,7 @@ function PaymentPage() {
     try {
       await navigator.clipboard.writeText(BANK.accountNumber);
       setCopied(true);
-      toast.success("Account Number Copied Successfully.");
+      toast.success("Account Number Copied.");
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error("Could not copy. Please copy manually.");
