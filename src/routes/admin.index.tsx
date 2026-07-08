@@ -45,7 +45,8 @@ function Dashboard() {
 
   const todays = orders.filter((o) => isToday(o.createdAt));
   const counts = {
-    pending: todays.filter((o) => o.pickupStatus === "pending").length,
+    pending: todays.filter((o) => o.paymentStatus === "unpaid").length,
+    confirmed: todays.filter((o) => o.pickupStatus === "confirmed").length,
     preparing: todays.filter((o) => o.pickupStatus === "preparing").length,
     ready: todays.filter((o) => o.pickupStatus === "ready").length,
     collected: todays.filter((o) => o.pickupStatus === "collected").length,
