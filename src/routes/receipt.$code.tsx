@@ -78,8 +78,11 @@ function ReceiptPage() {
     const msg =
       `Hello CGCC Cafeteria,\n\n` +
       `My name is ${order.customerName}.\n\n` +
-      `I have completed payment for Order Code ${order.code}.\n\n` +
-      `Kindly prepare my order.\n\n` +
+      `I have completed payment.\n\n` +
+      `Order Code:\n${order.code}\n\n` +
+      `Receipt Number:\n${order.receiptNo}\n\n` +
+      `Total:\n${formatNaira(order.total)}\n\n` +
+      `Kindly confirm my payment and prepare my order.\n\n` +
       `Thank you.`;
     // Convert 09134749319 -> 2349134749319
     const digits = WHATSAPP_NUMBER.replace(/\D/g, "");

@@ -4,7 +4,7 @@ import { DEFAULT_MENU, type MenuItem } from "./menu-data";
 // ============ Types ============
 export type CartItem = { itemId: string; qty: number };
 
-export type OrderStatus = "pending" | "preparing" | "ready" | "collected";
+export type OrderStatus = "pending" | "confirmed" | "preparing" | "ready" | "collected";
 
 export type Order = {
   code: string; // CG-001
@@ -133,7 +133,7 @@ export const actions = {
       receiptNo,
       createdAt: Date.now(),
       pickupStatus: "pending",
-      paymentStatus: "paid",
+      paymentStatus: "unpaid",
     };
     set({ orders: [order, ...state.orders], orderCounter: next });
     return order;
@@ -141,6 +141,13 @@ export const actions = {
   updateOrderStatus(code: string, pickupStatus: OrderStatus) {
     set({
       orders: state.orders.map((o) => (o.code === code ? { ...o, pickupStatus } : o)),
+    });
+  },
+  confirmPayment(code: string) {
+    set({
+      orders: state.orders.map((o) =>
+        o.code === code ? { ...o, paymentStatus: "paid", pickupStatus: o.pickupStatus === "pending" ? "confirmed" : o.pickupStatus } : o,
+      ),
     });
   },
   adminLogin() {

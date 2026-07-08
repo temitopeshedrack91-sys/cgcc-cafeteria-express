@@ -32,6 +32,7 @@ function isToday(ts: number) {
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
   pending: "bg-amber-100 text-amber-900 border-amber-300",
+  confirmed: "bg-indigo-100 text-indigo-900 border-indigo-300",
   preparing: "bg-blue-100 text-blue-900 border-blue-300",
   ready: "bg-emerald-100 text-emerald-900 border-emerald-300",
   collected: "bg-muted text-muted-foreground border-border",
@@ -44,7 +45,8 @@ function Dashboard() {
 
   const todays = orders.filter((o) => isToday(o.createdAt));
   const counts = {
-    pending: todays.filter((o) => o.pickupStatus === "pending").length,
+    pending: todays.filter((o) => o.paymentStatus === "unpaid").length,
+    confirmed: todays.filter((o) => o.pickupStatus === "confirmed").length,
     preparing: todays.filter((o) => o.pickupStatus === "preparing").length,
     ready: todays.filter((o) => o.pickupStatus === "ready").length,
     collected: todays.filter((o) => o.pickupStatus === "collected").length,
@@ -82,8 +84,9 @@ function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <StatCard label="Pending" value={counts.pending} tint="bg-amber-50" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
+        <StatCard label="Pending Payment" value={counts.pending} tint="bg-amber-50" />
+        <StatCard label="Confirmed" value={counts.confirmed} tint="bg-indigo-50" />
         <StatCard label="Preparing" value={counts.preparing} tint="bg-blue-50" />
         <StatCard label="Ready" value={counts.ready} tint="bg-emerald-50" />
         <StatCard label="Collected" value={counts.collected} tint="bg-muted" />
@@ -142,10 +145,33 @@ function Dashboard() {
 
                 <div className="mt-3 flex items-center justify-between">
                   <span className="text-sm font-bold text-primary">{formatNaira(o.total)}</span>
-                  <span className="text-[10px] uppercase text-muted-foreground">{o.orderType}</span>
+                  <span className="text-[10px] uppercase text-muted-foreground">
+                    {new Date(o.createdAt).toLocaleString()} · {o.orderType}
+                  </span>
+                </div>
+
+                <div className="mt-2">
+                  <span
+                    className={
+                      "inline-block rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase " +
+                      (o.paymentStatus === "paid"
+                        ? "bg-emerald-100 text-emerald-900 border-emerald-300"
+                        : "bg-amber-100 text-amber-900 border-amber-300")
+                    }
+                  >
+                    Payment: {o.paymentStatus}
+                  </span>
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-1.5">
+                  <Button
+                    size="sm"
+                    variant={o.paymentStatus === "paid" ? "outline" : "default"}
+                    disabled={o.paymentStatus === "paid"}
+                    onClick={() => actions.confirmPayment(o.code)}
+                  >
+                    Confirm Payment
+                  </Button>
                   <Button
                     size="sm"
                     variant={o.pickupStatus === "preparing" ? "default" : "outline"}

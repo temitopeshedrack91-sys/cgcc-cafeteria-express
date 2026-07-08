@@ -26,7 +26,7 @@ function PaymentPage() {
     try {
       await navigator.clipboard.writeText(BANK.accountNumber);
       setCopied(true);
-      toast.success("Account Number Copied Successfully.");
+      toast.success("Account Number Copied.");
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error("Could not copy. Please copy manually.");
@@ -78,6 +78,30 @@ function PaymentPage() {
       <p className="text-sm text-muted-foreground">
         Transfer the exact amount to the account below.
       </p>
+
+      <div className="mt-6 rounded-2xl border border-border bg-card p-5 shadow-soft">
+        <p className="text-xs uppercase tracking-wider text-muted-foreground">Order summary</p>
+        <ul className="mt-3 space-y-2 text-sm">
+          {cart.map((c) => {
+            const item = DEFAULT_MENU.find((m) => m.id === c.itemId);
+            if (!item) return null;
+            return (
+              <li key={c.itemId} className="flex items-center justify-between gap-3">
+                <span className="truncate">
+                  <span className="font-semibold">{c.qty}×</span> {item.name}
+                </span>
+                <span className="tabular-nums text-muted-foreground">
+                  {formatNaira(item.price * c.qty)}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="mt-4 flex items-center justify-between border-t border-dashed border-border pt-3">
+          <span className="text-sm font-semibold">Grand total</span>
+          <span className="text-lg font-bold text-primary">{formatNaira(total)}</span>
+        </div>
+      </div>
 
       <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card shadow-elegant">
         <div className="bg-primary p-5 text-primary-foreground">
@@ -135,9 +159,9 @@ function PaymentPage() {
         size="lg"
         className="mt-6 h-14 w-full rounded-full shadow-elegant"
         onClick={confirm}
-        disabled={submitting}
+        disabled={submitting || !confirmed}
       >
-        Confirm Payment
+        Continue
       </Button>
     </div>
   );
