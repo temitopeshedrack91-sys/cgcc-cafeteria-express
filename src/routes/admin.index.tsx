@@ -145,10 +145,33 @@ function Dashboard() {
 
                 <div className="mt-3 flex items-center justify-between">
                   <span className="text-sm font-bold text-primary">{formatNaira(o.total)}</span>
-                  <span className="text-[10px] uppercase text-muted-foreground">{o.orderType}</span>
+                  <span className="text-[10px] uppercase text-muted-foreground">
+                    {new Date(o.createdAt).toLocaleString()} · {o.orderType}
+                  </span>
+                </div>
+
+                <div className="mt-2">
+                  <span
+                    className={
+                      "inline-block rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase " +
+                      (o.paymentStatus === "paid"
+                        ? "bg-emerald-100 text-emerald-900 border-emerald-300"
+                        : "bg-amber-100 text-amber-900 border-amber-300")
+                    }
+                  >
+                    Payment: {o.paymentStatus}
+                  </span>
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-1.5">
+                  <Button
+                    size="sm"
+                    variant={o.paymentStatus === "paid" ? "outline" : "default"}
+                    disabled={o.paymentStatus === "paid"}
+                    onClick={() => actions.confirmPayment(o.code)}
+                  >
+                    Confirm Payment
+                  </Button>
                   <Button
                     size="sm"
                     variant={o.pickupStatus === "preparing" ? "default" : "outline"}
