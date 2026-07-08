@@ -4,7 +4,7 @@ import { DEFAULT_MENU, type MenuItem } from "./menu-data";
 // ============ Types ============
 export type CartItem = { itemId: string; qty: number };
 
-export type OrderStatus = "pending" | "preparing" | "ready" | "collected";
+export type OrderStatus = "pending" | "confirmed" | "preparing" | "ready" | "collected";
 
 export type Order = {
   code: string; // CG-001
