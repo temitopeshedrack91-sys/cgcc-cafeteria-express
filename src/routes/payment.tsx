@@ -33,7 +33,7 @@ function PaymentPage() {
     }
   }
 
-  function confirm() {
+  async function confirm() {
     if (!confirmed) {
       toast.error("Please confirm that you have completed payment.");
       return;
@@ -59,17 +59,23 @@ function PaymentPage() {
       })
       .filter(Boolean) as { id: string; name: string; price: number; qty: number }[];
 
-    const order = actions.createOrder({
-      customerName: draft.name,
-      phone: draft.phone,
-      note: draft.note,
-      orderType: draft.orderType,
-      items,
-      total,
-    });
-    actions.clearCart();
-    localStorage.removeItem("cgcc-checkout-draft");
-    navigate({ to: "/receipt/$code", params: { code: order.code } });
+    try {
+      const order = await actions.createOrder({
+        customerName: draft.name,
+        phone: draft.phone,
+        note: draft.note,
+        orderType: draft.orderType,
+        items,
+        total,
+      });
+      actions.clearCart();
+      localStorage.removeItem("cgcc-checkout-draft");
+      navigate({ to: "/receipt/$code", params: { code: order.code } });
+    } catch (e) {
+      console.error(e);
+      toast.error("Could not save your order. Please try again.");
+      setSubmitting(false);
+    }
   }
 
   return (
