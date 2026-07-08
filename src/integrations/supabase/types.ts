@@ -14,7 +14,196 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      app_settings: {
+        Row: {
+          id: string
+          ordering_open: boolean
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          ordering_open?: boolean
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          ordering_open?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      categories: {
+        Row: {
+          id: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          id: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          id?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      customers: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          phone: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          phone: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string
+        }
+        Relationships: []
+      }
+      menu_items: {
+        Row: {
+          available: boolean
+          category_id: string
+          created_at: string
+          id: string
+          name: string
+          price: number
+          sort_order: number
+        }
+        Insert: {
+          available?: boolean
+          category_id: string
+          created_at?: string
+          id: string
+          name: string
+          price: number
+          sort_order?: number
+        }
+        Update: {
+          available?: boolean
+          category_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          price?: number
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_items: {
+        Row: {
+          id: string
+          menu_item_id: string | null
+          name: string
+          order_id: string
+          price: number
+          qty: number
+        }
+        Insert: {
+          id?: string
+          menu_item_id?: string | null
+          name: string
+          order_id: string
+          price: number
+          qty: number
+        }
+        Update: {
+          id?: string
+          menu_item_id?: string | null
+          name?: string
+          order_id?: string
+          price?: number
+          qty?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          code: string
+          created_at: string
+          customer_id: string | null
+          customer_name: string
+          id: string
+          note: string | null
+          order_type: string
+          payment_status: string
+          phone: string
+          pickup_status: string
+          receipt_no: string
+          total: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          customer_id?: string | null
+          customer_name: string
+          id?: string
+          note?: string | null
+          order_type: string
+          payment_status?: string
+          phone: string
+          pickup_status?: string
+          receipt_no: string
+          total: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          customer_id?: string | null
+          customer_name?: string
+          id?: string
+          note?: string | null
+          order_type?: string
+          payment_status?: string
+          phone?: string
+          pickup_status?: string
+          receipt_no?: string
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
