@@ -133,7 +133,7 @@ export const actions = {
       receiptNo,
       createdAt: Date.now(),
       pickupStatus: "pending",
-      paymentStatus: "paid",
+      paymentStatus: "unpaid",
     };
     set({ orders: [order, ...state.orders], orderCounter: next });
     return order;
