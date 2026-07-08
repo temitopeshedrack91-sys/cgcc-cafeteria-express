@@ -143,6 +143,13 @@ export const actions = {
       orders: state.orders.map((o) => (o.code === code ? { ...o, pickupStatus } : o)),
     });
   },
+  confirmPayment(code: string) {
+    set({
+      orders: state.orders.map((o) =>
+        o.code === code ? { ...o, paymentStatus: "paid", pickupStatus: o.pickupStatus === "pending" ? "confirmed" : o.pickupStatus } : o,
+      ),
+    });
+  },
   adminLogin() {
     set({ adminLoggedIn: true });
   },
