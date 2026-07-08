@@ -84,8 +84,9 @@ function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <StatCard label="Pending" value={counts.pending} tint="bg-amber-50" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
+        <StatCard label="Pending Payment" value={counts.pending} tint="bg-amber-50" />
+        <StatCard label="Confirmed" value={counts.confirmed} tint="bg-indigo-50" />
         <StatCard label="Preparing" value={counts.preparing} tint="bg-blue-50" />
         <StatCard label="Ready" value={counts.ready} tint="bg-emerald-50" />
         <StatCard label="Collected" value={counts.collected} tint="bg-muted" />
