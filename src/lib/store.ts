@@ -348,16 +348,20 @@ export const actions = {
       console.warn("[store] customer upsert skipped", e);
     }
 
+    const insertPayload = {
+      customer_id: customerId,
+      customer_name: input.customerName,
+      phone: input.phone,
+      note: input.note && input.note.length > 0 ? input.note : null,
+      order_type: input.orderType,
+      total: input.total,
+      // code + receipt_no are filled by a DB trigger; satisfy generated types:
+      code: "",
+      receipt_no: "",
+    };
     const { data: orderRow, error: orderErr } = await supabase
       .from("orders")
-      .insert({
-        customer_id: customerId,
-        customer_name: input.customerName,
-        phone: input.phone,
-        note: input.note && input.note.length > 0 ? input.note : null,
-        order_type: input.orderType,
-        total: input.total,
-      })
+      .insert(insertPayload)
       .select("id, code, receipt_no, created_at")
       .single();
     if (orderErr || !orderRow) {
