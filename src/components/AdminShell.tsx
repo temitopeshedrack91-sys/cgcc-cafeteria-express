@@ -57,8 +57,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
               size="sm"
               variant="ghost"
               className="ml-2 text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-              onClick={() => {
-                actions.adminLogout();
+              onClick={async () => {
+                await actions.adminLogout();
                 navigate({ to: "/admin/login" });
               }}
             >

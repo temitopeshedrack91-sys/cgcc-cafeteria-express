@@ -8,9 +8,6 @@ import { Logo } from "@/components/Logo";
 import { actions, useStore } from "@/lib/store";
 import { toast } from "sonner";
 
-const ADMIN_EMAIL = "admin@cgcccafeteria.local";
-const ADMIN_PASSWORD = "CGCC@2026!";
-
 export const Route = createFileRoute("/admin/login")({
   head: () => ({
     meta: [
@@ -26,19 +23,22 @@ function AdminLogin() {
   const loggedIn = useStore((s) => s.adminLoggedIn);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (loggedIn) navigate({ to: "/admin" });
   }, [loggedIn, navigate]);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (email.trim().toLowerCase() === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-      actions.adminLogin();
+    setSubmitting(true);
+    const res = await actions.adminLogin(email.trim(), password);
+    setSubmitting(false);
+    if (res.ok) {
       toast.success("Welcome, Admin");
       navigate({ to: "/admin" });
     } else {
-      toast.error("Invalid credentials");
+      toast.error(res.error ?? "Invalid credentials");
     }
   }
 
@@ -79,8 +79,8 @@ function AdminLogin() {
               required
             />
           </div>
-          <Button type="submit" size="lg" className="w-full rounded-full">
-            Sign in
+          <Button type="submit" size="lg" className="w-full rounded-full" disabled={submitting}>
+            {submitting ? "Signing in…" : "Sign in"}
           </Button>
         </form>
       </div>

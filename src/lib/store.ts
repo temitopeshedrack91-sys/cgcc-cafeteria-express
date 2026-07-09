@@ -13,7 +13,7 @@ export type OrderStatus =
   | "collected";
 
 export type Order = {
-  code: string; // CG-001
+  code: string;
   receiptNo: string;
   customerName: string;
   phone: string;
@@ -42,10 +42,10 @@ type AppState = {
 const LOCAL_KEY = "cgcc-cafeteria-local-v2";
 const isBrowser = typeof window !== "undefined";
 
-type LocalSlice = { cart: CartItem[]; adminLoggedIn: boolean };
+type LocalSlice = { cart: CartItem[] };
 
 function loadLocal(): LocalSlice {
-  const base: LocalSlice = { cart: [], adminLoggedIn: false };
+  const base: LocalSlice = { cart: [] };
   if (!isBrowser) return base;
   try {
     const raw = localStorage.getItem(LOCAL_KEY);
@@ -59,10 +59,7 @@ function loadLocal(): LocalSlice {
 function persistLocal() {
   if (!isBrowser) return;
   try {
-    localStorage.setItem(
-      LOCAL_KEY,
-      JSON.stringify({ cart: state.cart, adminLoggedIn: state.adminLoggedIn }),
-    );
+    localStorage.setItem(LOCAL_KEY, JSON.stringify({ cart: state.cart }));
   } catch {}
 }
 
@@ -76,7 +73,7 @@ let state: AppState = {
   ),
   orders: [],
   orderingOpen: true,
-  adminLoggedIn: initialLocal.adminLoggedIn,
+  adminLoggedIn: false,
   loaded: false,
 };
 
@@ -206,14 +203,39 @@ async function fetchSettings() {
   if (data) set({ orderingOpen: data.ordering_open });
 }
 
+async function checkAdmin(): Promise<boolean> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const user = sessionData.session?.user;
+  if (!user) {
+    set({ adminLoggedIn: false });
+    return false;
+  }
+  const { data, error } = await supabase.rpc("has_role", {
+    _user_id: user.id,
+    _role: "admin",
+  });
+  const isAdmin = !error && data === true;
+  set({ adminLoggedIn: isAdmin });
+  return isAdmin;
+}
+
 let inited = false;
 function init() {
   if (inited || !isBrowser) return;
   inited = true;
 
-  void Promise.all([fetchMenu(), fetchSettings(), fetchOrders()]).then(() =>
-    set({ loaded: true }),
-  );
+  void checkAdmin().then((isAdmin) => {
+    const tasks: Promise<void>[] = [fetchMenu(), fetchSettings()];
+    if (isAdmin) tasks.push(fetchOrders());
+    void Promise.all(tasks).then(() => set({ loaded: true }));
+  });
+
+  supabase.auth.onAuthStateChange(async (event) => {
+    if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+    const isAdmin = await checkAdmin();
+    if (isAdmin) void fetchOrders();
+    else set({ orders: [] });
+  });
 
   supabase
     .channel("cgcc-orders")
@@ -221,6 +243,7 @@ function init() {
       "postgres_changes",
       { event: "*", schema: "public", table: "orders" },
       (payload) => {
+        if (!state.adminLoggedIn) return;
         if (payload.eventType === "DELETE") {
           const code = (payload.old as { code?: string }).code;
           if (code) set({ orders: state.orders.filter((o) => o.code !== code) });
@@ -234,7 +257,9 @@ function init() {
       "postgres_changes",
       { event: "*", schema: "public", table: "order_items" },
       (payload) => {
-        const orderId = (payload.new as { order_id?: string }).order_id ??
+        if (!state.adminLoggedIn) return;
+        const orderId =
+          (payload.new as { order_id?: string }).order_id ??
           (payload.old as { order_id?: string }).order_id;
         if (orderId) void fetchOneOrder(orderId);
       },
@@ -252,10 +277,7 @@ function init() {
     .subscribe();
 }
 
-if (isBrowser) {
-  // Kick off initialization once the module loads in the browser.
-  init();
-}
+if (isBrowser) init();
 
 // ============ Actions ============
 export const actions = {
@@ -285,20 +307,14 @@ export const actions = {
   async toggleAvailable(itemId: string) {
     const cur = state.menuState[itemId]?.available ?? true;
     const next = !cur;
-    // optimistic
-    set({
-      menuState: { ...state.menuState, [itemId]: { available: next } },
-    });
+    set({ menuState: { ...state.menuState, [itemId]: { available: next } } });
     const { error } = await supabase
       .from("menu_items")
       .update({ available: next })
       .eq("id", itemId);
     if (error) {
       console.error("[store] toggleAvailable failed", error);
-      // revert
-      set({
-        menuState: { ...state.menuState, [itemId]: { available: cur } },
-      });
+      set({ menuState: { ...state.menuState, [itemId]: { available: cur } } });
     }
   },
 
@@ -322,30 +338,16 @@ export const actions = {
     items: { id: string; name: string; price: number; qty: number }[];
     total: number;
   }): Promise<Order> {
-    // Upsert lightweight customer record (best-effort; ignore failure)
     let customerId: string | null = null;
     try {
-      const { data: existing } = await supabase
+      const { data: created } = await supabase
         .from("customers")
+        .insert({ name: input.customerName, phone: input.phone })
         .select("id")
-        .eq("phone", input.phone)
         .maybeSingle();
-      if (existing) {
-        customerId = existing.id;
-        await supabase
-          .from("customers")
-          .update({ name: input.customerName })
-          .eq("id", existing.id);
-      } else {
-        const { data: created } = await supabase
-          .from("customers")
-          .insert({ name: input.customerName, phone: input.phone })
-          .select("id")
-          .maybeSingle();
-        customerId = created?.id ?? null;
-      }
+      customerId = created?.id ?? null;
     } catch (e) {
-      console.warn("[store] customer upsert skipped", e);
+      console.warn("[store] customer insert skipped", e);
     }
 
     const insertPayload = {
@@ -355,7 +357,6 @@ export const actions = {
       note: input.note && input.note.length > 0 ? input.note : null,
       order_type: input.orderType,
       total: input.total,
-      // code + receipt_no are filled by a DB trigger; satisfy generated types:
       code: "",
       receipt_no: "",
     };
@@ -446,11 +447,27 @@ export const actions = {
     }
   },
 
-  adminLogin() {
+  async adminLogin(email: string, password: string): Promise<{ ok: boolean; error?: string }> {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error || !data.user) {
+      return { ok: false, error: error?.message ?? "Sign in failed" };
+    }
+    const { data: isAdmin, error: roleErr } = await supabase.rpc("has_role", {
+      _user_id: data.user.id,
+      _role: "admin",
+    });
+    if (roleErr || isAdmin !== true) {
+      await supabase.auth.signOut();
+      return { ok: false, error: "This account is not an administrator." };
+    }
     set({ adminLoggedIn: true });
+    void fetchOrders();
+    return { ok: true };
   },
-  adminLogout() {
-    set({ adminLoggedIn: false });
+
+  async adminLogout() {
+    await supabase.auth.signOut();
+    set({ adminLoggedIn: false, orders: [] });
   },
 };
 
