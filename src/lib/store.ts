@@ -338,64 +338,47 @@ export const actions = {
     items: { id: string; name: string; price: number; qty: number }[];
     total: number;
   }): Promise<Order> {
-    let customerId: string | null = null;
-    try {
-      const { data: created } = await supabase
-        .from("customers")
-        .insert({ name: input.customerName, phone: input.phone })
-        .select("id")
-        .maybeSingle();
-      customerId = created?.id ?? null;
-    } catch (e) {
-      console.warn("[store] customer insert skipped", e);
-    }
+    // Fire-and-forget customer record; RLS hides response but insert succeeds.
+    void supabase
+      .from("customers")
+      .insert({ name: input.customerName, phone: input.phone })
+      .then(({ error }) => {
+        if (error) console.warn("[store] customer insert skipped", error);
+      });
 
-    const insertPayload = {
-      customer_id: customerId,
-      customer_name: input.customerName,
-      phone: input.phone,
-      note: input.note && input.note.length > 0 ? input.note : null,
-      order_type: input.orderType,
-      total: input.total,
-      code: "",
-      receipt_no: "",
-    };
-    const { data: orderRow, error: orderErr } = await supabase
-      .from("orders")
-      .insert(insertPayload)
-      .select("id, code, receipt_no, created_at")
-      .single();
-    if (orderErr || !orderRow) {
-      console.error("[store] createOrder failed", orderErr);
-      throw orderErr ?? new Error("Failed to create order");
-    }
-
-    const { error: itemsErr } = await supabase.from("order_items").insert(
-      input.items.map((i) => ({
-        order_id: orderRow.id,
-        menu_item_id: i.id,
+    const { data, error } = await supabase.rpc("create_customer_order", {
+      _customer_name: input.customerName,
+      _phone: input.phone,
+      _note: input.note ?? null,
+      _order_type: input.orderType,
+      _items: input.items.map((i) => ({
+        id: i.id,
         name: i.name,
         price: i.price,
         qty: i.qty,
       })),
-    );
-    if (itemsErr) {
-      console.error("[store] createOrder items failed", itemsErr);
-      throw itemsErr;
+    });
+    if (error) {
+      console.error("[store] createOrder rpc failed", error);
+      throw error;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) {
+      throw new Error("Failed to create order");
     }
 
     const order: Order = {
-      code: orderRow.code,
-      receiptNo: orderRow.receipt_no,
+      code: row.code,
+      receiptNo: row.receipt_no,
       customerName: input.customerName,
       phone: input.phone,
       note: input.note,
       orderType: input.orderType,
       items: input.items,
-      total: input.total,
+      total: row.total ?? input.total,
       paymentStatus: "unpaid",
       pickupStatus: "pending",
-      createdAt: new Date(orderRow.created_at).getTime(),
+      createdAt: new Date(row.created_at).getTime(),
     };
     set({ orders: [order, ...state.orders.filter((o) => o.code !== order.code)] });
     return order;
