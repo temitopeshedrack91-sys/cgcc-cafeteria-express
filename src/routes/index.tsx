@@ -74,8 +74,32 @@ function LandingPage() {
 
   return (
     <div>
+      {/* Welcome Banner */}
+      <section className="mx-auto max-w-5xl px-4 pt-6">
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-white p-4 shadow-soft sm:items-center sm:gap-4 sm:p-5"
+        >
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-50 ring-1 ring-emerald-200 sm:h-11 sm:w-11">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-hidden />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-sm font-bold text-primary sm:text-base">
+              🎉 Welcome to CGCC Cafeteria Express
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+              Skip the queue by placing your order before arriving. We're excited to make your
+              cafeteria experience faster, easier and more convenient. Thank you for using CGCC
+              Cafeteria Express.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Hero */}
       <section className="relative overflow-hidden">
+
         <div className="absolute inset-0 -z-10 bg-gradient-brand opacity-10" />
         <div
           className="absolute -top-24 left-1/2 -z-10 h-72 w-72 -translate-x-1/2 rounded-full bg-brand/30 blur-3xl"
