@@ -1,12 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowRight,
+  CheckCircle2,
   CreditCard,
   Package,
   Receipt,
   UtensilsCrossed,
   Zap,
 } from "lucide-react";
+
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { CATEGORIES } from "@/lib/menu-data";
