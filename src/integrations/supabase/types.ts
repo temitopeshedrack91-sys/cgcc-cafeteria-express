@@ -230,6 +230,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_customer_order: {
+        Args: {
+          _customer_name: string
+          _items: Json
+          _note: string
+          _order_type: string
+          _phone: string
+        }
+        Returns: {
+          code: string
+          created_at: string
+          id: string
+          receipt_no: string
+          total: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
