@@ -349,7 +349,7 @@ export const actions = {
     const { data, error } = await supabase.rpc("create_customer_order", {
       _customer_name: input.customerName,
       _phone: input.phone,
-      _note: input.note ?? null,
+      _note: input.note ?? "",
       _order_type: input.orderType,
       _items: input.items.map((i) => ({
         id: i.id,
