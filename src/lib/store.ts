@@ -385,7 +385,7 @@ export const actions = {
       note: input.note,
       orderType: input.orderType,
       items: input.items,
-      total: row.total ?? input.total,
+      total: row.total,
       paymentStatus: "unpaid",
       pickupStatus: "pending",
       createdAt: new Date(row.created_at).getTime(),
