@@ -175,6 +175,20 @@ async function fetchOneOrder(id: string) {
   set({ orders: [mapped, ...others] });
 }
 
+export async function fetchOrderByCode(code: string): Promise<Order | null> {
+  const { data, error } = await supabase.rpc("get_order_by_code", { _code: code });
+  if (error) {
+    console.error("[store] fetchOrderByCode failed", error);
+    return null;
+  }
+  if (!data) return null;
+  const row = data as unknown as OrderRow;
+  const mapped = mapOrder(row);
+  const others = state.orders.filter((o) => o.code !== mapped.code);
+  set({ orders: [mapped, ...others] });
+  return mapped;
+}
+
 async function fetchMenu() {
   const { data, error } = await supabase
     .from("menu_items")
