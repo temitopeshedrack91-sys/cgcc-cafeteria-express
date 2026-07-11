@@ -1,35 +1,59 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Download, MessageCircle, CheckCircle2, Clock } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Download, MessageCircle, CheckCircle2, Clock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
-import { formatNaira, useStore } from "@/lib/store";
+import { formatNaira, useStore, fetchOrderByCode, type Order } from "@/lib/store";
+import { downloadReceiptPdf } from "@/lib/receipt-pdf";
+import { toast } from "sonner";
 
-const WHATSAPP_NUMBER = "09134749319"; // Business number
+const WHATSAPP_NUMBER = "09134749319";
 
 export const Route = createFileRoute("/receipt/$code")({
   head: ({ params }) => ({ meta: [{ title: `Receipt ${params.code} · CGCC Cafeteria Express` }] }),
   component: ReceiptPage,
-  notFoundComponent: () => (
-    <div className="mx-auto max-w-md px-4 py-16 text-center">
-      <h1 className="font-display text-2xl font-bold">Receipt not found</h1>
-      <p className="mt-2 text-sm text-muted-foreground">This order code doesn't exist.</p>
-      <Button asChild className="mt-6 rounded-full">
-        <Link to="/">Go home</Link>
-      </Button>
-    </div>
-  ),
 });
 
 function ReceiptPage() {
   const { code } = Route.useParams();
-  const order = useStore((s) => s.orders.find((o) => o.code === code));
+  const cached = useStore((s) => s.orders.find((o) => o.code === code));
+  const [order, setOrder] = useState<Order | null>(cached ?? null);
+  const [status, setStatus] = useState<"loading" | "ready" | "not-found">(
+    cached ? "ready" : "loading",
+  );
 
-  if (!order) {
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const fresh = await fetchOrderByCode(code);
+      if (cancelled) return;
+      if (fresh) {
+        setOrder(fresh);
+        setStatus("ready");
+      } else if (!cached) {
+        setStatus("not-found");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [code, cached]);
+
+  if (status === "loading") {
+    return (
+      <div className="mx-auto flex max-w-md flex-col items-center px-4 py-24 text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="mt-4 text-sm text-muted-foreground">Loading receipt…</p>
+      </div>
+    );
+  }
+
+  if (status === "not-found" || !order) {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center">
         <h1 className="font-display text-2xl font-bold">Receipt not found</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          This order code doesn't exist on this device.
+          This order code doesn't exist.
         </p>
         <Button asChild className="mt-6 rounded-full">
           <Link to="/">Go home</Link>
@@ -38,43 +62,19 @@ function ReceiptPage() {
     );
   }
 
-
-  function download() {
+  async function downloadPdf() {
     if (!order) return;
-    const lines = [
-      "CGCC CAFETERIA EXPRESS",
-      "The Citadel Global Community Church",
-      "-----------------------------------",
-      `Receipt No: ${order.receiptNo}`,
-      `Order Code: ${order.code}`,
-      `Customer:   ${order.customerName}`,
-      `Phone:      ${order.phone}`,
-      `Type:       ${order.orderType}`,
-      order.note ? `Note:       ${order.note}` : "",
-      "-----------------------------------",
-      ...order.items.map(
-        (i) => `${i.qty} x ${i.name}  ${formatNaira(i.price * i.qty)}`,
-      ),
-      "-----------------------------------",
-      `TOTAL:      ${formatNaira(order.total)}`,
-      `Payment:    ${order.paymentStatus.toUpperCase()}`,
-      `Pickup:     ${order.pickupStatus.toUpperCase()}`,
-      "",
-      "Thank you and God bless.",
-    ]
-      .filter(Boolean)
-      .join("\n");
-    const blob = new Blob([lines], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `CGCC-${order.code}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      await downloadReceiptPdf(order);
+    } catch (e) {
+      console.error(e);
+      toast.error("Could not generate PDF");
+    }
   }
 
   function whatsapp() {
     if (!order) return;
+    const shareUrl = `${window.location.origin}/receipt/${order.code}`;
     const msg =
       `Hello CGCC Cafeteria,\n\n` +
       `My name is ${order.customerName}.\n\n` +
@@ -82,9 +82,9 @@ function ReceiptPage() {
       `Order Code:\n${order.code}\n\n` +
       `Receipt Number:\n${order.receiptNo}\n\n` +
       `Total:\n${formatNaira(order.total)}\n\n` +
+      `Receipt link:\n${shareUrl}\n\n` +
       `Kindly confirm my payment and prepare my order.\n\n` +
       `Thank you.`;
-    // Convert 09134749319 -> 2349134749319
     const digits = WHATSAPP_NUMBER.replace(/\D/g, "");
     const intl = digits.startsWith("0") ? "234" + digits.slice(1) : digits;
     const url = `https://wa.me/${intl}?text=${encodeURIComponent(msg)}`;
@@ -100,7 +100,6 @@ function ReceiptPage() {
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-elegant">
-        {/* Perforated top */}
         <div className="bg-primary p-6 text-center text-primary-foreground">
           <Logo className="mx-auto h-10 w-auto brightness-0 invert-0" />
           <p className="mt-3 text-xs uppercase tracking-widest text-brand">Order Code</p>
@@ -173,9 +172,9 @@ function ReceiptPage() {
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-3">
-        <Button variant="secondary" onClick={download} className="h-12 rounded-full">
+        <Button variant="secondary" onClick={downloadPdf} className="h-12 rounded-full">
           <Download className="mr-2 h-4 w-4" />
-          Download
+          Download PDF
         </Button>
         <Button onClick={whatsapp} className="h-12 rounded-full bg-[#25D366] text-white hover:bg-[#25D366]/90">
           <MessageCircle className="mr-2 h-4 w-4" />
