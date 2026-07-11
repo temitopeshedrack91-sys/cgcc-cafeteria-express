@@ -246,6 +246,7 @@ export type Database = {
           total: number
         }[]
       }
+      get_order_by_code: { Args: { _code: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
