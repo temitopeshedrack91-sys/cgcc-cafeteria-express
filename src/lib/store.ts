@@ -365,12 +365,8 @@ export const actions = {
       _phone: input.phone,
       _note: input.note ?? "",
       _order_type: input.orderType,
-      _items: input.items.map((i) => ({
-        id: i.id,
-        name: i.name,
-        price: i.price,
-        qty: i.qty,
-      })),
+      // Server ignores price/name — only id + qty are trusted.
+      _items: input.items.map((i) => ({ id: i.id, qty: i.qty })),
     });
     if (error) {
       console.error("[store] createOrder rpc failed", error);
