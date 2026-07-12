@@ -163,6 +163,11 @@ function ReceiptPage() {
         <CheckCircle2 className="mx-auto h-12 w-12 text-brand" />
         <h1 className="mt-2 font-display text-2xl font-bold">Order Confirmed</h1>
         <p className="text-sm text-muted-foreground">Show this code at the cafeteria counter.</p>
+        {refreshing && (
+          <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" /> Updating…
+          </p>
+        )}
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-elegant">
