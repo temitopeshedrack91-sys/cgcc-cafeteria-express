@@ -175,11 +175,21 @@ async function fetchOneOrder(id: string) {
   set({ orders: [mapped, ...others] });
 }
 
-export async function fetchOrderByCode(code: string): Promise<Order | null> {
-  const { data, error } = await supabase.rpc("get_order_by_code", { _code: code });
+export async function fetchOrderByCode(
+  code: string,
+  opts: { timeoutMs?: number } = {},
+): Promise<Order | null> {
+  const timeoutMs = opts.timeoutMs ?? 12000;
+  const rpc = supabase.rpc("get_order_by_code", { _code: code });
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("timeout")), timeoutMs),
+  );
+  const { data, error } = (await Promise.race([rpc, timeout])) as Awaited<
+    typeof rpc
+  >;
   if (error) {
-    console.error("[store] fetchOrderByCode failed", error);
-    return null;
+    console.error("[store] fetchOrderByCode error", error);
+    throw error;
   }
   if (!data) return null;
   const row = data as unknown as OrderRow;
