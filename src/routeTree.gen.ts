@@ -14,9 +14,11 @@ import { Route as MenuRouteImport } from './routes/menu'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as VendorIndexRouteImport } from './routes/vendor.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as VendorLoginRouteImport } from './routes/vendor.login'
 import { Route as ReceiptCodeRouteImport } from './routes/receipt.$code'
+import { Route as AdminVendorsRouteImport } from './routes/admin.vendors'
 import { Route as AdminMenuRouteImport } from './routes/admin.menu'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 
@@ -45,6 +47,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VendorIndexRoute = VendorIndexRouteImport.update({
+  id: '/vendor/',
+  path: '/vendor/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
@@ -58,6 +65,11 @@ const VendorLoginRoute = VendorLoginRouteImport.update({
 const ReceiptCodeRoute = ReceiptCodeRouteImport.update({
   id: '/receipt/$code',
   path: '/receipt/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminVendorsRoute = AdminVendorsRouteImport.update({
+  id: '/admin/vendors',
+  path: '/admin/vendors',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminMenuRoute = AdminMenuRouteImport.update({
@@ -79,9 +91,11 @@ export interface FileRoutesByFullPath {
   '/payment': typeof PaymentRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/menu': typeof AdminMenuRoute
+  '/admin/vendors': typeof AdminVendorsRoute
   '/receipt/$code': typeof ReceiptCodeRoute
   '/vendor/login': typeof VendorLoginRoute
   '/admin/': typeof AdminIndexRoute
+  '/vendor/': typeof VendorIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -91,9 +105,11 @@ export interface FileRoutesByTo {
   '/payment': typeof PaymentRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/menu': typeof AdminMenuRoute
+  '/admin/vendors': typeof AdminVendorsRoute
   '/receipt/$code': typeof ReceiptCodeRoute
   '/vendor/login': typeof VendorLoginRoute
   '/admin': typeof AdminIndexRoute
+  '/vendor': typeof VendorIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -104,9 +120,11 @@ export interface FileRoutesById {
   '/payment': typeof PaymentRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/menu': typeof AdminMenuRoute
+  '/admin/vendors': typeof AdminVendorsRoute
   '/receipt/$code': typeof ReceiptCodeRoute
   '/vendor/login': typeof VendorLoginRoute
   '/admin/': typeof AdminIndexRoute
+  '/vendor/': typeof VendorIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -118,9 +136,11 @@ export interface FileRouteTypes {
     | '/payment'
     | '/admin/login'
     | '/admin/menu'
+    | '/admin/vendors'
     | '/receipt/$code'
     | '/vendor/login'
     | '/admin/'
+    | '/vendor/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -130,9 +150,11 @@ export interface FileRouteTypes {
     | '/payment'
     | '/admin/login'
     | '/admin/menu'
+    | '/admin/vendors'
     | '/receipt/$code'
     | '/vendor/login'
     | '/admin'
+    | '/vendor'
   id:
     | '__root__'
     | '/'
@@ -142,9 +164,11 @@ export interface FileRouteTypes {
     | '/payment'
     | '/admin/login'
     | '/admin/menu'
+    | '/admin/vendors'
     | '/receipt/$code'
     | '/vendor/login'
     | '/admin/'
+    | '/vendor/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -155,9 +179,11 @@ export interface RootRouteChildren {
   PaymentRoute: typeof PaymentRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminMenuRoute: typeof AdminMenuRoute
+  AdminVendorsRoute: typeof AdminVendorsRoute
   ReceiptCodeRoute: typeof ReceiptCodeRoute
   VendorLoginRoute: typeof VendorLoginRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  VendorIndexRoute: typeof VendorIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -197,6 +223,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/vendor/': {
+      id: '/vendor/'
+      path: '/vendor'
+      fullPath: '/vendor/'
+      preLoaderRoute: typeof VendorIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/': {
       id: '/admin/'
       path: '/admin'
@@ -216,6 +249,13 @@ declare module '@tanstack/react-router' {
       path: '/receipt/$code'
       fullPath: '/receipt/$code'
       preLoaderRoute: typeof ReceiptCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/vendors': {
+      id: '/admin/vendors'
+      path: '/admin/vendors'
+      fullPath: '/admin/vendors'
+      preLoaderRoute: typeof AdminVendorsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/menu': {
@@ -243,9 +283,11 @@ const rootRouteChildren: RootRouteChildren = {
   PaymentRoute: PaymentRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminMenuRoute: AdminMenuRoute,
+  AdminVendorsRoute: AdminVendorsRoute,
   ReceiptCodeRoute: ReceiptCodeRoute,
   VendorLoginRoute: VendorLoginRoute,
   AdminIndexRoute: AdminIndexRoute,
+  VendorIndexRoute: VendorIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
