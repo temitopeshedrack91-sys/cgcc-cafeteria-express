@@ -1,6 +1,6 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-import { LayoutDashboard, LogOut, UtensilsCrossed } from "lucide-react";
+import { LayoutDashboard, LogOut, UtensilsCrossed, Users } from "lucide-react";
 import { Logo } from "./Logo";
 import { actions, useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const nav = [
     { to: "/admin", label: "Dashboard", icon: LayoutDashboard },
     { to: "/admin/menu", label: "Menu", icon: UtensilsCrossed },
+    { to: "/admin/vendors", label: "Vendors", icon: Users },
   ] as const;
 
   return (

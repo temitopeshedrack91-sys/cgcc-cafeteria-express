@@ -80,6 +80,7 @@ export type Database = {
           name: string
           price: number
           sort_order: number
+          vendor_type: string
         }
         Insert: {
           available?: boolean
@@ -89,6 +90,7 @@ export type Database = {
           name: string
           price: number
           sort_order?: number
+          vendor_type: string
         }
         Update: {
           available?: boolean
@@ -98,6 +100,7 @@ export type Database = {
           name?: string
           price?: number
           sort_order?: number
+          vendor_type?: string
         }
         Relationships: [
           {
@@ -115,24 +118,30 @@ export type Database = {
           menu_item_id: string | null
           name: string
           order_id: string
+          preparation_status: string
           price: number
           qty: number
+          vendor_type: string | null
         }
         Insert: {
           id?: string
           menu_item_id?: string | null
           name: string
           order_id: string
+          preparation_status?: string
           price: number
           qty: number
+          vendor_type?: string | null
         }
         Update: {
           id?: string
           menu_item_id?: string | null
           name?: string
           order_id?: string
+          preparation_status?: string
           price?: number
           qty?: number
+          vendor_type?: string | null
         }
         Relationships: [
           {
@@ -163,6 +172,7 @@ export type Database = {
           payment_status: string
           phone: string
           pickup_status: string
+          pickup_time: string | null
           receipt_no: string
           total: number
         }
@@ -177,6 +187,7 @@ export type Database = {
           payment_status?: string
           phone: string
           pickup_status?: string
+          pickup_time?: string | null
           receipt_no: string
           total: number
         }
@@ -191,6 +202,7 @@ export type Database = {
           payment_status?: string
           phone?: string
           pickup_status?: string
+          pickup_time?: string | null
           receipt_no?: string
           total?: number
         }
@@ -225,6 +237,39 @@ export type Database = {
         }
         Relationships: []
       }
+      vendors: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          last_login: string | null
+          updated_at: string
+          user_id: string
+          username: string
+          vendor_type: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          last_login?: string | null
+          updated_at?: string
+          user_id: string
+          username: string
+          vendor_type: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          last_login?: string | null
+          updated_at?: string
+          user_id?: string
+          username?: string
+          vendor_type?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -254,9 +299,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      vendor_type_for_user: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
-      app_role: "admin" | "moderator" | "user"
+      app_role:
+        | "admin"
+        | "moderator"
+        | "user"
+        | "food_vendor"
+        | "snacks_vendor"
+        | "coffee_vendor"
+        | "drinks_vendor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -384,7 +437,15 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "moderator", "user"],
+      app_role: [
+        "admin",
+        "moderator",
+        "user",
+        "food_vendor",
+        "snacks_vendor",
+        "coffee_vendor",
+        "drinks_vendor",
+      ],
     },
   },
 } as const
