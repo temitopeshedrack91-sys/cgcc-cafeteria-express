@@ -15,6 +15,7 @@ import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as VendorLoginRouteImport } from './routes/vendor.login'
 import { Route as ReceiptCodeRouteImport } from './routes/receipt.$code'
 import { Route as AdminMenuRouteImport } from './routes/admin.menu'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
@@ -49,6 +50,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VendorLoginRoute = VendorLoginRouteImport.update({
+  id: '/vendor/login',
+  path: '/vendor/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReceiptCodeRoute = ReceiptCodeRouteImport.update({
   id: '/receipt/$code',
   path: '/receipt/$code',
@@ -74,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/admin/login': typeof AdminLoginRoute
   '/admin/menu': typeof AdminMenuRoute
   '/receipt/$code': typeof ReceiptCodeRoute
+  '/vendor/login': typeof VendorLoginRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -85,6 +92,7 @@ export interface FileRoutesByTo {
   '/admin/login': typeof AdminLoginRoute
   '/admin/menu': typeof AdminMenuRoute
   '/receipt/$code': typeof ReceiptCodeRoute
+  '/vendor/login': typeof VendorLoginRoute
   '/admin': typeof AdminIndexRoute
 }
 export interface FileRoutesById {
@@ -97,6 +105,7 @@ export interface FileRoutesById {
   '/admin/login': typeof AdminLoginRoute
   '/admin/menu': typeof AdminMenuRoute
   '/receipt/$code': typeof ReceiptCodeRoute
+  '/vendor/login': typeof VendorLoginRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -110,6 +119,7 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/admin/menu'
     | '/receipt/$code'
+    | '/vendor/login'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -121,6 +131,7 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/admin/menu'
     | '/receipt/$code'
+    | '/vendor/login'
     | '/admin'
   id:
     | '__root__'
@@ -132,6 +143,7 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/admin/menu'
     | '/receipt/$code'
+    | '/vendor/login'
     | '/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -144,6 +156,7 @@ export interface RootRouteChildren {
   AdminLoginRoute: typeof AdminLoginRoute
   AdminMenuRoute: typeof AdminMenuRoute
   ReceiptCodeRoute: typeof ReceiptCodeRoute
+  VendorLoginRoute: typeof VendorLoginRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
@@ -191,6 +204,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/vendor/login': {
+      id: '/vendor/login'
+      path: '/vendor/login'
+      fullPath: '/vendor/login'
+      preLoaderRoute: typeof VendorLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/receipt/$code': {
       id: '/receipt/$code'
       path: '/receipt/$code'
@@ -224,6 +244,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminLoginRoute: AdminLoginRoute,
   AdminMenuRoute: AdminMenuRoute,
   ReceiptCodeRoute: ReceiptCodeRoute,
+  VendorLoginRoute: VendorLoginRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 export const routeTree = rootRouteImport
