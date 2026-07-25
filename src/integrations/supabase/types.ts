@@ -18,16 +18,19 @@ export type Database = {
         Row: {
           id: string
           ordering_open: boolean
+          payment_config: Json
           updated_at: string
         }
         Insert: {
           id: string
           ordering_open?: boolean
+          payment_config?: Json
           updated_at?: string
         }
         Update: {
           id?: string
           ordering_open?: boolean
+          payment_config?: Json
           updated_at?: string
         }
         Relationships: []
@@ -169,7 +172,12 @@ export type Database = {
           id: string
           note: string | null
           order_type: string
+          payment_amount: number | null
+          payment_meta: Json | null
+          payment_provider: string | null
+          payment_reference: string | null
           payment_status: string
+          payment_updated_at: string | null
           phone: string
           pickup_status: string
           pickup_time: string | null
@@ -184,7 +192,12 @@ export type Database = {
           id?: string
           note?: string | null
           order_type: string
+          payment_amount?: number | null
+          payment_meta?: Json | null
+          payment_provider?: string | null
+          payment_reference?: string | null
           payment_status?: string
+          payment_updated_at?: string | null
           phone: string
           pickup_status?: string
           pickup_time?: string | null
@@ -199,7 +212,12 @@ export type Database = {
           id?: string
           note?: string | null
           order_type?: string
+          payment_amount?: number | null
+          payment_meta?: Json | null
+          payment_provider?: string | null
+          payment_reference?: string | null
           payment_status?: string
+          payment_updated_at?: string | null
           phone?: string
           pickup_status?: string
           pickup_time?: string | null
@@ -275,6 +293,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_payment_result: {
+        Args: {
+          _amount: number
+          _code: string
+          _meta?: Json
+          _provider: string
+          _reference: string
+          _status: string
+        }
+        Returns: Json
+      }
       create_customer_order:
         | {
             Args: {

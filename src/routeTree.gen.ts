@@ -20,8 +20,11 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as VendorLoginRouteImport } from './routes/vendor.login'
 import { Route as ReceiptCodeRouteImport } from './routes/receipt.$code'
 import { Route as AdminVendorsRouteImport } from './routes/admin.vendors'
+import { Route as AdminPaymentRouteImport } from './routes/admin.payment'
 import { Route as AdminMenuRouteImport } from './routes/admin.menu'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
+import { Route as PaymentOpayReturnRouteImport } from './routes/payment.opay.return'
+import { Route as ApiPublicOpayWebhookRouteImport } from './routes/api/public/opay.webhook'
 
 const PaymentRoute = PaymentRouteImport.update({
   id: '/payment',
@@ -78,6 +81,11 @@ const AdminVendorsRoute = AdminVendorsRouteImport.update({
   path: '/admin/vendors',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminPaymentRoute = AdminPaymentRouteImport.update({
+  id: '/admin/payment',
+  path: '/admin/payment',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminMenuRoute = AdminMenuRouteImport.update({
   id: '/admin/menu',
   path: '/admin/menu',
@@ -88,6 +96,16 @@ const AdminLoginRoute = AdminLoginRouteImport.update({
   path: '/admin/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PaymentOpayReturnRoute = PaymentOpayReturnRouteImport.update({
+  id: '/opay/return',
+  path: '/opay/return',
+  getParentRoute: () => PaymentRoute,
+} as any)
+const ApiPublicOpayWebhookRoute = ApiPublicOpayWebhookRouteImport.update({
+  id: '/api/public/opay/webhook',
+  path: '/api/public/opay/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -95,14 +113,17 @@ export interface FileRoutesByFullPath {
   '/checkout': typeof CheckoutRoute
   '/history': typeof HistoryRoute
   '/menu': typeof MenuRoute
-  '/payment': typeof PaymentRoute
+  '/payment': typeof PaymentRouteWithChildren
   '/admin/login': typeof AdminLoginRoute
   '/admin/menu': typeof AdminMenuRoute
+  '/admin/payment': typeof AdminPaymentRoute
   '/admin/vendors': typeof AdminVendorsRoute
   '/receipt/$code': typeof ReceiptCodeRoute
   '/vendor/login': typeof VendorLoginRoute
   '/admin/': typeof AdminIndexRoute
   '/vendor/': typeof VendorIndexRoute
+  '/payment/opay/return': typeof PaymentOpayReturnRoute
+  '/api/public/opay/webhook': typeof ApiPublicOpayWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -110,14 +131,17 @@ export interface FileRoutesByTo {
   '/checkout': typeof CheckoutRoute
   '/history': typeof HistoryRoute
   '/menu': typeof MenuRoute
-  '/payment': typeof PaymentRoute
+  '/payment': typeof PaymentRouteWithChildren
   '/admin/login': typeof AdminLoginRoute
   '/admin/menu': typeof AdminMenuRoute
+  '/admin/payment': typeof AdminPaymentRoute
   '/admin/vendors': typeof AdminVendorsRoute
   '/receipt/$code': typeof ReceiptCodeRoute
   '/vendor/login': typeof VendorLoginRoute
   '/admin': typeof AdminIndexRoute
   '/vendor': typeof VendorIndexRoute
+  '/payment/opay/return': typeof PaymentOpayReturnRoute
+  '/api/public/opay/webhook': typeof ApiPublicOpayWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -126,14 +150,17 @@ export interface FileRoutesById {
   '/checkout': typeof CheckoutRoute
   '/history': typeof HistoryRoute
   '/menu': typeof MenuRoute
-  '/payment': typeof PaymentRoute
+  '/payment': typeof PaymentRouteWithChildren
   '/admin/login': typeof AdminLoginRoute
   '/admin/menu': typeof AdminMenuRoute
+  '/admin/payment': typeof AdminPaymentRoute
   '/admin/vendors': typeof AdminVendorsRoute
   '/receipt/$code': typeof ReceiptCodeRoute
   '/vendor/login': typeof VendorLoginRoute
   '/admin/': typeof AdminIndexRoute
   '/vendor/': typeof VendorIndexRoute
+  '/payment/opay/return': typeof PaymentOpayReturnRoute
+  '/api/public/opay/webhook': typeof ApiPublicOpayWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -146,11 +173,14 @@ export interface FileRouteTypes {
     | '/payment'
     | '/admin/login'
     | '/admin/menu'
+    | '/admin/payment'
     | '/admin/vendors'
     | '/receipt/$code'
     | '/vendor/login'
     | '/admin/'
     | '/vendor/'
+    | '/payment/opay/return'
+    | '/api/public/opay/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -161,11 +191,14 @@ export interface FileRouteTypes {
     | '/payment'
     | '/admin/login'
     | '/admin/menu'
+    | '/admin/payment'
     | '/admin/vendors'
     | '/receipt/$code'
     | '/vendor/login'
     | '/admin'
     | '/vendor'
+    | '/payment/opay/return'
+    | '/api/public/opay/webhook'
   id:
     | '__root__'
     | '/'
@@ -176,11 +209,14 @@ export interface FileRouteTypes {
     | '/payment'
     | '/admin/login'
     | '/admin/menu'
+    | '/admin/payment'
     | '/admin/vendors'
     | '/receipt/$code'
     | '/vendor/login'
     | '/admin/'
     | '/vendor/'
+    | '/payment/opay/return'
+    | '/api/public/opay/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -189,14 +225,16 @@ export interface RootRouteChildren {
   CheckoutRoute: typeof CheckoutRoute
   HistoryRoute: typeof HistoryRoute
   MenuRoute: typeof MenuRoute
-  PaymentRoute: typeof PaymentRoute
+  PaymentRoute: typeof PaymentRouteWithChildren
   AdminLoginRoute: typeof AdminLoginRoute
   AdminMenuRoute: typeof AdminMenuRoute
+  AdminPaymentRoute: typeof AdminPaymentRoute
   AdminVendorsRoute: typeof AdminVendorsRoute
   ReceiptCodeRoute: typeof ReceiptCodeRoute
   VendorLoginRoute: typeof VendorLoginRoute
   AdminIndexRoute: typeof AdminIndexRoute
   VendorIndexRoute: typeof VendorIndexRoute
+  ApiPublicOpayWebhookRoute: typeof ApiPublicOpayWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -278,6 +316,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminVendorsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/payment': {
+      id: '/admin/payment'
+      path: '/admin/payment'
+      fullPath: '/admin/payment'
+      preLoaderRoute: typeof AdminPaymentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/menu': {
       id: '/admin/menu'
       path: '/admin/menu'
@@ -292,8 +337,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/payment/opay/return': {
+      id: '/payment/opay/return'
+      path: '/opay/return'
+      fullPath: '/payment/opay/return'
+      preLoaderRoute: typeof PaymentOpayReturnRouteImport
+      parentRoute: typeof PaymentRoute
+    }
+    '/api/public/opay/webhook': {
+      id: '/api/public/opay/webhook'
+      path: '/api/public/opay/webhook'
+      fullPath: '/api/public/opay/webhook'
+      preLoaderRoute: typeof ApiPublicOpayWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
+
+interface PaymentRouteChildren {
+  PaymentOpayReturnRoute: typeof PaymentOpayReturnRoute
+}
+
+const PaymentRouteChildren: PaymentRouteChildren = {
+  PaymentOpayReturnRoute: PaymentOpayReturnRoute,
+}
+
+const PaymentRouteWithChildren =
+  PaymentRoute._addFileChildren(PaymentRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -301,14 +371,16 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutRoute: CheckoutRoute,
   HistoryRoute: HistoryRoute,
   MenuRoute: MenuRoute,
-  PaymentRoute: PaymentRoute,
+  PaymentRoute: PaymentRouteWithChildren,
   AdminLoginRoute: AdminLoginRoute,
   AdminMenuRoute: AdminMenuRoute,
+  AdminPaymentRoute: AdminPaymentRoute,
   AdminVendorsRoute: AdminVendorsRoute,
   ReceiptCodeRoute: ReceiptCodeRoute,
   VendorLoginRoute: VendorLoginRoute,
   AdminIndexRoute: AdminIndexRoute,
   VendorIndexRoute: VendorIndexRoute,
+  ApiPublicOpayWebhookRoute: ApiPublicOpayWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

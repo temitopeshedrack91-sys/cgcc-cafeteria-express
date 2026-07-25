@@ -6,6 +6,7 @@ import { Logo } from "@/components/Logo";
 import { formatNaira, useStore, fetchOrderByCode, type Order } from "@/lib/store";
 import { downloadReceiptPdf } from "@/lib/receipt-pdf";
 import { rememberOrder } from "@/lib/history";
+import { toQrDataUrl } from "@/lib/qr";
 import {
   buildTimeline,
   pickupLabel,
@@ -32,9 +33,16 @@ function ReceiptPage() {
   );
   const [refreshing, setRefreshing] = useState(false);
   const [notifyOn, setNotifyOn] = useState(false);
+  const [qr, setQr] = useState<string | null>(null);
   const mounted = useRef(true);
   const prevPickup = useRef<string | null>(cached?.pickupStatus ?? null);
   const prevPayment = useRef<string | null>(cached?.paymentStatus ?? null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = `${window.location.origin}/receipt/${code}`;
+    void toQrDataUrl(url).then((d) => setQr(d)).catch(() => setQr(null));
+  }, [code]);
 
   useEffect(() => {
     mounted.current = true;
@@ -232,6 +240,21 @@ function ReceiptPage() {
           <p className="font-display text-5xl font-black tracking-wider">{order.code}</p>
           <p className="mt-2 text-xs text-primary-foreground/70">Receipt · {order.receiptNo}</p>
         </div>
+
+        {qr && (
+          <div className="flex flex-col items-center gap-2 border-b border-border bg-white px-6 py-5">
+            <img
+              src={qr}
+              alt={`QR code for receipt ${order.code}`}
+              className="h-40 w-40 rounded-lg border border-border"
+            />
+            <p className="text-xs text-muted-foreground">
+              Scan to open this receipt on another device
+            </p>
+          </div>
+        )}
+
+
 
         <div className="space-y-4 p-6">
           {/* Timeline */}

@@ -25,7 +25,7 @@ export type ReportOrder = {
   phone?: string;
   createdAt: number;
   pickupTime?: string | null;
-  paymentStatus: "paid" | "unpaid";
+  paymentStatus: string;
   pickupStatus: string;
   items: ReportItem[];
 };

@@ -22,6 +22,14 @@ export type OrderItem = {
   preparationStatus?: string;
 };
 
+export type PaymentStatus =
+  | "unpaid"
+  | "pending"
+  | "paid"
+  | "failed"
+  | "cancelled"
+  | "refunded";
+
 export type Order = {
   code: string;
   receiptNo: string;
@@ -32,7 +40,9 @@ export type Order = {
   pickupTime?: string;
   items: OrderItem[];
   total: number;
-  paymentStatus: "paid" | "unpaid";
+  paymentStatus: PaymentStatus;
+  paymentProvider?: string | null;
+  paymentReference?: string | null;
   pickupStatus: OrderStatus;
   createdAt: number;
 };
@@ -126,7 +136,9 @@ type OrderRow = {
   order_type: "dine-in" | "takeaway";
   pickup_time?: string | null;
   total: number;
-  payment_status: "paid" | "unpaid";
+  payment_status: PaymentStatus;
+  payment_provider?: string | null;
+  payment_reference?: string | null;
   pickup_status: OrderStatus;
   created_at: string;
   order_items?: {
@@ -158,6 +170,8 @@ function mapOrder(row: OrderRow): Order {
     })),
     total: row.total,
     paymentStatus: row.payment_status,
+    paymentProvider: row.payment_provider ?? null,
+    paymentReference: row.payment_reference ?? null,
     pickupStatus: row.pickup_status,
     createdAt: new Date(row.created_at).getTime(),
   };
@@ -167,7 +181,7 @@ async function fetchOrders() {
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, code, receipt_no, customer_name, phone, note, order_type, pickup_time, total, payment_status, pickup_status, created_at, order_items ( menu_item_id, name, price, qty, vendor_type, preparation_status )",
+      "id, code, receipt_no, customer_name, phone, note, order_type, pickup_time, total, payment_status, payment_provider, payment_reference, pickup_status, created_at, order_items ( menu_item_id, name, price, qty, vendor_type, preparation_status )",
     )
     .order("created_at", { ascending: false })
     .limit(500);
@@ -182,7 +196,7 @@ async function fetchOneOrder(id: string) {
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, code, receipt_no, customer_name, phone, note, order_type, pickup_time, total, payment_status, pickup_status, created_at, order_items ( menu_item_id, name, price, qty, vendor_type, preparation_status )",
+      "id, code, receipt_no, customer_name, phone, note, order_type, pickup_time, total, payment_status, payment_provider, payment_reference, pickup_status, created_at, order_items ( menu_item_id, name, price, qty, vendor_type, preparation_status )",
     )
     .eq("id", id)
     .maybeSingle();
