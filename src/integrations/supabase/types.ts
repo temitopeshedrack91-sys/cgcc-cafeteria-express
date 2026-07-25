@@ -35,6 +35,90 @@ export type Database = {
         }
         Relationships: []
       }
+      cashier_sale_items: {
+        Row: {
+          id: string
+          menu_item_id: string
+          name: string
+          price: number
+          qty: number
+          sale_id: string
+          vendor_type: string | null
+        }
+        Insert: {
+          id?: string
+          menu_item_id: string
+          name: string
+          price: number
+          qty: number
+          sale_id: string
+          vendor_type?: string | null
+        }
+        Update: {
+          id?: string
+          menu_item_id?: string
+          name?: string
+          price?: number
+          qty?: number
+          sale_id?: string
+          vendor_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cashier_sale_items_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cashier_sale_items_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "cashier_sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cashier_sales: {
+        Row: {
+          cashier_id: string
+          cashier_label: string | null
+          code: string
+          created_at: string
+          customer_name: string | null
+          id: string
+          note: string | null
+          payment_method: string
+          receipt_no: string
+          total: number
+        }
+        Insert: {
+          cashier_id: string
+          cashier_label?: string | null
+          code: string
+          created_at?: string
+          customer_name?: string | null
+          id?: string
+          note?: string | null
+          payment_method: string
+          receipt_no: string
+          total?: number
+        }
+        Update: {
+          cashier_id?: string
+          cashier_label?: string | null
+          code?: string
+          created_at?: string
+          customer_name?: string | null
+          id?: string
+          note?: string | null
+          payment_method?: string
+          receipt_no?: string
+          total?: number
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           id: string
@@ -74,15 +158,70 @@ export type Database = {
         }
         Relationships: []
       }
+      inventory_history: {
+        Row: {
+          changed_by: string | null
+          changed_by_label: string | null
+          created_at: string
+          delta: number
+          id: string
+          item_name: string
+          menu_item_id: string
+          new_qty: number
+          previous_qty: number
+          reason: string | null
+          source: string
+          vendor_type: string | null
+        }
+        Insert: {
+          changed_by?: string | null
+          changed_by_label?: string | null
+          created_at?: string
+          delta: number
+          id?: string
+          item_name: string
+          menu_item_id: string
+          new_qty: number
+          previous_qty: number
+          reason?: string | null
+          source?: string
+          vendor_type?: string | null
+        }
+        Update: {
+          changed_by?: string | null
+          changed_by_label?: string | null
+          created_at?: string
+          delta?: number
+          id?: string
+          item_name?: string
+          menu_item_id?: string
+          new_qty?: number
+          previous_qty?: number
+          reason?: string | null
+          source?: string
+          vendor_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_history_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       menu_items: {
         Row: {
           available: boolean
           category_id: string
           created_at: string
           id: string
+          low_stock_threshold: number
           name: string
           price: number
           sort_order: number
+          stock_qty: number
           vendor_type: string
         }
         Insert: {
@@ -90,9 +229,11 @@ export type Database = {
           category_id: string
           created_at?: string
           id: string
+          low_stock_threshold?: number
           name: string
           price: number
           sort_order?: number
+          stock_qty?: number
           vendor_type: string
         }
         Update: {
@@ -100,9 +241,11 @@ export type Database = {
           category_id?: string
           created_at?: string
           id?: string
+          low_stock_threshold?: number
           name?: string
           price?: number
           sort_order?: number
+          stock_qty?: number
           vendor_type?: string
         }
         Relationships: [
@@ -293,6 +436,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      adjust_stock: {
+        Args: { _item_id: string; _new_qty: number; _reason?: string }
+        Returns: Json
+      }
       apply_payment_result: {
         Args: {
           _amount: number
@@ -301,6 +448,15 @@ export type Database = {
           _provider: string
           _reference: string
           _status: string
+        }
+        Returns: Json
+      }
+      create_cashier_sale: {
+        Args: {
+          _customer_name: string
+          _items: Json
+          _note: string
+          _payment_method: string
         }
         Returns: Json
       }
@@ -348,6 +504,29 @@ export type Database = {
         }
         Returns: boolean
       }
+      list_inventory_history: {
+        Args: { _limit?: number; _vendor?: string }
+        Returns: {
+          changed_by: string | null
+          changed_by_label: string | null
+          created_at: string
+          delta: number
+          id: string
+          item_name: string
+          menu_item_id: string
+          new_qty: number
+          previous_qty: number
+          reason: string | null
+          source: string
+          vendor_type: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "inventory_history"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       vendor_type_for_user: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
@@ -359,6 +538,7 @@ export type Database = {
         | "snacks_vendor"
         | "coffee_vendor"
         | "drinks_vendor"
+        | "cashier"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -494,6 +674,7 @@ export const Constants = {
         "snacks_vendor",
         "coffee_vendor",
         "drinks_vendor",
+        "cashier",
       ],
     },
   },
