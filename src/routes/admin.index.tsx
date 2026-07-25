@@ -100,7 +100,7 @@ function Dashboard() {
     if (closing) return;
     const day = currentBusinessDay();
     const openOrders = scoped.filter(
-      (o) => o.paymentStatus === "unpaid" || (o.pickupStatus !== "collected" && o.pickupStatus !== "cancelled"),
+      (o) => o.paymentStatus === "unpaid" || o.pickupStatus !== "collected",
     ).length;
     const msg = openOrders
       ? `Close business day ${day}? ${openOrders} order(s) are still open — they will be archived.`
