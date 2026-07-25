@@ -49,11 +49,12 @@ export async function adjustStockRpc(
   newQty: number,
   reason?: string,
 ): Promise<{ ok: boolean; previous: number; new: number }> {
-  const { data, error } = await supabase.rpc("adjust_stock", {
+  const args: { _item_id: string; _new_qty: number; _reason?: string } = {
     _item_id: itemId,
     _new_qty: newQty,
-    _reason: reason ?? "",
-  });
+  };
+  if (reason) args._reason = reason;
+  const { data, error } = await supabase.rpc("adjust_stock", args);
   if (error) throw error;
   return data as any;
 }
@@ -72,10 +73,9 @@ export async function setLowStockThreshold(itemId: string, threshold: number) {
 }
 
 export async function fetchInventoryHistory(vendor?: string | null, limit = 200): Promise<InventoryHistoryRow[]> {
-  const { data, error } = await supabase.rpc("list_inventory_history", {
-    _limit: limit,
-    _vendor: vendor ?? "",
-  });
+  const args: { _limit?: number; _vendor?: string } = { _limit: limit };
+  if (vendor) args._vendor = vendor;
+  const { data, error } = await supabase.rpc("list_inventory_history", args);
   if (error) throw error;
   return (data ?? []) as InventoryHistoryRow[];
 }
