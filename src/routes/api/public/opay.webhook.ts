@@ -98,7 +98,7 @@ export const Route = createFileRoute("/api/public/opay/webhook")({
           _reference: reference,
           _status: status,
           _provider: "opay",
-          _amount: amount as number | null,
+          _amount: amount ?? 0,
           _meta: event as unknown as never,
         });
         if (rpcErr) {
