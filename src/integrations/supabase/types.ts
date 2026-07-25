@@ -340,6 +340,7 @@ export type Database = {
             }[]
           }
       get_order_by_code: { Args: { _code: string }; Returns: Json }
+      get_orders_by_phone: { Args: { _phone: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
