@@ -13,7 +13,9 @@ export function pickupTone(status: OrderStatus): StatusTone {
 }
 
 export function paymentTone(status: Order["paymentStatus"]): StatusTone {
-  return status === "paid" ? "green" : "red";
+  if (status === "paid") return "green";
+  if (status === "failed" || status === "cancelled") return "red";
+  return "amber"; // unpaid / pending / refunded
 }
 
 export function pickupLabel(status: OrderStatus): string {
