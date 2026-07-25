@@ -40,13 +40,13 @@ export async function upsertProduct(input: {
   available?: boolean;
 }) {
   const { data, error } = await supabase.rpc("upsert_menu_item", {
-    _id: input.id ?? null,
+    _id: (input.id ?? undefined) as any,
     _name: input.name,
-    _category_id: input.category_id ?? null,
+    _category_id: (input.category_id ?? undefined) as any,
     _price: input.price,
     _vendor_type: input.vendor_type,
-    _description: input.description ?? null,
-    _image_url: input.image_url ?? null,
+    _description: (input.description ?? undefined) as any,
+    _image_url: (input.image_url ?? undefined) as any,
     _available: input.available ?? true,
   });
   if (error) throw error;
@@ -90,8 +90,8 @@ export async function listAuditLog(limit = 200): Promise<AuditEntry[]> {
 export async function logAudit(action: string, entity_type?: string, entity_id?: string, details: any = {}) {
   const { error } = await supabase.rpc("log_audit", {
     _action: action,
-    _entity_type: entity_type ?? null,
-    _entity_id: entity_id ?? null,
+    _entity_type: (entity_type ?? undefined) as any,
+    _entity_id: (entity_id ?? undefined) as any,
     _details: details,
   });
   if (error) console.warn("audit log failed", error);
