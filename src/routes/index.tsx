@@ -147,7 +147,7 @@ function LandingPage() {
                 variant="outline"
                 className="h-14 w-full rounded-full border-primary/30 bg-background/70 px-8 text-base backdrop-blur transition hover:bg-primary/5 sm:w-auto"
               >
-                <Link to="/menu">Browse Menu</Link>
+                <Link to="/history">My Orders</Link>
               </Button>
             </div>
 

@@ -1,10 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Download, MessageCircle, CheckCircle2, Clock, Loader2, RefreshCw } from "lucide-react";
+import { Download, MessageCircle, CheckCircle2, Clock, Loader2, RefreshCw, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { formatNaira, useStore, fetchOrderByCode, type Order } from "@/lib/store";
 import { downloadReceiptPdf } from "@/lib/receipt-pdf";
+import { rememberOrder } from "@/lib/history";
+import {
+  buildTimeline,
+  pickupLabel,
+  pickupTone,
+  paymentTone,
+  toneClasses,
+} from "@/lib/order-status";
 import { toast } from "sonner";
 
 const WHATSAPP_NUMBER = "09134749319";
@@ -23,14 +31,43 @@ function ReceiptPage() {
     cached ? "ready" : "loading",
   );
   const [refreshing, setRefreshing] = useState(false);
+  const [notifyOn, setNotifyOn] = useState(false);
   const mounted = useRef(true);
+  const prevPickup = useRef<string | null>(cached?.pickupStatus ?? null);
+  const prevPayment = useRef<string | null>(cached?.paymentStatus ?? null);
 
   useEffect(() => {
     mounted.current = true;
+    rememberOrder(code);
+    if (typeof Notification !== "undefined") {
+      setNotifyOn(Notification.permission === "granted");
+    }
     return () => {
       mounted.current = false;
     };
-  }, []);
+  }, [code]);
+
+  function notify(title: string, body: string) {
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      try {
+        new Notification(title, { body });
+        return;
+      } catch {
+        // fall through to toast
+      }
+    }
+    toast(title, { description: body });
+  }
+
+  async function enableNotifications() {
+    if (typeof Notification === "undefined") {
+      toast.error("Notifications not supported on this device.");
+      return;
+    }
+    const res = await Notification.requestPermission();
+    setNotifyOn(res === "granted");
+    if (res !== "granted") toast("Notifications blocked", { description: "You'll still see in-app alerts." });
+  }
 
   async function load(isBackground = false) {
     if (isBackground) setRefreshing(true);
@@ -38,6 +75,20 @@ function ReceiptPage() {
       const fresh = await fetchOrderByCode(code);
       if (!mounted.current) return;
       if (fresh) {
+        // detect status transitions and notify
+        if (prevPickup.current && prevPickup.current !== fresh.pickupStatus) {
+          notify(`Order ${fresh.code}`, pickupLabel(fresh.pickupStatus));
+        }
+        if (
+          prevPayment.current &&
+          prevPayment.current !== fresh.paymentStatus &&
+          fresh.paymentStatus === "paid"
+        ) {
+          notify(`Order ${fresh.code}`, "Payment confirmed by the cafeteria.");
+        }
+        prevPickup.current = fresh.pickupStatus;
+        prevPayment.current = fresh.paymentStatus;
+
         setOrder(fresh);
         setStatus("ready");
       } else if (!order) {
@@ -127,7 +178,6 @@ function ReceiptPage() {
     );
   }
 
-
   async function downloadPdf() {
     if (!order) return;
     try {
@@ -157,6 +207,12 @@ function ReceiptPage() {
     window.open(url, "_blank");
   }
 
+  const created = new Date(order.createdAt);
+  const estimated = new Date(order.createdAt + 20 * 60 * 1000);
+  const timeline = buildTimeline(order);
+  const pTone = pickupTone(order.pickupStatus);
+  const payTone = paymentTone(order.paymentStatus);
+
   return (
     <div className="mx-auto max-w-md px-4 py-6 pb-16">
       <div className="mb-4 text-center">
@@ -179,6 +235,41 @@ function ReceiptPage() {
         </div>
 
         <div className="space-y-4 p-6">
+          {/* Timeline */}
+          <div className="rounded-xl border border-border bg-muted/30 p-4">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Order Progress
+            </p>
+            <ol className="space-y-2.5">
+              {timeline.map((step) => (
+                <li key={step.key} className="flex items-center gap-3">
+                  <span
+                    className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold ${
+                      step.done
+                        ? "bg-emerald-500 text-white"
+                        : step.active
+                          ? "bg-amber-400 text-amber-950 ring-2 ring-amber-200"
+                          : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {step.done ? "✓" : ""}
+                  </span>
+                  <span
+                    className={`text-sm ${
+                      step.done
+                        ? "font-semibold text-foreground"
+                        : step.active
+                          ? "font-semibold text-foreground"
+                          : "text-muted-foreground"
+                    }`}
+                  >
+                    {step.label}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <p className="text-xs uppercase text-muted-foreground">Customer</p>
@@ -194,7 +285,19 @@ function ReceiptPage() {
             </div>
             <div>
               <p className="text-xs uppercase text-muted-foreground">Placed</p>
-              <p className="font-semibold">{new Date(order.createdAt).toLocaleTimeString()}</p>
+              <p className="font-semibold">
+                {created.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {created.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+              </p>
+            </div>
+            <div className="col-span-2 rounded-lg bg-brand/5 p-3">
+              <p className="text-xs uppercase text-muted-foreground">Estimated pickup</p>
+              <p className="font-semibold">
+                By {estimated.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                <span className="ml-1 text-xs font-normal text-muted-foreground">(~15–20 min)</span>
+              </p>
             </div>
           </div>
 
@@ -227,20 +330,32 @@ function ReceiptPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg bg-brand/10 p-3 text-center">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Payment</p>
-              <p className="mt-0.5 text-sm font-bold uppercase text-primary">{order.paymentStatus}</p>
+            <div className={`rounded-lg p-3 text-center ${toneClasses[payTone]}`}>
+              <p className="text-[10px] uppercase tracking-wider opacity-80">Payment</p>
+              <p className="mt-0.5 text-sm font-bold uppercase">
+                {order.paymentStatus === "paid" ? "Paid" : "Pending"}
+              </p>
             </div>
-            <div className="rounded-lg bg-muted p-3 text-center">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Pickup</p>
+            <div className={`rounded-lg p-3 text-center ${toneClasses[pTone]}`}>
+              <p className="text-[10px] uppercase tracking-wider opacity-80">Pickup</p>
               <p className="mt-0.5 flex items-center justify-center gap-1 text-sm font-bold uppercase">
                 <Clock className="h-3 w-3" />
-                {order.pickupStatus}
+                {pickupLabel(order.pickupStatus)}
               </p>
             </div>
           </div>
         </div>
       </div>
+
+      {!notifyOn && (
+        <button
+          onClick={enableNotifications}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold text-muted-foreground hover:border-brand hover:text-primary"
+        >
+          <Bell className="h-3.5 w-3.5" />
+          Get notified when your order is ready
+        </button>
+      )}
 
       <div className="mt-6 grid grid-cols-2 gap-3">
         <Button variant="secondary" onClick={downloadPdf} className="h-12 rounded-full">
@@ -253,9 +368,12 @@ function ReceiptPage() {
         </Button>
       </div>
 
-      <div className="mt-6 text-center">
-        <Link to="/" className="text-sm text-muted-foreground hover:underline">
-          ← Back to home
+      <div className="mt-6 flex items-center justify-between text-sm">
+        <Link to="/" className="text-muted-foreground hover:underline">
+          ← Home
+        </Link>
+        <Link to="/history" className="font-semibold text-primary hover:underline">
+          View order history →
         </Link>
       </div>
     </div>

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PaymentRouteImport } from './routes/payment'
 import { Route as MenuRouteImport } from './routes/menu'
+import { Route as HistoryRouteImport } from './routes/history'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as IndexRouteImport } from './routes/index'
@@ -30,6 +31,11 @@ const PaymentRoute = PaymentRouteImport.update({
 const MenuRoute = MenuRouteImport.update({
   id: '/menu',
   path: '/menu',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HistoryRoute = HistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CheckoutRoute = CheckoutRouteImport.update({
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
+  '/history': typeof HistoryRoute
   '/menu': typeof MenuRoute
   '/payment': typeof PaymentRoute
   '/admin/login': typeof AdminLoginRoute
@@ -101,6 +108,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
+  '/history': typeof HistoryRoute
   '/menu': typeof MenuRoute
   '/payment': typeof PaymentRoute
   '/admin/login': typeof AdminLoginRoute
@@ -116,6 +124,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
+  '/history': typeof HistoryRoute
   '/menu': typeof MenuRoute
   '/payment': typeof PaymentRoute
   '/admin/login': typeof AdminLoginRoute
@@ -132,6 +141,7 @@ export interface FileRouteTypes {
     | '/'
     | '/cart'
     | '/checkout'
+    | '/history'
     | '/menu'
     | '/payment'
     | '/admin/login'
@@ -146,6 +156,7 @@ export interface FileRouteTypes {
     | '/'
     | '/cart'
     | '/checkout'
+    | '/history'
     | '/menu'
     | '/payment'
     | '/admin/login'
@@ -160,6 +171,7 @@ export interface FileRouteTypes {
     | '/'
     | '/cart'
     | '/checkout'
+    | '/history'
     | '/menu'
     | '/payment'
     | '/admin/login'
@@ -175,6 +187,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CartRoute: typeof CartRoute
   CheckoutRoute: typeof CheckoutRoute
+  HistoryRoute: typeof HistoryRoute
   MenuRoute: typeof MenuRoute
   PaymentRoute: typeof PaymentRoute
   AdminLoginRoute: typeof AdminLoginRoute
@@ -200,6 +213,13 @@ declare module '@tanstack/react-router' {
       path: '/menu'
       fullPath: '/menu'
       preLoaderRoute: typeof MenuRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/history': {
+      id: '/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof HistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/checkout': {
@@ -279,6 +299,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CartRoute: CartRoute,
   CheckoutRoute: CheckoutRoute,
+  HistoryRoute: HistoryRoute,
   MenuRoute: MenuRoute,
   PaymentRoute: PaymentRoute,
   AdminLoginRoute: AdminLoginRoute,
