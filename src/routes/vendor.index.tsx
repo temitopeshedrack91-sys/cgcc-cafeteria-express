@@ -394,13 +394,18 @@ function VendorDashboard() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6">
-        <div className="mb-4 flex items-center gap-2">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
           <Button size="sm" variant={tab === "orders" ? "default" : "outline"} onClick={() => setTab("orders")}>
             Orders
           </Button>
           <Button size="sm" variant={tab === "inventory" ? "default" : "outline"} onClick={() => setTab("inventory")}>
             Inventory Management
           </Button>
+          {tab === "orders" && (
+            <div className="ml-auto">
+              <BusinessDayFilter value={filter} onChange={setFilter} />
+            </div>
+          )}
         </div>
 
         {tab === "inventory" ? (
