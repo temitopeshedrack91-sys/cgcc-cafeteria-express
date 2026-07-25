@@ -27,7 +27,7 @@ function MenuPage() {
   const { cat } = Route.useSearch();
   const navigate = Route.useNavigate();
   const orderingOpen = useStore((s) => s.orderingOpen);
-  const menuState = useStore((s) => s.menuState);
+  
   const cartCount = useStore((s) => s.cart.reduce((n, c) => n + c.qty, 0));
   const activeCat: MenuCategory = cat ?? "Meals";
   const [query, setQuery] = useState("");
