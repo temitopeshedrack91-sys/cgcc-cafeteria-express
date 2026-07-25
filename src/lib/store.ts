@@ -13,6 +13,15 @@ export type OrderStatus =
   | "ready"
   | "collected";
 
+export type OrderItem = {
+  id: string;
+  name: string;
+  price: number;
+  qty: number;
+  vendorType?: string | null;
+  preparationStatus?: string;
+};
+
 export type Order = {
   code: string;
   receiptNo: string;
@@ -21,7 +30,7 @@ export type Order = {
   note?: string;
   orderType: "dine-in" | "takeaway";
   pickupTime?: string;
-  items: { id: string; name: string; price: number; qty: number }[];
+  items: OrderItem[];
   total: number;
   paymentStatus: "paid" | "unpaid";
   pickupStatus: OrderStatus;
