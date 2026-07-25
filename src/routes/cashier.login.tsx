@@ -49,7 +49,7 @@ function CashierLogin() {
         toast.error("Unknown cashier username");
         return;
       }
-      const email = `${uname}@cgcc.local`;
+      const { email } = await getCashierLoginEmail({ data: { username: uname as any } });
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error || !data.user) {
         toast.error(error?.message ?? "Sign in failed");
@@ -68,6 +68,8 @@ function CashierLogin() {
       }
       toast.success(`Welcome, ${uname}`);
       navigate({ to: "/cashier" });
+    } catch (e: any) {
+      toast.error(e.message ?? "Sign in failed");
     } finally {
       setSubmitting(false);
     }
