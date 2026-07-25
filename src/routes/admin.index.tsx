@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { FileDown, Power, Search } from "lucide-react";
+import { FileDown, Lock, Power, Search } from "lucide-react";
+import { toast } from "sonner";
 import { AdminGuard, AdminShell } from "@/components/AdminShell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,14 @@ import { actions, formatNaira, useStore, type Order, type OrderStatus } from "@/
 import { ReportDialog } from "@/components/ReportDialog";
 import type { ReportOrder, ReportScope } from "@/lib/reports";
 import { VENDOR_LABELS } from "@/lib/reports";
+import { BusinessDayFilter } from "@/components/BusinessDayFilter";
+import {
+  closeBusinessDay,
+  currentBusinessDay,
+  defaultFilter,
+  matchesFilter,
+  type BusinessDayFilter as Filter,
+} from "@/lib/business-day";
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({
@@ -23,15 +32,6 @@ export const Route = createFileRoute("/admin/")({
   ),
 });
 
-function isToday(ts: number) {
-  const d = new Date(ts);
-  const now = new Date();
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  );
-}
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
   pending: "bg-amber-100 text-amber-900 border-amber-300",
@@ -45,6 +45,14 @@ function Dashboard() {
   const orders = useStore((s) => s.orders);
   const orderingOpen = useStore((s) => s.orderingOpen);
   const [q, setQ] = useState("");
+  const [filter, setFilter] = useState<Filter>(defaultFilter());
+  const [closing, setClosing] = useState(false);
+  const [reportScope, setReportScope] = useState<ReportScope | null>(null);
+
+  const scoped = useMemo(
+    () => orders.filter((o) => matchesFilter(o, filter)),
+    [orders, filter],
+  );
   const [reportScope, setReportScope] = useState<ReportScope | null>(null);
 
   const reportOrders = useMemo<ReportOrder[]>(
