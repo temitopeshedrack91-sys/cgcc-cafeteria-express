@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowLeftRight, Minus, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -145,7 +145,7 @@ export function InventoryPanel({ scope, allowThreshold = false, title = "Invento
           Sold Out
         </span>
       );
-    const chips: JSX.Element[] = [];
+    const chips: React.ReactNode[] = [];
     if (r.stock_online === 0)
       chips.push(
         <span key="oo" className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-900">
