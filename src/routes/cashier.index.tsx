@@ -28,7 +28,7 @@ import type { ReportOrder, ReportScope } from "@/lib/reports";
 import { rangeFor, computeReport } from "@/lib/reports";
 import { downloadReportPdf } from "@/lib/report-pdf";
 import { downloadReportXlsx } from "@/lib/report-xlsx";
-import { closeBusinessDay, todayLagos } from "@/lib/business-day";
+import { closeBusinessDay, currentBusinessDay } from "@/lib/business-day";
 import { isBusinessDayClosed } from "@/lib/admin-ops";
 import { Lock } from "lucide-react";
 
@@ -71,6 +71,8 @@ function CashierSales() {
   const [lastSale, setLastSale] = useState<CashierSale | null>(null);
   const [sales, setSales] = useState<CashierSale[]>([]);
   const [reportOpen, setReportOpen] = useState(false);
+  const [closed, setClosed] = useState(false);
+  const [closing, setClosing] = useState(false);
 
   const loadMenu = useCallback(async () => {
     const { data, error } = await supabase
