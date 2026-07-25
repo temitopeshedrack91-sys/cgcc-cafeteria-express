@@ -383,16 +383,16 @@ export const actions = {
   },
 
   async toggleAvailable(itemId: string) {
-    const cur = state.menuState[itemId]?.available ?? true;
-    const next = !cur;
-    set({ menuState: { ...state.menuState, [itemId]: { available: next } } });
+    const prev = state.menuState[itemId] ?? { available: true, stockOnline: 0, stockWalkin: 0, stockQty: 0 };
+    const next = !prev.available;
+    set({ menuState: { ...state.menuState, [itemId]: { ...prev, available: next } } });
     const { error } = await supabase
       .from("menu_items")
       .update({ available: next })
       .eq("id", itemId);
     if (error) {
       console.error("[store] toggleAvailable failed", error);
-      set({ menuState: { ...state.menuState, [itemId]: { available: cur } } });
+      set({ menuState: { ...state.menuState, [itemId]: prev } });
     }
   },
 
