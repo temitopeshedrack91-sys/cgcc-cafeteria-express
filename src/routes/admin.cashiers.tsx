@@ -157,7 +157,28 @@ function CashierManagement() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-display text-lg font-bold uppercase">{r.username}</p>
-                <p className="text-sm text-muted-foreground">Email: <span className="font-mono">{r.email}</span></p>
+                <div className="mt-1 space-y-1">
+                  <Label htmlFor={`email-${r.username}`} className="text-xs text-muted-foreground">Login email</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id={`email-${r.username}`}
+                      type="email"
+                      value={emails[r.username] ?? r.email}
+                      onChange={(e) => setEmails((prev) => ({ ...prev, [r.username]: e.target.value }))}
+                      disabled={!r.user_id || savingEmail === r.username}
+                      className="h-8 text-sm"
+                      placeholder="cashier@example.com"
+                    />
+                    <Button
+                      size="sm"
+                      className="h-8 px-3"
+                      onClick={() => void saveEmail(r.username)}
+                      disabled={!r.user_id || savingEmail === r.username}
+                    >
+                      {savingEmail === r.username ? "Saving…" : "Save"}
+                    </Button>
+                  </div>
+                </div>
               </div>
               <span
                 className={
