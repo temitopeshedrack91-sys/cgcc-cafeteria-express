@@ -105,6 +105,28 @@ function CashierManagement() {
     }
   }
 
+  async function saveEmail(u: CashierUsername) {
+    const email = (emails[u] ?? "").trim().toLowerCase();
+    if (!email) {
+      toast.error("Email is required");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    setSavingEmail(u);
+    try {
+      await updateCashierEmail({ data: { username: u, email } });
+      toast.success("Email updated");
+      await load();
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to update email");
+    } finally {
+      setSavingEmail(null);
+    }
+  }
+
   const missing = CASHIER_USERNAMES.filter((u) => !rows.some((r) => r.username === u && r.user_id));
 
   return (
