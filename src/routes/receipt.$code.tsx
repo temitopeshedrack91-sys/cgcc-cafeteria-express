@@ -6,6 +6,7 @@ import { Logo } from "@/components/Logo";
 import { formatNaira, useStore, fetchOrderByCode, type Order } from "@/lib/store";
 import { downloadReceiptPdf } from "@/lib/receipt-pdf";
 import { rememberOrder } from "@/lib/history";
+import { toQrDataUrl } from "@/lib/qr";
 import {
   buildTimeline,
   pickupLabel,
@@ -32,9 +33,16 @@ function ReceiptPage() {
   );
   const [refreshing, setRefreshing] = useState(false);
   const [notifyOn, setNotifyOn] = useState(false);
+  const [qr, setQr] = useState<string | null>(null);
   const mounted = useRef(true);
   const prevPickup = useRef<string | null>(cached?.pickupStatus ?? null);
   const prevPayment = useRef<string | null>(cached?.paymentStatus ?? null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = `${window.location.origin}/receipt/${code}`;
+    void toQrDataUrl(url).then((d) => setQr(d)).catch(() => setQr(null));
+  }, [code]);
 
   useEffect(() => {
     mounted.current = true;
