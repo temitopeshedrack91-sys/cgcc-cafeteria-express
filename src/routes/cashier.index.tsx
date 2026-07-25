@@ -105,18 +105,38 @@ function CashierSales() {
     }
   }, []);
 
+  const refreshClosed = useCallback(async () => {
+    setClosed(await isBusinessDayClosed());
+  }, []);
+
   useEffect(() => {
     void loadMenu();
     void loadSales();
+    void refreshClosed();
     const ch = supabase
       .channel("cashier-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "menu_items" }, () => void loadMenu())
       .on("postgres_changes", { event: "*", schema: "public", table: "cashier_sales" }, () => void loadSales())
+      .on("postgres_changes", { event: "*", schema: "public", table: "business_day_closures" }, () => void refreshClosed())
       .subscribe();
     return () => {
       void supabase.removeChannel(ch);
     };
-  }, [loadMenu, loadSales]);
+  }, [loadMenu, loadSales, refreshClosed]);
+
+  async function doCloseSales() {
+    if (!confirm("Close today's sales? Cashiers will not be able to add new walk-in sales until admin reopens the day.")) return;
+    setClosing(true);
+    try {
+      await closeBusinessDay(currentBusinessDay(), "Cashier reconciliation");
+      toast.success("Sales closed for today");
+      setClosed(true);
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to close sales");
+    } finally {
+      setClosing(false);
+    }
+  }
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -185,8 +205,18 @@ function CashierSales() {
           <Button size="sm" onClick={() => setReportOpen(true)}>
             <FileDown className="mr-1 h-4 w-4" /> End of Day
           </Button>
+          <Button size="sm" variant={closed ? "outline" : "destructive"} disabled={closed || closing} onClick={doCloseSales}>
+            <Lock className="mr-1 h-4 w-4" /> {closed ? "Sales Closed" : closing ? "Closing…" : "Close Sales"}
+          </Button>
         </div>
       </div>
+
+      {closed && (
+        <div className="rounded-xl border border-amber-300 bg-amber-100 px-3 py-2 text-sm text-amber-900">
+          <Lock className="mr-1 inline h-4 w-4" /> Today's sales are closed. New walk-in sales are blocked until an admin
+          reopens the day.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-3">
