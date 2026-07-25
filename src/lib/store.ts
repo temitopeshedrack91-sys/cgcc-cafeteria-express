@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { DEFAULT_MENU, type MenuItem } from "./menu-data";
 import { supabase } from "@/integrations/supabase/client";
+import { rememberOrder } from "./history";
 
 // ============ Types ============
 export type CartItem = { itemId: string; qty: number };
@@ -401,6 +402,7 @@ export const actions = {
       createdAt: new Date(row.created_at).getTime(),
     };
     set({ orders: [order, ...state.orders.filter((o) => o.code !== order.code)] });
+    rememberOrder(order.code);
     return order;
   },
 
