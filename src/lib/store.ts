@@ -49,7 +49,13 @@ export type Order = {
   archivedAt?: string | null;
 };
 
-type MenuState = Record<string, { available: boolean }>;
+type MenuStockInfo = {
+  available: boolean;
+  stockOnline: number;
+  stockWalkin: number;
+  stockQty: number;
+};
+type MenuState = Record<string, MenuStockInfo>;
 
 type AppState = {
   cart: CartItem[];
