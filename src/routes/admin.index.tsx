@@ -254,6 +254,13 @@ function Dashboard() {
           </div>
         )}
       </div>
+
+      <ReportDialog
+        open={reportScope !== null}
+        onOpenChange={(v) => !v && setReportScope(null)}
+        scope={reportScope ?? "all"}
+        orders={reportOrders}
+      />
     </div>
   );
 }
