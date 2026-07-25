@@ -122,6 +122,30 @@ function Dashboard() {
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div>
+            <h2 className="font-display text-lg font-bold">Vendor Reports</h2>
+            <p className="text-xs text-muted-foreground">
+              Download sales reports as PDF or Excel. Live totals.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {(["food", "snacks", "coffee", "drinks", "all"] as ReportScope[]).map((s) => (
+            <Button
+              key={s}
+              size="sm"
+              variant={s === "all" ? "default" : "outline"}
+              onClick={() => setReportScope(s)}
+            >
+              <FileDown className="mr-1 h-3 w-3" />
+              {s === "all" ? "Overall Report" : VENDOR_LABELS[s]}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
         <div className="mb-4 flex items-center gap-2">
           <Search className="h-4 w-4 text-muted-foreground" />
           <Input
