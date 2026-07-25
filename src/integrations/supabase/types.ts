@@ -275,22 +275,41 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      create_customer_order: {
-        Args: {
-          _customer_name: string
-          _items: Json
-          _note: string
-          _order_type: string
-          _phone: string
-        }
-        Returns: {
-          code: string
-          created_at: string
-          id: string
-          receipt_no: string
-          total: number
-        }[]
-      }
+      create_customer_order:
+        | {
+            Args: {
+              _customer_name: string
+              _items: Json
+              _note: string
+              _order_type: string
+              _phone: string
+            }
+            Returns: {
+              code: string
+              created_at: string
+              id: string
+              receipt_no: string
+              total: number
+            }[]
+          }
+        | {
+            Args: {
+              _customer_name: string
+              _items: Json
+              _note: string
+              _order_type: string
+              _phone: string
+              _pickup_time?: string
+            }
+            Returns: {
+              code: string
+              created_at: string
+              id: string
+              pickup_time: string
+              receipt_no: string
+              total: number
+            }[]
+          }
       get_order_by_code: { Args: { _code: string }; Returns: Json }
       has_role: {
         Args: {
