@@ -245,14 +245,25 @@ export async function fetchOrderByCode(
 async function fetchMenu() {
   const { data, error } = await supabase
     .from("menu_items")
-    .select("id, available");
+    .select("id, available, stock_online, stock_walkin, stock_qty");
   if (error) {
     console.error("[store] fetchMenu failed", error);
     return;
   }
   const menuState: MenuState = { ...state.menuState };
-  for (const row of data as { id: string; available: boolean }[]) {
-    menuState[row.id] = { available: row.available };
+  for (const row of data as {
+    id: string;
+    available: boolean;
+    stock_online: number | null;
+    stock_walkin: number | null;
+    stock_qty: number | null;
+  }[]) {
+    menuState[row.id] = {
+      available: row.available,
+      stockOnline: row.stock_online ?? 0,
+      stockWalkin: row.stock_walkin ?? 0,
+      stockQty: row.stock_qty ?? 0,
+    };
   }
   set({ menuState });
 }
