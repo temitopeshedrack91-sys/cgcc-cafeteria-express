@@ -53,11 +53,10 @@ function Dashboard() {
     () => orders.filter((o) => matchesFilter(o, filter)),
     [orders, filter],
   );
-  const [reportScope, setReportScope] = useState<ReportScope | null>(null);
 
   const reportOrders = useMemo<ReportOrder[]>(
     () =>
-      orders.map((o: Order) => ({
+      scoped.map((o: Order) => ({
         code: o.code,
         customerName: o.customerName,
         phone: o.phone,
@@ -73,22 +72,21 @@ function Dashboard() {
           preparationStatus: it.preparationStatus,
         })),
       })),
-    [orders],
+    [scoped],
   );
 
-  const todays = orders.filter((o) => isToday(o.createdAt));
   const counts = {
-    pending: todays.filter((o) => o.paymentStatus === "unpaid").length,
-    confirmed: todays.filter((o) => o.pickupStatus === "confirmed").length,
-    preparing: todays.filter((o) => o.pickupStatus === "preparing").length,
-    ready: todays.filter((o) => o.pickupStatus === "ready").length,
-    collected: todays.filter((o) => o.pickupStatus === "collected").length,
+    pending: scoped.filter((o) => o.paymentStatus === "unpaid").length,
+    confirmed: scoped.filter((o) => o.pickupStatus === "confirmed").length,
+    preparing: scoped.filter((o) => o.pickupStatus === "preparing").length,
+    ready: scoped.filter((o) => o.pickupStatus === "ready").length,
+    collected: scoped.filter((o) => o.pickupStatus === "collected").length,
   };
-  const revenue = todays
+  const revenue = scoped
     .filter((o) => o.paymentStatus === "paid")
     .reduce((s, o) => s + o.total, 0);
 
-  const filtered = orders.filter((o) => {
+  const filtered = scoped.filter((o) => {
     if (!q.trim()) return true;
     const s = q.trim().toLowerCase();
     return (
@@ -97,6 +95,28 @@ function Dashboard() {
       o.phone.toLowerCase().includes(s)
     );
   });
+
+  async function handleCloseDay() {
+    if (closing) return;
+    const day = currentBusinessDay();
+    const openOrders = scoped.filter(
+      (o) => o.paymentStatus === "unpaid" || (o.pickupStatus !== "collected" && o.pickupStatus !== "cancelled"),
+    ).length;
+    const msg = openOrders
+      ? `Close business day ${day}? ${openOrders} order(s) are still open — they will be archived.`
+      : `Close business day ${day}? Today's orders will be archived.`;
+    if (!window.confirm(msg)) return;
+    setClosing(true);
+    try {
+      const res = await closeBusinessDay();
+      toast.success(`Closed ${res.business_day}: ${res.orders_archived} orders, ${res.cashier_sales_archived} sales archived.`);
+    } catch (e) {
+      console.error(e);
+      toast.error(e instanceof Error ? e.message : "Failed to close business day");
+    } finally {
+      setClosing(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
