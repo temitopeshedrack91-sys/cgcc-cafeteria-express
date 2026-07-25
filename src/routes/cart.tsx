@@ -12,7 +12,13 @@ export const Route = createFileRoute("/cart")({
 
 function CartPage() {
   const cart = useStore((s) => s.cart);
+  const menuState = useStore((s) => s.menuState);
   const total = cartTotal(cart, DEFAULT_MENU);
+  const hasStockIssue = cart.some((c) => {
+    const info = menuState[c.itemId];
+    if (!info) return false;
+    return !info.available || info.stockOnline < c.qty;
+  });
 
   if (cart.length === 0) {
     return (
