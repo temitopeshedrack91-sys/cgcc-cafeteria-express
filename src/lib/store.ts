@@ -115,6 +115,7 @@ type OrderRow = {
   phone: string;
   note: string | null;
   order_type: "dine-in" | "takeaway";
+  pickup_time?: string | null;
   total: number;
   payment_status: "paid" | "unpaid";
   pickup_status: OrderStatus;
@@ -135,6 +136,7 @@ function mapOrder(row: OrderRow): Order {
     phone: row.phone,
     note: row.note ?? undefined,
     orderType: row.order_type,
+    pickupTime: row.pickup_time ?? undefined,
     items: (row.order_items ?? []).map((i) => ({
       id: i.menu_item_id ?? i.name,
       name: i.name,
