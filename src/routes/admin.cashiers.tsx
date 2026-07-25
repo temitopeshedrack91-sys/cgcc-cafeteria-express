@@ -18,6 +18,7 @@ import {
   listCashiers,
   setCashierActive,
   setCashierPassword,
+  updateCashierEmail,
   type CashierRow,
   type CashierUsername,
 } from "@/lib/cashiers.functions";
@@ -42,11 +43,17 @@ function CashierManagement() {
   const [busy, setBusy] = useState(false);
   const [pwDialog, setPwDialog] = useState<CashierUsername | null>(null);
   const [newPw, setNewPw] = useState("");
+  const [emails, setEmails] = useState<Record<CashierUsername, string>>({ cashier1: "", cashier2: "" });
+  const [savingEmail, setSavingEmail] = useState<CashierUsername | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setRows(await listCashiers());
+      const data = await listCashiers();
+      setRows(data);
+      const emailMap: Record<string, string> = {};
+      for (const r of data) emailMap[r.username] = r.email;
+      setEmails(emailMap as Record<CashierUsername, string>);
     } catch (e: any) {
       toast.error(e.message ?? "Failed to load cashiers");
     } finally {
@@ -98,6 +105,28 @@ function CashierManagement() {
     }
   }
 
+  async function saveEmail(u: CashierUsername) {
+    const email = (emails[u] ?? "").trim().toLowerCase();
+    if (!email) {
+      toast.error("Email is required");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    setSavingEmail(u);
+    try {
+      await updateCashierEmail({ data: { username: u, email } });
+      toast.success("Email updated");
+      await load();
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to update email");
+    } finally {
+      setSavingEmail(null);
+    }
+  }
+
   const missing = CASHIER_USERNAMES.filter((u) => !rows.some((r) => r.username === u && r.user_id));
 
   return (
@@ -128,7 +157,28 @@ function CashierManagement() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-display text-lg font-bold uppercase">{r.username}</p>
-                <p className="text-sm text-muted-foreground">Email: <span className="font-mono">{r.email}</span></p>
+                <div className="mt-1 space-y-1">
+                  <Label htmlFor={`email-${r.username}`} className="text-xs text-muted-foreground">Login email</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id={`email-${r.username}`}
+                      type="email"
+                      value={emails[r.username] ?? r.email}
+                      onChange={(e) => setEmails((prev) => ({ ...prev, [r.username]: e.target.value }))}
+                      disabled={!r.user_id || savingEmail === r.username}
+                      className="h-8 text-sm"
+                      placeholder="cashier@example.com"
+                    />
+                    <Button
+                      size="sm"
+                      className="h-8 px-3"
+                      onClick={() => void saveEmail(r.username)}
+                      disabled={!r.user_id || savingEmail === r.username}
+                    >
+                      {savingEmail === r.username ? "Saving…" : "Save"}
+                    </Button>
+                  </div>
+                </div>
               </div>
               <span
                 className={

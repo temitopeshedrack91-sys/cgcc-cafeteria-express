@@ -19,6 +19,10 @@ async function assertAdmin(context: { supabase: any; userId: string }) {
   if (error || data !== true) throw new Error("Forbidden: administrator only");
 }
 
+function findCashier(users: any[], username: CashierUsername) {
+  return users.find((x: any) => x.user_metadata?.cashier_username === username);
+}
+
 export type CashierRow = {
   username: CashierUsername;
   email: string;
@@ -36,8 +40,8 @@ export const listCashiers = createServerFn({ method: "GET" })
     const users = list?.users ?? [];
     const rows: CashierRow[] = [];
     for (const u of CASHIER_USERNAMES) {
-      const email = DEFAULTS[u].email;
-      const user = users.find((x: any) => x.email === email);
+      const defaultEmail = DEFAULTS[u].email;
+      const user = findCashier(users, u);
       let active = false;
       if (user) {
         const { data: role } = await supabaseAdmin
@@ -50,7 +54,7 @@ export const listCashiers = createServerFn({ method: "GET" })
       }
       rows.push({
         username: u,
-        email,
+        email: user?.email ?? defaultEmail,
         user_id: user?.id ?? null,
         active,
         last_sign_in_at: (user as any)?.last_sign_in_at ?? null,
@@ -69,16 +73,25 @@ export const initCashiers = createServerFn({ method: "POST" })
     const users = list?.users ?? [];
     for (const u of CASHIER_USERNAMES) {
       const { email, password } = DEFAULTS[u];
-      let userId: string | null = users.find((x: any) => x.email === email)?.id ?? null;
+      let userId: string | null = findCashier(users, u)?.id ?? null;
       if (!userId) {
-        const res = await supabaseAdmin.auth.admin.createUser({
-          email,
-          password,
-          email_confirm: true,
-          user_metadata: { cashier_username: u },
-        });
-        userId = res.data?.user?.id ?? null;
-        if (userId) created.push(u);
+        // Avoid creating a duplicate if the default email already exists; just tag it.
+        const existingByEmail = users.find((x: any) => x.email === email);
+        if (existingByEmail) {
+          await supabaseAdmin.auth.admin.updateUserById(existingByEmail.id, {
+            user_metadata: { cashier_username: u },
+          });
+          userId = existingByEmail.id;
+        } else {
+          const res = await supabaseAdmin.auth.admin.createUser({
+            email,
+            password,
+            email_confirm: true,
+            user_metadata: { cashier_username: u },
+          });
+          userId = res.data?.user?.id ?? null;
+          if (userId) created.push(u);
+        }
       }
       if (!userId) continue;
       await supabaseAdmin
@@ -101,9 +114,8 @@ export const setCashierPassword = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const email = DEFAULTS[data.username as CashierUsername].email;
     const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    const user = list?.users?.find((x: any) => x.email === email);
+    const user = findCashier(list?.users ?? [], data.username);
     if (!user) throw new Error("Cashier account not found. Run setup first.");
     const { error } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
       password: data.password,
@@ -125,9 +137,8 @@ export const setCashierActive = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const email = DEFAULTS[data.username as CashierUsername].email;
     const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    const user = list?.users?.find((x: any) => x.email === email);
+    const user = findCashier(list?.users ?? [], data.username);
     if (!user) throw new Error("Cashier account not found.");
     if (data.active) {
       await supabaseAdmin
@@ -141,6 +152,46 @@ export const setCashierActive = createServerFn({ method: "POST" })
         .eq("role", "cashier" as any);
     }
     return { ok: true };
+  });
+
+export const updateCashierEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        username: z.enum(["cashier1", "cashier2"]),
+        email: z.string().email(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const user = findCashier(list?.users ?? [], data.username);
+    if (!user) throw new Error("Cashier account not found.");
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+      email: data.email,
+      email_confirm: true,
+    });
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const getCashierLoginEmail = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        username: z.enum(["cashier1", "cashier2"]),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const user = findCashier(list?.users ?? [], data.username);
+    if (!user) throw new Error("Cashier account not found.");
+    return { email: user.email as string };
   });
 
 export function cashierEmailFor(username: string): string | null {
