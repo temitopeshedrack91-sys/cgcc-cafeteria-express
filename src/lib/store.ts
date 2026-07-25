@@ -170,6 +170,8 @@ function mapOrder(row: OrderRow): Order {
     })),
     total: row.total,
     paymentStatus: row.payment_status,
+    paymentProvider: row.payment_provider ?? null,
+    paymentReference: row.payment_reference ?? null,
     pickupStatus: row.pickup_status,
     createdAt: new Date(row.created_at).getTime(),
   };
@@ -179,7 +181,7 @@ async function fetchOrders() {
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, code, receipt_no, customer_name, phone, note, order_type, pickup_time, total, payment_status, pickup_status, created_at, order_items ( menu_item_id, name, price, qty, vendor_type, preparation_status )",
+      "id, code, receipt_no, customer_name, phone, note, order_type, pickup_time, total, payment_status, payment_provider, payment_reference, pickup_status, created_at, order_items ( menu_item_id, name, price, qty, vendor_type, preparation_status )",
     )
     .order("created_at", { ascending: false })
     .limit(500);
