@@ -43,6 +43,14 @@ function ReceiptView() {
     })();
   }, [id]);
 
+  useEffect(() => {
+    if (!sale) return;
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("autoprint") === "1") {
+      const t = setTimeout(() => window.print(), 300);
+      return () => clearTimeout(t);
+    }
+  }, [sale]);
+
   function printReceipt() {
     window.print();
   }
