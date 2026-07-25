@@ -248,7 +248,9 @@ export type Database = {
           name: string
           price: number
           sort_order: number
+          stock_online: number
           stock_qty: number
+          stock_walkin: number
           vendor_type: string
         }
         Insert: {
@@ -260,7 +262,9 @@ export type Database = {
           name: string
           price: number
           sort_order?: number
+          stock_online?: number
           stock_qty?: number
+          stock_walkin?: number
           vendor_type: string
         }
         Update: {
@@ -272,7 +276,9 @@ export type Database = {
           name?: string
           price?: number
           sort_order?: number
+          stock_online?: number
           stock_qty?: number
+          stock_walkin?: number
           vendor_type?: string
         }
         Relationships: [
@@ -473,6 +479,15 @@ export type Database = {
         Args: { _item_id: string; _new_qty: number; _reason?: string }
         Returns: Json
       }
+      adjust_stock_split: {
+        Args: {
+          _item_id: string
+          _online: number
+          _reason?: string
+          _walkin: number
+        }
+        Returns: Json
+      }
       apply_payment_result: {
         Args: {
           _amount: number
@@ -564,6 +579,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      reallocate_stock: {
+        Args: { _delta_to_online: number; _item_id: string; _reason?: string }
+        Returns: Json
       }
       reopen_business_day: { Args: { _day: string }; Returns: Json }
       vendor_type_for_user: { Args: { _user_id: string }; Returns: string }
