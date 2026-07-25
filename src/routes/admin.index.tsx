@@ -123,17 +123,29 @@ function Dashboard() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Today's orders at a glance.</p>
+          <p className="text-sm text-muted-foreground">Operations at a glance.</p>
         </div>
-        <div className="flex items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-soft">
-          <Power className={"h-4 w-4 " + (orderingOpen ? "text-emerald-600" : "text-destructive")} />
-          <span className="text-sm font-medium">
-            Ordering {orderingOpen ? "Open" : "Closed"}
-          </span>
-          <Switch
-            checked={orderingOpen}
-            onCheckedChange={(v) => actions.setOrderingOpen(Boolean(v))}
-          />
+        <div className="flex flex-wrap items-center gap-2">
+          <BusinessDayFilter value={filter} onChange={setFilter} />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void handleCloseDay()}
+            disabled={closing}
+          >
+            <Lock className="mr-1 h-3.5 w-3.5" />
+            {closing ? "Closing…" : "Close Business Day"}
+          </Button>
+          <div className="flex items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-soft">
+            <Power className={"h-4 w-4 " + (orderingOpen ? "text-emerald-600" : "text-destructive")} />
+            <span className="text-sm font-medium">
+              Ordering {orderingOpen ? "Open" : "Closed"}
+            </span>
+            <Switch
+              checked={orderingOpen}
+              onCheckedChange={(v) => actions.setOrderingOpen(Boolean(v))}
+            />
+          </div>
         </div>
       </div>
 
