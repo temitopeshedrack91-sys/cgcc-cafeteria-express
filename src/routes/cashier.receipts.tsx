@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, Search } from "lucide-react";
+import { Download, ExternalLink, Search } from "lucide-react";
 import { CashierShell } from "@/components/CashierShell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -114,9 +114,16 @@ function CashierReceipts() {
                   <td className="px-3 py-2 text-xs">{paymentLabel(s.payment_method)}</td>
                   <td className="px-3 py-2 text-right font-semibold">{formatNaira(s.total)}</td>
                   <td className="px-3 py-2 text-right">
-                    <Button size="sm" variant="outline" onClick={() => downloadCashierReceiptPdf(s)}>
-                      <Download className="mr-1 h-3 w-3" /> PDF
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      <Button size="sm" variant="outline" asChild>
+                        <Link to="/cashier/receipt/$id" params={{ id: s.id }}>
+                          <ExternalLink className="mr-1 h-3 w-3" /> Open
+                        </Link>
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => downloadCashierReceiptPdf(s)}>
+                        <Download className="mr-1 h-3 w-3" /> PDF
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))

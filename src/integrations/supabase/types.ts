@@ -35,6 +35,39 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          user_id: string | null
+          user_label: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          user_id?: string | null
+          user_label?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          user_id?: string | null
+          user_label?: string | null
+        }
+        Relationships: []
+      }
       business_day_closures: {
         Row: {
           business_day: string
@@ -240,39 +273,54 @@ export type Database = {
       }
       menu_items: {
         Row: {
+          archived_at: string | null
           available: boolean
           category_id: string
           created_at: string
+          description: string | null
           id: string
+          image_url: string | null
           low_stock_threshold: number
           name: string
           price: number
           sort_order: number
+          stock_online: number
           stock_qty: number
+          stock_walkin: number
           vendor_type: string
         }
         Insert: {
+          archived_at?: string | null
           available?: boolean
           category_id: string
           created_at?: string
+          description?: string | null
           id: string
+          image_url?: string | null
           low_stock_threshold?: number
           name: string
           price: number
           sort_order?: number
+          stock_online?: number
           stock_qty?: number
+          stock_walkin?: number
           vendor_type: string
         }
         Update: {
+          archived_at?: string | null
           available?: boolean
           category_id?: string
           created_at?: string
+          description?: string | null
           id?: string
+          image_url?: string | null
           low_stock_threshold?: number
           name?: string
           price?: number
           sort_order?: number
+          stock_online?: number
           stock_qty?: number
+          stock_walkin?: number
           vendor_type?: string
         }
         Relationships: [
@@ -473,6 +521,15 @@ export type Database = {
         Args: { _item_id: string; _new_qty: number; _reason?: string }
         Returns: Json
       }
+      adjust_stock_split: {
+        Args: {
+          _item_id: string
+          _online: number
+          _reason?: string
+          _walkin: number
+        }
+        Returns: Json
+      }
       apply_payment_result: {
         Args: {
           _amount: number
@@ -484,6 +541,7 @@ export type Database = {
         }
         Returns: Json
       }
+      archive_menu_item: { Args: { _id: string }; Returns: Json }
       close_business_day: {
         Args: { _day?: string; _note?: string }
         Returns: Json
@@ -533,6 +591,7 @@ export type Database = {
             }[]
           }
       current_business_day: { Args: never; Returns: string }
+      delete_menu_item: { Args: { _id: string }; Returns: Json }
       get_order_by_code: { Args: { _code: string }; Returns: Json }
       get_orders_by_phone: { Args: { _phone: string }; Returns: Json }
       has_role: {
@@ -542,6 +601,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_business_day_closed: { Args: { _day?: string }; Returns: boolean }
       list_inventory_history: {
         Args: { _limit?: number; _vendor?: string }
         Returns: {
@@ -565,7 +625,34 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      log_audit: {
+        Args: {
+          _action: string
+          _details?: Json
+          _entity_id?: string
+          _entity_type?: string
+        }
+        Returns: string
+      }
+      reallocate_stock: {
+        Args: { _delta_to_online: number; _item_id: string; _reason?: string }
+        Returns: Json
+      }
       reopen_business_day: { Args: { _day: string }; Returns: Json }
+      restore_menu_item: { Args: { _id: string }; Returns: Json }
+      upsert_menu_item: {
+        Args: {
+          _available?: boolean
+          _category_id: string
+          _description?: string
+          _id: string
+          _image_url?: string
+          _name: string
+          _price: number
+          _vendor_type: string
+        }
+        Returns: Json
+      }
       vendor_type_for_user: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {

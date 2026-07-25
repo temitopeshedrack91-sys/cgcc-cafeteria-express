@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, FileDown, Minus, Plus, RefreshCw, ShoppingCart, Trash2 } from "lucide-react";
+import { Download, FileDown, Minus, Plus, Printer, RefreshCw, ShoppingCart, Trash2 } from "lucide-react";
 import { CashierShell } from "@/components/CashierShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,9 @@ import type { ReportOrder, ReportScope } from "@/lib/reports";
 import { rangeFor, computeReport } from "@/lib/reports";
 import { downloadReportPdf } from "@/lib/report-pdf";
 import { downloadReportXlsx } from "@/lib/report-xlsx";
+import { closeBusinessDay, currentBusinessDay } from "@/lib/business-day";
+import { isBusinessDayClosed } from "@/lib/admin-ops";
+import { Lock } from "lucide-react";
 
 export const Route = createFileRoute("/cashier/")({
   head: () => ({
@@ -68,6 +71,8 @@ function CashierSales() {
   const [lastSale, setLastSale] = useState<CashierSale | null>(null);
   const [sales, setSales] = useState<CashierSale[]>([]);
   const [reportOpen, setReportOpen] = useState(false);
+  const [closed, setClosed] = useState(false);
+  const [closing, setClosing] = useState(false);
 
   const loadMenu = useCallback(async () => {
     const { data, error } = await supabase
@@ -100,18 +105,38 @@ function CashierSales() {
     }
   }, []);
 
+  const refreshClosed = useCallback(async () => {
+    setClosed(await isBusinessDayClosed());
+  }, []);
+
   useEffect(() => {
     void loadMenu();
     void loadSales();
+    void refreshClosed();
     const ch = supabase
       .channel("cashier-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "menu_items" }, () => void loadMenu())
       .on("postgres_changes", { event: "*", schema: "public", table: "cashier_sales" }, () => void loadSales())
+      .on("postgres_changes", { event: "*", schema: "public", table: "business_day_closures" }, () => void refreshClosed())
       .subscribe();
     return () => {
       void supabase.removeChannel(ch);
     };
-  }, [loadMenu, loadSales]);
+  }, [loadMenu, loadSales, refreshClosed]);
+
+  async function doCloseSales() {
+    if (!confirm("Close today's sales? Cashiers will not be able to add new walk-in sales until admin reopens the day.")) return;
+    setClosing(true);
+    try {
+      await closeBusinessDay(currentBusinessDay(), "Cashier reconciliation");
+      toast.success("Sales closed for today");
+      setClosed(true);
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to close sales");
+    } finally {
+      setClosing(false);
+    }
+  }
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -180,8 +205,18 @@ function CashierSales() {
           <Button size="sm" onClick={() => setReportOpen(true)}>
             <FileDown className="mr-1 h-4 w-4" /> End of Day
           </Button>
+          <Button size="sm" variant={closed ? "outline" : "destructive"} disabled={closed || closing} onClick={doCloseSales}>
+            <Lock className="mr-1 h-4 w-4" /> {closed ? "Sales Closed" : closing ? "Closing…" : "Close Sales"}
+          </Button>
         </div>
       </div>
+
+      {closed && (
+        <div className="rounded-xl border border-amber-300 bg-amber-100 px-3 py-2 text-sm text-amber-900">
+          <Lock className="mr-1 inline h-4 w-4" /> Today's sales are closed. New walk-in sales are blocked until an admin
+          reopens the day.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-3">
@@ -331,11 +366,12 @@ function CashierSales() {
 }
 
 function ReceiptDialog({ sale, onClose }: { sale: CashierSale | null; onClose: () => void }) {
+  const navigate = useNavigate();
   return (
     <Dialog open={sale !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Sale Completed · {sale?.code}</DialogTitle>
+          <DialogTitle>Sale Completed Successfully · {sale?.code}</DialogTitle>
         </DialogHeader>
         {sale && (
           <div className="space-y-3">
@@ -365,14 +401,31 @@ function ReceiptDialog({ sale, onClose }: { sale: CashierSale | null; onClose: (
             </ul>
           </div>
         )}
-        <DialogFooter>
+        <DialogFooter className="flex-wrap gap-2">
           <Button variant="outline" onClick={onClose}>
-            Close
+            New Sale
           </Button>
           {sale && (
-            <Button onClick={() => downloadCashierReceiptPdf(sale)}>
-              <Download className="mr-1 h-4 w-4" /> Download PDF
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={() => navigate({ to: "/cashier/receipt/$id", params: { id: sale.id } })}
+              >
+                Open Receipt
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const w = window.open(`/cashier/receipt/${sale.id}?autoprint=1`, "_blank");
+                  if (!w) toast.error("Popup blocked");
+                }}
+              >
+                <Printer className="mr-1 h-4 w-4" /> Print Receipt
+              </Button>
+              <Button onClick={() => downloadCashierReceiptPdf(sale)}>
+                <Download className="mr-1 h-4 w-4" /> Download PDF
+              </Button>
+            </>
           )}
         </DialogFooter>
       </DialogContent>

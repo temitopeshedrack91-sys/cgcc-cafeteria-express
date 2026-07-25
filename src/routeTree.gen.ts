@@ -23,12 +23,15 @@ import { Route as ReceiptCodeRouteImport } from './routes/receipt.$code'
 import { Route as CashierReceiptsRouteImport } from './routes/cashier.receipts'
 import { Route as CashierLoginRouteImport } from './routes/cashier.login'
 import { Route as AdminVendorsRouteImport } from './routes/admin.vendors'
+import { Route as AdminProductsRouteImport } from './routes/admin.products'
 import { Route as AdminPaymentRouteImport } from './routes/admin.payment'
 import { Route as AdminMenuRouteImport } from './routes/admin.menu'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AdminInventoryRouteImport } from './routes/admin.inventory'
 import { Route as AdminCashiersRouteImport } from './routes/admin.cashiers'
+import { Route as AdminAuditRouteImport } from './routes/admin.audit'
 import { Route as PaymentOpayReturnRouteImport } from './routes/payment.opay.return'
+import { Route as CashierReceiptIdRouteImport } from './routes/cashier.receipt.$id'
 import { Route as ApiPublicOpayWebhookRouteImport } from './routes/api/public/opay.webhook'
 
 const PaymentRoute = PaymentRouteImport.update({
@@ -101,6 +104,11 @@ const AdminVendorsRoute = AdminVendorsRouteImport.update({
   path: '/admin/vendors',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminProductsRoute = AdminProductsRouteImport.update({
+  id: '/admin/products',
+  path: '/admin/products',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminPaymentRoute = AdminPaymentRouteImport.update({
   id: '/admin/payment',
   path: '/admin/payment',
@@ -126,10 +134,20 @@ const AdminCashiersRoute = AdminCashiersRouteImport.update({
   path: '/admin/cashiers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAuditRoute = AdminAuditRouteImport.update({
+  id: '/admin/audit',
+  path: '/admin/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PaymentOpayReturnRoute = PaymentOpayReturnRouteImport.update({
   id: '/opay/return',
   path: '/opay/return',
   getParentRoute: () => PaymentRoute,
+} as any)
+const CashierReceiptIdRoute = CashierReceiptIdRouteImport.update({
+  id: '/cashier/receipt/$id',
+  path: '/cashier/receipt/$id',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicOpayWebhookRoute = ApiPublicOpayWebhookRouteImport.update({
   id: '/api/public/opay/webhook',
@@ -144,11 +162,13 @@ export interface FileRoutesByFullPath {
   '/history': typeof HistoryRoute
   '/menu': typeof MenuRoute
   '/payment': typeof PaymentRouteWithChildren
+  '/admin/audit': typeof AdminAuditRoute
   '/admin/cashiers': typeof AdminCashiersRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/menu': typeof AdminMenuRoute
   '/admin/payment': typeof AdminPaymentRoute
+  '/admin/products': typeof AdminProductsRoute
   '/admin/vendors': typeof AdminVendorsRoute
   '/cashier/login': typeof CashierLoginRoute
   '/cashier/receipts': typeof CashierReceiptsRoute
@@ -157,6 +177,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/cashier/': typeof CashierIndexRoute
   '/vendor/': typeof VendorIndexRoute
+  '/cashier/receipt/$id': typeof CashierReceiptIdRoute
   '/payment/opay/return': typeof PaymentOpayReturnRoute
   '/api/public/opay/webhook': typeof ApiPublicOpayWebhookRoute
 }
@@ -167,11 +188,13 @@ export interface FileRoutesByTo {
   '/history': typeof HistoryRoute
   '/menu': typeof MenuRoute
   '/payment': typeof PaymentRouteWithChildren
+  '/admin/audit': typeof AdminAuditRoute
   '/admin/cashiers': typeof AdminCashiersRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/menu': typeof AdminMenuRoute
   '/admin/payment': typeof AdminPaymentRoute
+  '/admin/products': typeof AdminProductsRoute
   '/admin/vendors': typeof AdminVendorsRoute
   '/cashier/login': typeof CashierLoginRoute
   '/cashier/receipts': typeof CashierReceiptsRoute
@@ -180,6 +203,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/cashier': typeof CashierIndexRoute
   '/vendor': typeof VendorIndexRoute
+  '/cashier/receipt/$id': typeof CashierReceiptIdRoute
   '/payment/opay/return': typeof PaymentOpayReturnRoute
   '/api/public/opay/webhook': typeof ApiPublicOpayWebhookRoute
 }
@@ -191,11 +215,13 @@ export interface FileRoutesById {
   '/history': typeof HistoryRoute
   '/menu': typeof MenuRoute
   '/payment': typeof PaymentRouteWithChildren
+  '/admin/audit': typeof AdminAuditRoute
   '/admin/cashiers': typeof AdminCashiersRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/menu': typeof AdminMenuRoute
   '/admin/payment': typeof AdminPaymentRoute
+  '/admin/products': typeof AdminProductsRoute
   '/admin/vendors': typeof AdminVendorsRoute
   '/cashier/login': typeof CashierLoginRoute
   '/cashier/receipts': typeof CashierReceiptsRoute
@@ -204,6 +230,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/cashier/': typeof CashierIndexRoute
   '/vendor/': typeof VendorIndexRoute
+  '/cashier/receipt/$id': typeof CashierReceiptIdRoute
   '/payment/opay/return': typeof PaymentOpayReturnRoute
   '/api/public/opay/webhook': typeof ApiPublicOpayWebhookRoute
 }
@@ -216,11 +243,13 @@ export interface FileRouteTypes {
     | '/history'
     | '/menu'
     | '/payment'
+    | '/admin/audit'
     | '/admin/cashiers'
     | '/admin/inventory'
     | '/admin/login'
     | '/admin/menu'
     | '/admin/payment'
+    | '/admin/products'
     | '/admin/vendors'
     | '/cashier/login'
     | '/cashier/receipts'
@@ -229,6 +258,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/cashier/'
     | '/vendor/'
+    | '/cashier/receipt/$id'
     | '/payment/opay/return'
     | '/api/public/opay/webhook'
   fileRoutesByTo: FileRoutesByTo
@@ -239,11 +269,13 @@ export interface FileRouteTypes {
     | '/history'
     | '/menu'
     | '/payment'
+    | '/admin/audit'
     | '/admin/cashiers'
     | '/admin/inventory'
     | '/admin/login'
     | '/admin/menu'
     | '/admin/payment'
+    | '/admin/products'
     | '/admin/vendors'
     | '/cashier/login'
     | '/cashier/receipts'
@@ -252,6 +284,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/cashier'
     | '/vendor'
+    | '/cashier/receipt/$id'
     | '/payment/opay/return'
     | '/api/public/opay/webhook'
   id:
@@ -262,11 +295,13 @@ export interface FileRouteTypes {
     | '/history'
     | '/menu'
     | '/payment'
+    | '/admin/audit'
     | '/admin/cashiers'
     | '/admin/inventory'
     | '/admin/login'
     | '/admin/menu'
     | '/admin/payment'
+    | '/admin/products'
     | '/admin/vendors'
     | '/cashier/login'
     | '/cashier/receipts'
@@ -275,6 +310,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/cashier/'
     | '/vendor/'
+    | '/cashier/receipt/$id'
     | '/payment/opay/return'
     | '/api/public/opay/webhook'
   fileRoutesById: FileRoutesById
@@ -286,11 +322,13 @@ export interface RootRouteChildren {
   HistoryRoute: typeof HistoryRoute
   MenuRoute: typeof MenuRoute
   PaymentRoute: typeof PaymentRouteWithChildren
+  AdminAuditRoute: typeof AdminAuditRoute
   AdminCashiersRoute: typeof AdminCashiersRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminMenuRoute: typeof AdminMenuRoute
   AdminPaymentRoute: typeof AdminPaymentRoute
+  AdminProductsRoute: typeof AdminProductsRoute
   AdminVendorsRoute: typeof AdminVendorsRoute
   CashierLoginRoute: typeof CashierLoginRoute
   CashierReceiptsRoute: typeof CashierReceiptsRoute
@@ -299,6 +337,7 @@ export interface RootRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
   CashierIndexRoute: typeof CashierIndexRoute
   VendorIndexRoute: typeof VendorIndexRoute
+  CashierReceiptIdRoute: typeof CashierReceiptIdRoute
   ApiPublicOpayWebhookRoute: typeof ApiPublicOpayWebhookRoute
 }
 
@@ -402,6 +441,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminVendorsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/products': {
+      id: '/admin/products'
+      path: '/admin/products'
+      fullPath: '/admin/products'
+      preLoaderRoute: typeof AdminProductsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/payment': {
       id: '/admin/payment'
       path: '/admin/payment'
@@ -437,12 +483,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCashiersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/audit': {
+      id: '/admin/audit'
+      path: '/admin/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AdminAuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/payment/opay/return': {
       id: '/payment/opay/return'
       path: '/opay/return'
       fullPath: '/payment/opay/return'
       preLoaderRoute: typeof PaymentOpayReturnRouteImport
       parentRoute: typeof PaymentRoute
+    }
+    '/cashier/receipt/$id': {
+      id: '/cashier/receipt/$id'
+      path: '/cashier/receipt/$id'
+      fullPath: '/cashier/receipt/$id'
+      preLoaderRoute: typeof CashierReceiptIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/opay/webhook': {
       id: '/api/public/opay/webhook'
@@ -472,11 +532,13 @@ const rootRouteChildren: RootRouteChildren = {
   HistoryRoute: HistoryRoute,
   MenuRoute: MenuRoute,
   PaymentRoute: PaymentRouteWithChildren,
+  AdminAuditRoute: AdminAuditRoute,
   AdminCashiersRoute: AdminCashiersRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminMenuRoute: AdminMenuRoute,
   AdminPaymentRoute: AdminPaymentRoute,
+  AdminProductsRoute: AdminProductsRoute,
   AdminVendorsRoute: AdminVendorsRoute,
   CashierLoginRoute: CashierLoginRoute,
   CashierReceiptsRoute: CashierReceiptsRoute,
@@ -485,18 +547,9 @@ const rootRouteChildren: RootRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
   CashierIndexRoute: CashierIndexRoute,
   VendorIndexRoute: VendorIndexRoute,
+  CashierReceiptIdRoute: CashierReceiptIdRoute,
   ApiPublicOpayWebhookRoute: ApiPublicOpayWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
