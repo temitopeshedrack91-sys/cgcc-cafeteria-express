@@ -156,7 +156,7 @@ function Dashboard() {
         <StatCard label="Ready" value={counts.ready} tint="bg-emerald-50" />
         <StatCard label="Collected" value={counts.collected} tint="bg-muted" />
         <div className="col-span-2 rounded-2xl bg-primary p-4 text-primary-foreground shadow-soft md:col-span-1">
-          <p className="text-xs uppercase tracking-wider text-brand">Today's revenue</p>
+          <p className="text-xs uppercase tracking-wider text-brand">Revenue</p>
           <p className="mt-2 font-display text-2xl font-bold">{formatNaira(revenue)}</p>
         </div>
       </div>
