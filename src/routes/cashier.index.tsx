@@ -53,6 +53,8 @@ type LiveItem = {
   category: MenuCategory;
   available: boolean;
   stock_qty: number;
+  stock_walkin: number;
+  stock_online: number;
 };
 
 type CartLine = { id: string; name: string; price: number; qty: number };
@@ -77,7 +79,7 @@ function CashierSales() {
   const loadMenu = useCallback(async () => {
     const { data, error } = await supabase
       .from("menu_items")
-      .select("id, name, price, available, stock_qty")
+      .select("id, name, price, available, stock_qty, stock_walkin, stock_online")
       .order("name");
     if (error) {
       toast.error("Failed to load menu");
@@ -93,6 +95,8 @@ function CashierSales() {
         category: catMap.get(r.id) ?? "Meals",
         available: r.available !== false,
         stock_qty: r.stock_qty ?? 0,
+        stock_walkin: r.stock_walkin ?? 0,
+        stock_online: r.stock_online ?? 0,
       })),
     );
   }, []);
@@ -152,6 +156,16 @@ function CashierSales() {
   const totalQty = cart.reduce((s, l) => s + l.qty, 0);
 
   function addToCart(it: LiveItem) {
+    if (!it.available || it.stock_walkin <= 0) {
+      toast.error(`${it.name} is sold out for walk-in`);
+      return;
+    }
+    const existing = cart.find((l) => l.id === it.id);
+    const currentQty = existing?.qty ?? 0;
+    if (currentQty + 1 > it.stock_walkin) {
+      toast.error(`Only ${it.stock_walkin} ${it.name} available for walk-in`);
+      return;
+    }
     setCart((c) => {
       const found = c.find((l) => l.id === it.id);
       if (found) return c.map((l) => (l.id === it.id ? { ...l, qty: l.qty + 1 } : l));
@@ -160,8 +174,16 @@ function CashierSales() {
   }
 
   function updateQty(id: string, qty: number) {
-    if (qty <= 0) setCart((c) => c.filter((l) => l.id !== id));
-    else setCart((c) => c.map((l) => (l.id === id ? { ...l, qty } : l)));
+    if (qty <= 0) {
+      setCart((c) => c.filter((l) => l.id !== id));
+      return;
+    }
+    const it = items.find((i) => i.id === id);
+    if (it && qty > it.stock_walkin) {
+      toast.error(`Only ${it.stock_walkin} ${it.name} available for walk-in`);
+      return;
+    }
+    setCart((c) => c.map((l) => (l.id === id ? { ...l, qty } : l)));
   }
 
   async function completeSale() {
@@ -253,24 +275,37 @@ function CashierSales() {
               </p>
             ) : (
               filtered.map((i) => {
-                const low = i.stock_qty > 0 && i.stock_qty <= 10;
+                const soldOut = i.stock_walkin <= 0;
+                const low = !soldOut && i.stock_walkin <= 10;
                 return (
                   <button
                     key={i.id}
                     type="button"
                     onClick={() => addToCart(i)}
-                    className="rounded-xl border border-border bg-card p-3 text-left shadow-soft transition hover:border-brand hover:shadow-elegant"
+                    disabled={soldOut}
+                    className={
+                      "rounded-xl border bg-card p-3 text-left shadow-soft transition " +
+                      (soldOut
+                        ? "cursor-not-allowed border-destructive/40 opacity-60"
+                        : "border-border hover:border-brand hover:shadow-elegant")
+                    }
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="font-display text-sm font-bold leading-tight">{i.name}</p>
-                      {low && (
+                      {soldOut ? (
+                        <span className="rounded-full border border-destructive/40 bg-destructive/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-destructive">
+                          Sold Out Walk-in
+                        </span>
+                      ) : low ? (
                         <span className="rounded-full border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-900">
                           Low
                         </span>
-                      )}
+                      ) : null}
                     </div>
                     <p className="mt-1 text-sm font-bold text-primary">{formatNaira(i.price)}</p>
-                    <p className="mt-1 text-[10px] uppercase text-muted-foreground">Stock: {i.stock_qty}</p>
+                    <p className="mt-1 text-[10px] uppercase text-muted-foreground">
+                      Walk-in: {i.stock_walkin} · Online: {i.stock_online}
+                    </p>
                   </button>
                 );
               })

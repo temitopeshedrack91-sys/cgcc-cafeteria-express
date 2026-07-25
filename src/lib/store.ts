@@ -49,7 +49,13 @@ export type Order = {
   archivedAt?: string | null;
 };
 
-type MenuState = Record<string, { available: boolean }>;
+type MenuStockInfo = {
+  available: boolean;
+  stockOnline: number;
+  stockWalkin: number;
+  stockQty: number;
+};
+type MenuState = Record<string, MenuStockInfo>;
 
 type AppState = {
   cart: CartItem[];
@@ -92,7 +98,7 @@ let state: AppState = {
   cart: initialLocal.cart,
   menu: DEFAULT_MENU,
   menuState: Object.fromEntries(
-    DEFAULT_MENU.map((m) => [m.id, { available: true }]),
+    DEFAULT_MENU.map((m) => [m.id, { available: true, stockOnline: 0, stockWalkin: 0, stockQty: 0 }]),
   ),
   orders: [],
   orderingOpen: true,
@@ -239,14 +245,25 @@ export async function fetchOrderByCode(
 async function fetchMenu() {
   const { data, error } = await supabase
     .from("menu_items")
-    .select("id, available");
+    .select("id, available, stock_online, stock_walkin, stock_qty");
   if (error) {
     console.error("[store] fetchMenu failed", error);
     return;
   }
   const menuState: MenuState = { ...state.menuState };
-  for (const row of data as { id: string; available: boolean }[]) {
-    menuState[row.id] = { available: row.available };
+  for (const row of data as {
+    id: string;
+    available: boolean;
+    stock_online: number | null;
+    stock_walkin: number | null;
+    stock_qty: number | null;
+  }[]) {
+    menuState[row.id] = {
+      available: row.available,
+      stockOnline: row.stock_online ?? 0,
+      stockWalkin: row.stock_walkin ?? 0,
+      stockQty: row.stock_qty ?? 0,
+    };
   }
   set({ menuState });
 }
@@ -366,16 +383,16 @@ export const actions = {
   },
 
   async toggleAvailable(itemId: string) {
-    const cur = state.menuState[itemId]?.available ?? true;
-    const next = !cur;
-    set({ menuState: { ...state.menuState, [itemId]: { available: next } } });
+    const prev = state.menuState[itemId] ?? { available: true, stockOnline: 0, stockWalkin: 0, stockQty: 0 };
+    const next = !prev.available;
+    set({ menuState: { ...state.menuState, [itemId]: { ...prev, available: next } } });
     const { error } = await supabase
       .from("menu_items")
       .update({ available: next })
       .eq("id", itemId);
     if (error) {
       console.error("[store] toggleAvailable failed", error);
-      set({ menuState: { ...state.menuState, [itemId]: { available: cur } } });
+      set({ menuState: { ...state.menuState, [itemId]: prev } });
     }
   },
 
