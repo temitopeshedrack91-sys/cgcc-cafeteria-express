@@ -53,6 +53,8 @@ type LiveItem = {
   category: MenuCategory;
   available: boolean;
   stock_qty: number;
+  stock_walkin: number;
+  stock_online: number;
 };
 
 type CartLine = { id: string; name: string; price: number; qty: number };
