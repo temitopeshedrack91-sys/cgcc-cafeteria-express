@@ -363,6 +363,7 @@ export const actions = {
     phone: string;
     note?: string;
     orderType: "dine-in" | "takeaway";
+    pickupTime: string;
     items: { id: string; name: string; price: number; qty: number }[];
     total: number;
   }): Promise<Order> {
@@ -379,6 +380,7 @@ export const actions = {
       _phone: input.phone,
       _note: input.note ?? "",
       _order_type: input.orderType,
+      _pickup_time: input.pickupTime,
       // Server ignores price/name — only id + qty are trusted.
       _items: input.items.map((i) => ({ id: i.id, qty: i.qty })),
     });
@@ -398,6 +400,7 @@ export const actions = {
       phone: input.phone,
       note: input.note,
       orderType: input.orderType,
+      pickupTime: row.pickup_time ?? input.pickupTime,
       items: input.items,
       total: row.total,
       paymentStatus: "unpaid",
