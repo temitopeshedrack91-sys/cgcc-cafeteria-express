@@ -32,8 +32,8 @@ export async function createCashierSale(input: {
 }): Promise<CashierSale> {
   const { data, error } = await supabase.rpc("create_cashier_sale", {
     _payment_method: input.payment_method,
-    _customer_name: input.customer_name ?? null,
-    _note: input.note ?? null,
+    _customer_name: input.customer_name ?? "",
+    _note: input.note ?? "",
     _items: input.items,
   });
   if (error) throw error;

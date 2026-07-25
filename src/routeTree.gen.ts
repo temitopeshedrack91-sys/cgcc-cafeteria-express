@@ -19,6 +19,7 @@ import { Route as VendorIndexRouteImport } from './routes/vendor.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as VendorLoginRouteImport } from './routes/vendor.login'
 import { Route as ReceiptCodeRouteImport } from './routes/receipt.$code'
+import { Route as CashierLoginRouteImport } from './routes/cashier.login'
 import { Route as AdminVendorsRouteImport } from './routes/admin.vendors'
 import { Route as AdminPaymentRouteImport } from './routes/admin.payment'
 import { Route as AdminMenuRouteImport } from './routes/admin.menu'
@@ -76,6 +77,11 @@ const ReceiptCodeRoute = ReceiptCodeRouteImport.update({
   path: '/receipt/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CashierLoginRoute = CashierLoginRouteImport.update({
+  id: '/cashier/login',
+  path: '/cashier/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminVendorsRoute = AdminVendorsRouteImport.update({
   id: '/admin/vendors',
   path: '/admin/vendors',
@@ -118,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/admin/menu': typeof AdminMenuRoute
   '/admin/payment': typeof AdminPaymentRoute
   '/admin/vendors': typeof AdminVendorsRoute
+  '/cashier/login': typeof CashierLoginRoute
   '/receipt/$code': typeof ReceiptCodeRoute
   '/vendor/login': typeof VendorLoginRoute
   '/admin/': typeof AdminIndexRoute
@@ -136,6 +143,7 @@ export interface FileRoutesByTo {
   '/admin/menu': typeof AdminMenuRoute
   '/admin/payment': typeof AdminPaymentRoute
   '/admin/vendors': typeof AdminVendorsRoute
+  '/cashier/login': typeof CashierLoginRoute
   '/receipt/$code': typeof ReceiptCodeRoute
   '/vendor/login': typeof VendorLoginRoute
   '/admin': typeof AdminIndexRoute
@@ -155,6 +163,7 @@ export interface FileRoutesById {
   '/admin/menu': typeof AdminMenuRoute
   '/admin/payment': typeof AdminPaymentRoute
   '/admin/vendors': typeof AdminVendorsRoute
+  '/cashier/login': typeof CashierLoginRoute
   '/receipt/$code': typeof ReceiptCodeRoute
   '/vendor/login': typeof VendorLoginRoute
   '/admin/': typeof AdminIndexRoute
@@ -175,6 +184,7 @@ export interface FileRouteTypes {
     | '/admin/menu'
     | '/admin/payment'
     | '/admin/vendors'
+    | '/cashier/login'
     | '/receipt/$code'
     | '/vendor/login'
     | '/admin/'
@@ -193,6 +203,7 @@ export interface FileRouteTypes {
     | '/admin/menu'
     | '/admin/payment'
     | '/admin/vendors'
+    | '/cashier/login'
     | '/receipt/$code'
     | '/vendor/login'
     | '/admin'
@@ -211,6 +222,7 @@ export interface FileRouteTypes {
     | '/admin/menu'
     | '/admin/payment'
     | '/admin/vendors'
+    | '/cashier/login'
     | '/receipt/$code'
     | '/vendor/login'
     | '/admin/'
@@ -230,6 +242,7 @@ export interface RootRouteChildren {
   AdminMenuRoute: typeof AdminMenuRoute
   AdminPaymentRoute: typeof AdminPaymentRoute
   AdminVendorsRoute: typeof AdminVendorsRoute
+  CashierLoginRoute: typeof CashierLoginRoute
   ReceiptCodeRoute: typeof ReceiptCodeRoute
   VendorLoginRoute: typeof VendorLoginRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -309,6 +322,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReceiptCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cashier/login': {
+      id: '/cashier/login'
+      path: '/cashier/login'
+      fullPath: '/cashier/login'
+      preLoaderRoute: typeof CashierLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/vendors': {
       id: '/admin/vendors'
       path: '/admin/vendors'
@@ -376,6 +396,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminMenuRoute: AdminMenuRoute,
   AdminPaymentRoute: AdminPaymentRoute,
   AdminVendorsRoute: AdminVendorsRoute,
+  CashierLoginRoute: CashierLoginRoute,
   ReceiptCodeRoute: ReceiptCodeRoute,
   VendorLoginRoute: VendorLoginRoute,
   AdminIndexRoute: AdminIndexRoute,
