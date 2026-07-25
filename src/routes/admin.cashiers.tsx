@@ -49,7 +49,11 @@ function CashierManagement() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setRows(await listCashiers());
+      const data = await listCashiers();
+      setRows(data);
+      const emailMap: Record<string, string> = {};
+      for (const r of data) emailMap[r.username] = r.email;
+      setEmails(emailMap as Record<CashierUsername, string>);
     } catch (e: any) {
       toast.error(e.message ?? "Failed to load cashiers");
     } finally {
