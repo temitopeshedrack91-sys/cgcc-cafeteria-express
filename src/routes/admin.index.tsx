@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { FileDown, Power, Search } from "lucide-react";
+import { FileDown, Lock, Power, Search } from "lucide-react";
+import { toast } from "sonner";
 import { AdminGuard, AdminShell } from "@/components/AdminShell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,14 @@ import { actions, formatNaira, useStore, type Order, type OrderStatus } from "@/
 import { ReportDialog } from "@/components/ReportDialog";
 import type { ReportOrder, ReportScope } from "@/lib/reports";
 import { VENDOR_LABELS } from "@/lib/reports";
+import { BusinessDayFilter } from "@/components/BusinessDayFilter";
+import {
+  closeBusinessDay,
+  currentBusinessDay,
+  defaultFilter,
+  matchesFilter,
+  type BusinessDayFilter as Filter,
+} from "@/lib/business-day";
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({
@@ -23,15 +32,6 @@ export const Route = createFileRoute("/admin/")({
   ),
 });
 
-function isToday(ts: number) {
-  const d = new Date(ts);
-  const now = new Date();
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  );
-}
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
   pending: "bg-amber-100 text-amber-900 border-amber-300",
@@ -45,11 +45,18 @@ function Dashboard() {
   const orders = useStore((s) => s.orders);
   const orderingOpen = useStore((s) => s.orderingOpen);
   const [q, setQ] = useState("");
+  const [filter, setFilter] = useState<Filter>(defaultFilter());
+  const [closing, setClosing] = useState(false);
   const [reportScope, setReportScope] = useState<ReportScope | null>(null);
+
+  const scoped = useMemo(
+    () => orders.filter((o) => matchesFilter(o, filter)),
+    [orders, filter],
+  );
 
   const reportOrders = useMemo<ReportOrder[]>(
     () =>
-      orders.map((o: Order) => ({
+      scoped.map((o: Order) => ({
         code: o.code,
         customerName: o.customerName,
         phone: o.phone,
@@ -65,22 +72,21 @@ function Dashboard() {
           preparationStatus: it.preparationStatus,
         })),
       })),
-    [orders],
+    [scoped],
   );
 
-  const todays = orders.filter((o) => isToday(o.createdAt));
   const counts = {
-    pending: todays.filter((o) => o.paymentStatus === "unpaid").length,
-    confirmed: todays.filter((o) => o.pickupStatus === "confirmed").length,
-    preparing: todays.filter((o) => o.pickupStatus === "preparing").length,
-    ready: todays.filter((o) => o.pickupStatus === "ready").length,
-    collected: todays.filter((o) => o.pickupStatus === "collected").length,
+    pending: scoped.filter((o) => o.paymentStatus === "unpaid").length,
+    confirmed: scoped.filter((o) => o.pickupStatus === "confirmed").length,
+    preparing: scoped.filter((o) => o.pickupStatus === "preparing").length,
+    ready: scoped.filter((o) => o.pickupStatus === "ready").length,
+    collected: scoped.filter((o) => o.pickupStatus === "collected").length,
   };
-  const revenue = todays
+  const revenue = scoped
     .filter((o) => o.paymentStatus === "paid")
     .reduce((s, o) => s + o.total, 0);
 
-  const filtered = orders.filter((o) => {
+  const filtered = scoped.filter((o) => {
     if (!q.trim()) return true;
     const s = q.trim().toLowerCase();
     return (
@@ -90,22 +96,56 @@ function Dashboard() {
     );
   });
 
+  async function handleCloseDay() {
+    if (closing) return;
+    const day = currentBusinessDay();
+    const openOrders = scoped.filter(
+      (o) => o.paymentStatus === "unpaid" || o.pickupStatus !== "collected",
+    ).length;
+    const msg = openOrders
+      ? `Close business day ${day}? ${openOrders} order(s) are still open — they will be archived.`
+      : `Close business day ${day}? Today's orders will be archived.`;
+    if (!window.confirm(msg)) return;
+    setClosing(true);
+    try {
+      const res = await closeBusinessDay();
+      toast.success(`Closed ${res.business_day}: ${res.orders_archived} orders, ${res.cashier_sales_archived} sales archived.`);
+    } catch (e) {
+      console.error(e);
+      toast.error(e instanceof Error ? e.message : "Failed to close business day");
+    } finally {
+      setClosing(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Today's orders at a glance.</p>
+          <p className="text-sm text-muted-foreground">Operations at a glance.</p>
         </div>
-        <div className="flex items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-soft">
-          <Power className={"h-4 w-4 " + (orderingOpen ? "text-emerald-600" : "text-destructive")} />
-          <span className="text-sm font-medium">
-            Ordering {orderingOpen ? "Open" : "Closed"}
-          </span>
-          <Switch
-            checked={orderingOpen}
-            onCheckedChange={(v) => actions.setOrderingOpen(Boolean(v))}
-          />
+        <div className="flex flex-wrap items-center gap-2">
+          <BusinessDayFilter value={filter} onChange={setFilter} />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void handleCloseDay()}
+            disabled={closing}
+          >
+            <Lock className="mr-1 h-3.5 w-3.5" />
+            {closing ? "Closing…" : "Close Business Day"}
+          </Button>
+          <div className="flex items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-soft">
+            <Power className={"h-4 w-4 " + (orderingOpen ? "text-emerald-600" : "text-destructive")} />
+            <span className="text-sm font-medium">
+              Ordering {orderingOpen ? "Open" : "Closed"}
+            </span>
+            <Switch
+              checked={orderingOpen}
+              onCheckedChange={(v) => actions.setOrderingOpen(Boolean(v))}
+            />
+          </div>
         </div>
       </div>
 
@@ -116,7 +156,7 @@ function Dashboard() {
         <StatCard label="Ready" value={counts.ready} tint="bg-emerald-50" />
         <StatCard label="Collected" value={counts.collected} tint="bg-muted" />
         <div className="col-span-2 rounded-2xl bg-primary p-4 text-primary-foreground shadow-soft md:col-span-1">
-          <p className="text-xs uppercase tracking-wider text-brand">Today's revenue</p>
+          <p className="text-xs uppercase tracking-wider text-brand">Revenue</p>
           <p className="mt-2 font-display text-2xl font-bold">{formatNaira(revenue)}</p>
         </div>
       </div>

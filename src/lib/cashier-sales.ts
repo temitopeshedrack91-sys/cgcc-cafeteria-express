@@ -21,6 +21,8 @@ export type CashierSale = {
   note: string | null;
   total: number;
   created_at: string;
+  business_day: string | null;
+  archived_at: string | null;
   items: CashierSaleItem[];
 };
 
@@ -49,6 +51,8 @@ export async function createCashierSale(input: {
     note: null,
     total: row.total,
     created_at: row.created_at,
+    business_day: row.business_day ?? null,
+    archived_at: row.archived_at ?? null,
     items: row.items ?? [],
   };
 }
@@ -57,7 +61,7 @@ export async function listCashierSales(limit = 200): Promise<CashierSale[]> {
   const { data, error } = await supabase
     .from("cashier_sales")
     .select(
-      "id, code, receipt_no, cashier_id, cashier_label, customer_name, payment_method, note, total, created_at, cashier_sale_items ( menu_item_id, name, price, qty, vendor_type )",
+      "id, code, receipt_no, cashier_id, cashier_label, customer_name, payment_method, note, total, created_at, business_day, archived_at, cashier_sale_items ( menu_item_id, name, price, qty, vendor_type )",
     )
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -73,6 +77,8 @@ export async function listCashierSales(limit = 200): Promise<CashierSale[]> {
     note: r.note,
     total: r.total,
     created_at: r.created_at,
+    business_day: r.business_day ?? null,
+    archived_at: r.archived_at ?? null,
     items: r.cashier_sale_items ?? [],
   }));
 }

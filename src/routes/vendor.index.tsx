@@ -18,6 +18,8 @@ import { ReportDialog } from "@/components/ReportDialog";
 import type { ReportOrder, ReportScope } from "@/lib/reports";
 import { downloadReceiptPdf } from "@/lib/receipt-pdf";
 import { InventoryPanel } from "@/components/InventoryPanel";
+import { BusinessDayFilter } from "@/components/BusinessDayFilter";
+import { defaultFilter, matchesFilter, type BusinessDayFilter as Filter } from "@/lib/business-day";
 
 export const Route = createFileRoute("/vendor/")({
   head: () => ({
@@ -52,6 +54,8 @@ type VendorOrder = {
   payment_status: "paid" | "unpaid";
   pickup_status: string;
   created_at: string;
+  business_day: string | null;
+  archived_at: string | null;
   items: VendorOrderItem[];
 };
 
@@ -110,6 +114,7 @@ function VendorDashboard() {
   );
   const [reportOpen, setReportOpen] = useState(false);
   const [tab, setTab] = useState<"orders" | "inventory">("orders");
+  const [filter, setFilter] = useState<Filter>(defaultFilter());
   const knownIdsRef = useRef<Set<string> | null>(null);
   const playBeep = useNotificationSound();
 
@@ -119,7 +124,7 @@ function VendorDashboard() {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, code, customer_name, phone, note, order_type, pickup_time, payment_status, pickup_status, created_at, order_items ( id, order_id, name, qty, price, preparation_status, vendor_type )",
+          "id, code, customer_name, phone, note, order_type, pickup_time, payment_status, pickup_status, created_at, business_day, archived_at, order_items ( id, order_id, name, qty, price, preparation_status, vendor_type )",
         )
         .order("created_at", { ascending: false })
         .limit(200);
@@ -135,6 +140,8 @@ function VendorDashboard() {
         payment_status: o.payment_status,
         pickup_status: o.pickup_status,
         created_at: o.created_at,
+        business_day: o.business_day ?? null,
+        archived_at: o.archived_at ?? null,
         items: (o.order_items ?? []) as VendorOrderItem[],
       })) as VendorOrder[];
       // RLS already filters items to this vendor's type
@@ -226,13 +233,24 @@ function VendorDashboard() {
     };
   }, [vendorType, load]);
 
+  const scoped = useMemo(
+    () =>
+      orders.filter((o) =>
+        matchesFilter(
+          { businessDay: o.business_day, archivedAt: o.archived_at },
+          filter,
+        ),
+      ),
+    [orders, filter],
+  );
+
   const counters = useMemo(() => {
     let newCt = 0,
       prep = 0,
       ready = 0,
       collected = 0,
       pending = 0;
-    for (const o of orders) {
+    for (const o of scoped) {
       if (o.payment_status === "unpaid") pending += 1;
       for (const it of o.items) {
         if (it.preparation_status === "pending") newCt += 1;
@@ -242,11 +260,11 @@ function VendorDashboard() {
       }
     }
     return { newCt, prep, ready, collected, pending };
-  }, [orders]);
+  }, [scoped]);
 
   const reportOrders = useMemo<ReportOrder[]>(
     () =>
-      orders.map((o) => ({
+      scoped.map((o) => ({
         code: o.code,
         customerName: o.customer_name,
         phone: o.phone,
@@ -262,7 +280,7 @@ function VendorDashboard() {
           preparationStatus: it.preparation_status,
         })),
       })),
-    [orders, vendorType],
+    [scoped, vendorType],
   );
 
   async function updateItem(itemId: string, status: PrepStatus) {
@@ -376,13 +394,18 @@ function VendorDashboard() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6">
-        <div className="mb-4 flex items-center gap-2">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
           <Button size="sm" variant={tab === "orders" ? "default" : "outline"} onClick={() => setTab("orders")}>
             Orders
           </Button>
           <Button size="sm" variant={tab === "inventory" ? "default" : "outline"} onClick={() => setTab("inventory")}>
             Inventory Management
           </Button>
+          {tab === "orders" && (
+            <div className="ml-auto">
+              <BusinessDayFilter value={filter} onChange={setFilter} />
+            </div>
+          )}
         </div>
 
         {tab === "inventory" ? (
@@ -434,13 +457,13 @@ function VendorDashboard() {
           <CounterCard label="Pending Payment" value={counters.pending} tint="bg-rose-50" />
         </div>
 
-        {orders.length === 0 ? (
+        {scoped.length === 0 ? (
           <p className="rounded-2xl border border-border bg-card p-8 text-center text-sm text-muted-foreground shadow-soft">
-            No active orders yet.
+            No orders in this period.
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {orders.map((o) => (
+            {scoped.map((o) => (
               <div
                 key={o.id}
                 className="rounded-xl border border-border bg-background p-4 shadow-soft"

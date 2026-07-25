@@ -9,6 +9,8 @@ import { listCashierSales, paymentLabel, type CashierSale } from "@/lib/cashier-
 import { downloadCashierReceiptPdf } from "@/lib/cashier-receipt-pdf";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { BusinessDayFilter } from "@/components/BusinessDayFilter";
+import { defaultFilter, matchesFilter, type BusinessDayFilter as Filter } from "@/lib/business-day";
 
 export const Route = createFileRoute("/cashier/receipts")({
   head: () => ({
@@ -24,7 +26,7 @@ export const Route = createFileRoute("/cashier/receipts")({
 function CashierReceipts() {
   const [sales, setSales] = useState<CashierSale[]>([]);
   const [q, setQ] = useState("");
-  const [date, setDate] = useState("");
+  const [filter, setFilter] = useState<Filter>(defaultFilter());
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -52,10 +54,7 @@ function CashierReceipts() {
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     return sales.filter((x) => {
-      if (date) {
-        const d = new Date(x.created_at).toISOString().slice(0, 10);
-        if (d !== date) return false;
-      }
+      if (!matchesFilter({ businessDay: x.business_day, archivedAt: x.archived_at }, filter)) return false;
       if (!s) return true;
       return (
         x.code.toLowerCase().includes(s) ||
@@ -63,7 +62,7 @@ function CashierReceipts() {
         (x.customer_name ?? "").toLowerCase().includes(s)
       );
     });
-  }, [sales, q, date]);
+  }, [sales, q, filter]);
 
   return (
     <div className="space-y-4">
@@ -76,12 +75,7 @@ function CashierReceipts() {
           <Search className="h-4 w-4 text-muted-foreground" />
           <Input placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} className="w-56" />
         </div>
-        <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" />
-        {date && (
-          <Button size="sm" variant="ghost" onClick={() => setDate("")}>
-            Clear date
-          </Button>
-        )}
+        <BusinessDayFilter value={filter} onChange={setFilter} />
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft">

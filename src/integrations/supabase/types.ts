@@ -35,6 +35,27 @@ export type Database = {
         }
         Relationships: []
       }
+      business_day_closures: {
+        Row: {
+          business_day: string
+          closed_at: string
+          closed_by: string | null
+          note: string | null
+        }
+        Insert: {
+          business_day: string
+          closed_at?: string
+          closed_by?: string | null
+          note?: string | null
+        }
+        Update: {
+          business_day?: string
+          closed_at?: string
+          closed_by?: string | null
+          note?: string | null
+        }
+        Relationships: []
+      }
       cashier_sale_items: {
         Row: {
           id: string
@@ -82,6 +103,8 @@ export type Database = {
       }
       cashier_sales: {
         Row: {
+          archived_at: string | null
+          business_day: string | null
           cashier_id: string
           cashier_label: string | null
           code: string
@@ -94,6 +117,8 @@ export type Database = {
           total: number
         }
         Insert: {
+          archived_at?: string | null
+          business_day?: string | null
           cashier_id: string
           cashier_label?: string | null
           code: string
@@ -106,6 +131,8 @@ export type Database = {
           total?: number
         }
         Update: {
+          archived_at?: string | null
+          business_day?: string | null
           cashier_id?: string
           cashier_label?: string | null
           code?: string
@@ -308,6 +335,8 @@ export type Database = {
       }
       orders: {
         Row: {
+          archived_at: string | null
+          business_day: string | null
           code: string
           created_at: string
           customer_id: string | null
@@ -328,6 +357,8 @@ export type Database = {
           total: number
         }
         Insert: {
+          archived_at?: string | null
+          business_day?: string | null
           code: string
           created_at?: string
           customer_id?: string | null
@@ -348,6 +379,8 @@ export type Database = {
           total: number
         }
         Update: {
+          archived_at?: string | null
+          business_day?: string | null
           code?: string
           created_at?: string
           customer_id?: string | null
@@ -451,6 +484,10 @@ export type Database = {
         }
         Returns: Json
       }
+      close_business_day: {
+        Args: { _day?: string; _note?: string }
+        Returns: Json
+      }
       create_cashier_sale: {
         Args: {
           _customer_name: string
@@ -495,6 +532,7 @@ export type Database = {
               total: number
             }[]
           }
+      current_business_day: { Args: never; Returns: string }
       get_order_by_code: { Args: { _code: string }; Returns: Json }
       get_orders_by_phone: { Args: { _phone: string }; Returns: Json }
       has_role: {
@@ -527,6 +565,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      reopen_business_day: { Args: { _day: string }; Returns: Json }
       vendor_type_for_user: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
