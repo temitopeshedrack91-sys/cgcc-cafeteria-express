@@ -45,6 +45,28 @@ function Dashboard() {
   const orders = useStore((s) => s.orders);
   const orderingOpen = useStore((s) => s.orderingOpen);
   const [q, setQ] = useState("");
+  const [reportScope, setReportScope] = useState<ReportScope | null>(null);
+
+  const reportOrders = useMemo<ReportOrder[]>(
+    () =>
+      orders.map((o: Order) => ({
+        code: o.code,
+        customerName: o.customerName,
+        phone: o.phone,
+        createdAt: o.createdAt,
+        pickupTime: o.pickupTime,
+        paymentStatus: o.paymentStatus,
+        pickupStatus: o.pickupStatus,
+        items: o.items.map((it) => ({
+          name: it.name,
+          qty: it.qty,
+          price: it.price,
+          vendorType: it.vendorType,
+          preparationStatus: it.preparationStatus,
+        })),
+      })),
+    [orders],
+  );
 
   const todays = orders.filter((o) => isToday(o.createdAt));
   const counts = {
