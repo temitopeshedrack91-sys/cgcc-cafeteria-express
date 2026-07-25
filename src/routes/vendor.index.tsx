@@ -452,13 +452,13 @@ function VendorDashboard() {
           <CounterCard label="Pending Payment" value={counters.pending} tint="bg-rose-50" />
         </div>
 
-        {orders.length === 0 ? (
+        {scoped.length === 0 ? (
           <p className="rounded-2xl border border-border bg-card p-8 text-center text-sm text-muted-foreground shadow-soft">
-            No active orders yet.
+            No orders in this period.
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {orders.map((o) => (
+            {scoped.map((o) => (
               <div
                 key={o.id}
                 className="rounded-xl border border-border bg-background p-4 shadow-soft"
