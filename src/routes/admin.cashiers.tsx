@@ -43,6 +43,8 @@ function CashierManagement() {
   const [busy, setBusy] = useState(false);
   const [pwDialog, setPwDialog] = useState<CashierUsername | null>(null);
   const [newPw, setNewPw] = useState("");
+  const [emails, setEmails] = useState<Record<CashierUsername, string>>({ cashier1: "", cashier2: "" });
+  const [savingEmail, setSavingEmail] = useState<CashierUsername | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
