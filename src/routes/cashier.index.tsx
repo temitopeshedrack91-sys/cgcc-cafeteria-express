@@ -156,6 +156,16 @@ function CashierSales() {
   const totalQty = cart.reduce((s, l) => s + l.qty, 0);
 
   function addToCart(it: LiveItem) {
+    if (!it.available || it.stock_walkin <= 0) {
+      toast.error(`${it.name} is sold out for walk-in`);
+      return;
+    }
+    const existing = cart.find((l) => l.id === it.id);
+    const currentQty = existing?.qty ?? 0;
+    if (currentQty + 1 > it.stock_walkin) {
+      toast.error(`Only ${it.stock_walkin} ${it.name} available for walk-in`);
+      return;
+    }
     setCart((c) => {
       const found = c.find((l) => l.id === it.id);
       if (found) return c.map((l) => (l.id === it.id ? { ...l, qty: l.qty + 1 } : l));
@@ -164,8 +174,16 @@ function CashierSales() {
   }
 
   function updateQty(id: string, qty: number) {
-    if (qty <= 0) setCart((c) => c.filter((l) => l.id !== id));
-    else setCart((c) => c.map((l) => (l.id === id ? { ...l, qty } : l)));
+    if (qty <= 0) {
+      setCart((c) => c.filter((l) => l.id !== id));
+      return;
+    }
+    const it = items.find((i) => i.id === id);
+    if (it && qty > it.stock_walkin) {
+      toast.error(`Only ${it.stock_walkin} ${it.name} available for walk-in`);
+      return;
+    }
+    setCart((c) => c.map((l) => (l.id === id ? { ...l, qty } : l)));
   }
 
   async function completeSale() {
