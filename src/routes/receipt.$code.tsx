@@ -241,6 +241,21 @@ function ReceiptPage() {
           <p className="mt-2 text-xs text-primary-foreground/70">Receipt · {order.receiptNo}</p>
         </div>
 
+        {qr && (
+          <div className="flex flex-col items-center gap-2 border-b border-border bg-white px-6 py-5">
+            <img
+              src={qr}
+              alt={`QR code for receipt ${order.code}`}
+              className="h-40 w-40 rounded-lg border border-border"
+            />
+            <p className="text-xs text-muted-foreground">
+              Scan to open this receipt on another device
+            </p>
+          </div>
+        )}
+
+
+
         <div className="space-y-4 p-6">
           {/* Timeline */}
           <div className="rounded-xl border border-border bg-muted/30 p-4">
