@@ -233,13 +233,24 @@ function VendorDashboard() {
     };
   }, [vendorType, load]);
 
+  const scoped = useMemo(
+    () =>
+      orders.filter((o) =>
+        matchesFilter(
+          { businessDay: o.business_day, archivedAt: o.archived_at },
+          filter,
+        ),
+      ),
+    [orders, filter],
+  );
+
   const counters = useMemo(() => {
     let newCt = 0,
       prep = 0,
       ready = 0,
       collected = 0,
       pending = 0;
-    for (const o of orders) {
+    for (const o of scoped) {
       if (o.payment_status === "unpaid") pending += 1;
       for (const it of o.items) {
         if (it.preparation_status === "pending") newCt += 1;
@@ -249,11 +260,11 @@ function VendorDashboard() {
       }
     }
     return { newCt, prep, ready, collected, pending };
-  }, [orders]);
+  }, [scoped]);
 
   const reportOrders = useMemo<ReportOrder[]>(
     () =>
-      orders.map((o) => ({
+      scoped.map((o) => ({
         code: o.code,
         customerName: o.customer_name,
         phone: o.phone,
