@@ -98,7 +98,7 @@ let state: AppState = {
   cart: initialLocal.cart,
   menu: DEFAULT_MENU,
   menuState: Object.fromEntries(
-    DEFAULT_MENU.map((m) => [m.id, { available: true }]),
+    DEFAULT_MENU.map((m) => [m.id, { available: true, stockOnline: 0, stockWalkin: 0, stockQty: 0 }]),
   ),
   orders: [],
   orderingOpen: true,
