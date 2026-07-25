@@ -1,46 +1,76 @@
-## Phase 2 – Vendor Operations, Real-Time Alerts & Reporting
+# Phase 2 – Inventory Management & Cashier Dashboard
 
-Scope is strictly the vendor dashboard, admin reports section, and a shared reporting utility. No changes to auth, customer ordering, payment, or database schema (data already carries `vendor_type`, `pickup_time`, `preparation_status`, `created_at`, and totals).
+Large scope. Below is the plan for review before I start building.
 
-### 1. Vendor dashboard upgrades (`src/routes/vendor.index.tsx`)
+## Database changes (single migration)
 
-- **New-order detection**: keep a `useRef<Set<string>>` of known `order.id`s. On each realtime refresh, diff against the previous set — any new id whose items belong to this vendor triggers:
-  - A beep via a small `useSound()` hook (WebAudio oscillator — no asset needed, works offline).
-  - A stacked toast/notification card ("🔔 New Order · CG-145 · Pickup 11:30 AM · John") that persists until the vendor clicks "Acknowledge". Status changes on existing orders do NOT beep.
-  - Browser `Notification` if permission granted (opt-in button in header).
-- **Counter cards** above the order list: New / Preparing / Ready / Collected / Pending Payment, derived from current orders. Auto-updates via existing realtime subscription.
-- **Order card metadata**: show Day, full Date, and Time (e.g. "Sunday · 27 July 2026 · 10:42 AM") using `Intl.DateTimeFormat`.
-- **Per-order actions**: "Download PDF" (reuse `generateReceiptPdf` from `src/lib/receipt-pdf.ts`) and "View Full Receipt" (opens `/receipt/{code}` in new tab). Print stays as `window.print()` on the receipt page (already works).
-- **End of Day Report button** in the header → opens a dialog with date filter (Today / Yesterday / This Week / Custom range) and Download PDF / Download Excel actions.
+Add to existing `menu_items`:
+- `stock_qty INTEGER NOT NULL DEFAULT 0`
+- `low_stock_threshold INTEGER NOT NULL DEFAULT 10`
 
-### 2. Reporting utility (new files)
+New tables:
+- `inventory_history` — product_id, previous_qty, new_qty, delta, reason, changed_by, changed_at
+- `cashier_sales` — id, code, receipt_no, cashier_id, customer_name (optional), payment_method (cash/pos/transfer/opay), total, created_at
+- `cashier_sale_items` — sale_id, menu_item_id, name, price, qty, vendor_type
 
-- `src/lib/reports.ts` — pure functions:
-  - `filterOrdersInRange(orders, from, to)`
-  - `computeVendorReport(orders, vendorType)` → returns `{ received, completed, pending, cancelled, revenue, itemSummary: [{name, qty, revenue}], collectionStatus }`
-  - `computeOverallReport(orders)` → per-vendor breakdown + totals.
-- `src/lib/report-pdf.ts` — uses existing `jspdf` to render a branded report (header, meta, KPI grid, per-order table, aggregated product summary at the bottom).
-- `src/lib/report-xlsx.ts` — uses `xlsx` (SheetJS) to build a multi-sheet workbook: Summary, Orders, Product Summary. Add dependency: `bun add xlsx`.
-- Shared `ReportDialog` component (`src/components/ReportDialog.tsx`) used by both vendor and admin views — takes a `scope: VendorType | "all"` prop and the orders array.
+Extend `app_role` enum with `cashier`. Seed two cashier auth users (`cashier1@cgcc.local` / `cashier2@cgcc.local`) with the requested passwords and grant them `cashier` role.
 
-### 3. Admin reports section (`src/routes/admin.index.tsx`)
+RLS:
+- `menu_items` UPDATE: admin OR vendor-of-that-category (existing) — add stock columns to that path.
+- `inventory_history`: admin sees all; vendor sees own category; insert allowed by admin/vendor/cashier via SECURITY DEFINER triggers.
+- `cashier_sales` / `cashier_sale_items`: cashier can insert & read own; admin reads all.
 
-- New "Vendor Reports" card block with buttons: Food, Snacks, Coffee, Drinks, Overall — each opens the same `ReportDialog` scoped accordingly. Admin already fetches all orders, so no extra query.
+Triggers:
+- `AFTER INSERT` on `order_items` and `cashier_sale_items` → decrement `menu_items.stock_qty`, log to `inventory_history`, auto-set `available=false` when qty hits 0.
+- `BEFORE UPDATE` on `menu_items` when `stock_qty` changes → log to `inventory_history` with previous/new.
+- `enforce_cashier_sale_item_price` mirroring the order-item price enforcement.
 
-### 4. Data assumptions
+RPC:
+- `create_cashier_sale(_cashier, _payment_method, _customer_name, _items)` — atomic sale + receipt, mirrors `create_customer_order`.
+- `adjust_stock(_item_id, _new_qty, _reason)` — admin/vendor-only, sets qty and logs history.
 
-- Vendor sees only their items — already enforced by RLS + current filter in `vendor.index.tsx`. No changes needed for Feature 4.
-- Cancelled orders: treat `pickup_status === "cancelled"` if present, else 0. Collection status: count of items with `preparation_status === "collected"` vs total.
-- Revenue per vendor = sum of `price × qty` of that vendor's items on paid orders in range.
+## Frontend
 
-### 5. Files touched
+### Vendor dashboard (`/vendor`)
+Add a new "Inventory" tab/section beside the existing orders view:
+- Scoped list of vendor's products.
+- Row: name, qty (editable input + +/− buttons), Low-stock badge (qty ≤ threshold), Available/Sold Out toggle.
+- All actions call `adjust_stock` / existing `toggleAvailable`.
+- Realtime channel on `menu_items` already exists; extend to refresh inventory rows.
 
-- Edit: `src/routes/vendor.index.tsx`, `src/routes/admin.index.tsx`
-- New: `src/lib/reports.ts`, `src/lib/report-pdf.ts`, `src/lib/report-xlsx.ts`, `src/components/ReportDialog.tsx`, `src/hooks/use-notification-sound.ts`
-- Package: add `xlsx`
+### Admin
+- New `/admin/inventory` page: all vendors' products, override qty, restore, view history, download CSV.
+- New `/admin/cashiers` page: create/reset cashier password (admin server fn, similar to vendors.functions.ts).
+- Extend `/admin` analytics to include cashier sales totals (daily/weekly/monthly) and combined PDF/Excel exports (reuse `report-pdf`/`report-xlsx`).
 
-### Out of scope (per prompt)
+### Cashier dashboard (`/cashier`, `/cashier/login`)
+New routes gated by `cashier` role:
+- Sales screen: search + category filter, product grid, cart panel with qty controls, running total, payment method selector (Cash / POS / Transfer / OPay), Complete Sale button.
+- On complete → RPC `create_cashier_sale` → receipt view with PDF download & reprint.
+- Receipts tab: search by receipt no / code / date / customer.
+- End-of-day report dialog: totals per method, transactions, items sold, PDF + XLSX export (reuse report libs).
 
-Auth, DB schema, customer flow, payment, admin dashboard layout beyond adding the Reports block, vendor RLS.
+### Customer flow
+`menu.tsx` already filters by `available`; sold-out items auto-hide via existing realtime subscription — no change to customer flow.
 
-Approve to proceed?
+## Security
+- Cashier role has NO access to `/admin/*` or `/vendor/*` (route guards + RLS).
+- `AdminShell` unchanged for admin. Separate `CashierShell` mirrors admin styling.
+- Server functions for cashier password reset are admin-only, similar to vendors.
+
+## Files to add
+- Migration SQL
+- `src/lib/cashiers.functions.ts`, `src/lib/inventory.functions.ts`
+- `src/components/CashierShell.tsx`
+- `src/routes/cashier.login.tsx`, `src/routes/cashier.index.tsx`, `src/routes/cashier.receipts.tsx`
+- `src/routes/admin.inventory.tsx`, `src/routes/admin.cashiers.tsx`
+- Inventory panel component reused by vendor + admin
+
+## Files to modify
+- `src/lib/store.ts` — add inventory + cashier slices, realtime handlers
+- `src/routes/vendor.index.tsx` — add Inventory section
+- `src/routes/admin.index.tsx` — combined sales analytics block
+- `src/components/AdminShell.tsx` — add Inventory + Cashiers nav
+- `src/lib/report-pdf.ts` / `report-xlsx.ts` — cashier report shape
+
+Please confirm and I'll implement in one pass (migration first, then code).
