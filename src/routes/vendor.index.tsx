@@ -280,7 +280,7 @@ function VendorDashboard() {
           preparationStatus: it.preparation_status,
         })),
       })),
-    [orders, vendorType],
+    [scoped, vendorType],
   );
 
   async function updateItem(itemId: string, status: PrepStatus) {
