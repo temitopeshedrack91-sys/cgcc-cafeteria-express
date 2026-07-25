@@ -543,6 +543,8 @@ function VendorDashboard() {
             ))}
           </div>
         )}
+        </>
+        )}
       </main>
 
       <ReportDialog
