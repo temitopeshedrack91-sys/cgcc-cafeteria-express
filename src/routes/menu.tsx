@@ -27,14 +27,16 @@ function MenuPage() {
   const { cat } = Route.useSearch();
   const navigate = Route.useNavigate();
   const orderingOpen = useStore((s) => s.orderingOpen);
+  const menuState = useStore((s) => s.menuState);
   const cartCount = useStore((s) => s.cart.reduce((n, c) => n + c.qty, 0));
   const activeCat: MenuCategory = cat ?? "Meals";
   const [query, setQuery] = useState("");
 
   const q = query.trim().toLowerCase();
+  const visible = DEFAULT_MENU.filter((m) => menuState[m.id]?.available !== false);
   const items = q
-    ? DEFAULT_MENU.filter((m) => m.name.toLowerCase().includes(q))
-    : DEFAULT_MENU.filter((m) => m.category === activeCat);
+    ? visible.filter((m) => m.name.toLowerCase().includes(q))
+    : visible.filter((m) => m.category === activeCat);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 pb-32">

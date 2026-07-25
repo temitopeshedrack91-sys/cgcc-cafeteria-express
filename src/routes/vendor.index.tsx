@@ -17,6 +17,7 @@ import { useNotificationSound } from "@/hooks/use-notification-sound";
 import { ReportDialog } from "@/components/ReportDialog";
 import type { ReportOrder, ReportScope } from "@/lib/reports";
 import { downloadReceiptPdf } from "@/lib/receipt-pdf";
+import { InventoryPanel } from "@/components/InventoryPanel";
 
 export const Route = createFileRoute("/vendor/")({
   head: () => ({
@@ -108,6 +109,7 @@ function VendorDashboard() {
     typeof Notification === "undefined" ? "unsupported" : Notification.permission,
   );
   const [reportOpen, setReportOpen] = useState(false);
+  const [tab, setTab] = useState<"orders" | "inventory">("orders");
   const knownIdsRef = useRef<Set<string> | null>(null);
   const playBeep = useNotificationSound();
 
@@ -374,6 +376,19 @@ function VendorDashboard() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6">
+        <div className="mb-4 flex items-center gap-2">
+          <Button size="sm" variant={tab === "orders" ? "default" : "outline"} onClick={() => setTab("orders")}>
+            Orders
+          </Button>
+          <Button size="sm" variant={tab === "inventory" ? "default" : "outline"} onClick={() => setTab("inventory")}>
+            Inventory Management
+          </Button>
+        </div>
+
+        {tab === "inventory" ? (
+          <InventoryPanel scope={vendorType} title="Inventory Management" />
+        ) : (
+        <>
         <h1 className="font-display text-3xl font-bold">My Orders</h1>
         <p className="mb-4 text-sm text-muted-foreground">
           Only items assigned to you are shown. Updates sync live.
@@ -527,6 +542,8 @@ function VendorDashboard() {
               </div>
             ))}
           </div>
+        )}
+        </>
         )}
       </main>
 
