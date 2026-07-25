@@ -20,6 +20,7 @@ export type Order = {
   phone: string;
   note?: string;
   orderType: "dine-in" | "takeaway";
+  pickupTime?: string;
   items: { id: string; name: string; price: number; qty: number }[];
   total: number;
   paymentStatus: "paid" | "unpaid";
