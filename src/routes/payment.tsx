@@ -49,7 +49,13 @@ function PaymentPage() {
       phone: string;
       note?: string;
       orderType: "dine-in" | "takeaway";
+      pickupTime?: string;
     };
+    if (!draft.pickupTime) {
+      toast.error("Please select your preferred pickup time before placing your order.");
+      navigate({ to: "/checkout" });
+      return;
+    }
     setSubmitting(true);
     const items = cart
       .map((c) => {
@@ -65,6 +71,7 @@ function PaymentPage() {
         phone: draft.phone,
         note: draft.note,
         orderType: draft.orderType,
+        pickupTime: draft.pickupTime,
         items,
         total,
       });
