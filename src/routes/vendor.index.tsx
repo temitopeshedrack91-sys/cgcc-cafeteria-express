@@ -114,6 +114,7 @@ function VendorDashboard() {
   );
   const [reportOpen, setReportOpen] = useState(false);
   const [tab, setTab] = useState<"orders" | "inventory">("orders");
+  const [filter, setFilter] = useState<Filter>(defaultFilter());
   const knownIdsRef = useRef<Set<string> | null>(null);
   const playBeep = useNotificationSound();
 
@@ -123,7 +124,7 @@ function VendorDashboard() {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, code, customer_name, phone, note, order_type, pickup_time, payment_status, pickup_status, created_at, order_items ( id, order_id, name, qty, price, preparation_status, vendor_type )",
+          "id, code, customer_name, phone, note, order_type, pickup_time, payment_status, pickup_status, created_at, business_day, archived_at, order_items ( id, order_id, name, qty, price, preparation_status, vendor_type )",
         )
         .order("created_at", { ascending: false })
         .limit(200);
@@ -139,6 +140,8 @@ function VendorDashboard() {
         payment_status: o.payment_status,
         pickup_status: o.pickup_status,
         created_at: o.created_at,
+        business_day: o.business_day ?? null,
+        archived_at: o.archived_at ?? null,
         items: (o.order_items ?? []) as VendorOrderItem[],
       })) as VendorOrder[];
       // RLS already filters items to this vendor's type
