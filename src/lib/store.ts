@@ -134,6 +134,8 @@ type OrderRow = {
     name: string;
     price: number;
     qty: number;
+    vendor_type?: string | null;
+    preparation_status?: string | null;
   }[];
 };
 
@@ -151,6 +153,8 @@ function mapOrder(row: OrderRow): Order {
       name: i.name,
       price: i.price,
       qty: i.qty,
+      vendorType: i.vendor_type ?? null,
+      preparationStatus: i.preparation_status ?? undefined,
     })),
     total: row.total,
     paymentStatus: row.payment_status,
