@@ -1,11 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Search, Power } from "lucide-react";
+import { useMemo, useState } from "react";
+import { FileDown, Power, Search } from "lucide-react";
 import { AdminGuard, AdminShell } from "@/components/AdminShell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { actions, formatNaira, useStore, type OrderStatus } from "@/lib/store";
+import { actions, formatNaira, useStore, type Order, type OrderStatus } from "@/lib/store";
+import { ReportDialog } from "@/components/ReportDialog";
+import type { ReportOrder, ReportScope } from "@/lib/reports";
+import { VENDOR_LABELS } from "@/lib/reports";
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({
