@@ -41,7 +41,7 @@ export async function savePaymentConfig(next: PaymentConfig): Promise<void> {
     .from("app_settings")
     .upsert({
       id: "global",
-      payment_config: next as unknown as Record<string, unknown>,
+      payment_config: next as unknown as never,
       updated_at: new Date().toISOString(),
     });
   if (error) throw error;

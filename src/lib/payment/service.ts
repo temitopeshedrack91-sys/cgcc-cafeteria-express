@@ -29,7 +29,7 @@ export async function finalizePayment(
     _status: result.status,
     _provider: result.provider,
     _amount: result.amount,
-    _meta: (result.meta ?? {}) as Record<string, unknown>,
+    _meta: (result.meta ?? {}) as unknown as never,
   });
   if (error) throw error;
 }
