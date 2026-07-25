@@ -79,7 +79,7 @@ function CashierSales() {
   const loadMenu = useCallback(async () => {
     const { data, error } = await supabase
       .from("menu_items")
-      .select("id, name, price, available, stock_qty")
+      .select("id, name, price, available, stock_qty, stock_walkin, stock_online")
       .order("name");
     if (error) {
       toast.error("Failed to load menu");
@@ -95,6 +95,8 @@ function CashierSales() {
         category: catMap.get(r.id) ?? "Meals",
         available: r.available !== false,
         stock_qty: r.stock_qty ?? 0,
+        stock_walkin: r.stock_walkin ?? 0,
+        stock_online: r.stock_online ?? 0,
       })),
     );
   }, []);
