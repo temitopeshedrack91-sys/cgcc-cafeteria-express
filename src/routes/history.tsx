@@ -159,6 +159,11 @@ function HistoryPage() {
                         })}{" "}
                         · {d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
                       </div>
+                      {o.pickupTime && (
+                        <div className="mt-0.5 text-xs font-semibold text-primary">
+                          Pickup: {o.pickupTime}
+                        </div>
+                      )}
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${toneClasses[payTone]}`}
