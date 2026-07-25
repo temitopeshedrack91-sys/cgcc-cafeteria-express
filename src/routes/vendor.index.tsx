@@ -18,6 +18,8 @@ import { ReportDialog } from "@/components/ReportDialog";
 import type { ReportOrder, ReportScope } from "@/lib/reports";
 import { downloadReceiptPdf } from "@/lib/receipt-pdf";
 import { InventoryPanel } from "@/components/InventoryPanel";
+import { BusinessDayFilter } from "@/components/BusinessDayFilter";
+import { defaultFilter, matchesFilter, type BusinessDayFilter as Filter } from "@/lib/business-day";
 
 export const Route = createFileRoute("/vendor/")({
   head: () => ({
@@ -52,6 +54,8 @@ type VendorOrder = {
   payment_status: "paid" | "unpaid";
   pickup_status: string;
   created_at: string;
+  business_day: string | null;
+  archived_at: string | null;
   items: VendorOrderItem[];
 };
 
