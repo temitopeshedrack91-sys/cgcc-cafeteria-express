@@ -33,10 +33,9 @@ function MenuPage() {
   const [query, setQuery] = useState("");
 
   const q = query.trim().toLowerCase();
-  const visible = DEFAULT_MENU.filter((m) => menuState[m.id]?.available !== false);
   const items = q
-    ? visible.filter((m) => m.name.toLowerCase().includes(q))
-    : visible.filter((m) => m.category === activeCat);
+    ? DEFAULT_MENU.filter((m) => m.name.toLowerCase().includes(q))
+    : DEFAULT_MENU.filter((m) => m.category === activeCat);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 pb-32">
