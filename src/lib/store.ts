@@ -196,7 +196,7 @@ async function fetchOneOrder(id: string) {
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, code, receipt_no, customer_name, phone, note, order_type, pickup_time, total, payment_status, pickup_status, created_at, order_items ( menu_item_id, name, price, qty, vendor_type, preparation_status )",
+      "id, code, receipt_no, customer_name, phone, note, order_type, pickup_time, total, payment_status, payment_provider, payment_reference, pickup_status, created_at, order_items ( menu_item_id, name, price, qty, vendor_type, preparation_status )",
     )
     .eq("id", id)
     .maybeSingle();
