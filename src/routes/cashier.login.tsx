@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { getCashierLoginEmail } from "@/lib/cashiers.functions";
 
 export const Route = createFileRoute("/cashier/login")({
   head: () => ({
