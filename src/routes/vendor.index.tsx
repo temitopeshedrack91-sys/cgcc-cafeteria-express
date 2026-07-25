@@ -1,11 +1,22 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
-import { LogOut, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  BellRing,
+  FileDown,
+  FileText,
+  LogOut,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { supabase } from "@/integrations/supabase/client";
-import { formatNaira } from "@/lib/store";
+import { fetchOrderByCode, formatNaira } from "@/lib/store";
 import { toast } from "sonner";
+import { useNotificationSound } from "@/hooks/use-notification-sound";
+import { ReportDialog } from "@/components/ReportDialog";
+import type { ReportOrder, ReportScope } from "@/lib/reports";
+import { downloadReceiptPdf } from "@/lib/receipt-pdf";
 
 export const Route = createFileRoute("/vendor/")({
   head: () => ({
@@ -26,6 +37,7 @@ type VendorOrderItem = {
   qty: number;
   price: number;
   preparation_status: PrepStatus;
+  vendor_type?: string | null;
 };
 
 type VendorOrder = {
@@ -63,12 +75,41 @@ const STATUS_STYLE: Record<PrepStatus, string> = {
   collected: "bg-muted text-muted-foreground border-border",
 };
 
+type Alert = {
+  id: string;
+  code: string;
+  customerName: string;
+  pickupTime: string | null;
+};
+
+function formatDayLine(iso: string) {
+  const d = new Date(iso);
+  const day = d.toLocaleDateString(undefined, { weekday: "long" });
+  const date = d.toLocaleDateString(undefined, {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+  const time = d.toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${day} · ${date} · ${time}`;
+}
+
 function VendorDashboard() {
   const navigate = useNavigate();
   const [vendorType, setVendorType] = useState<string | null>(null);
   const [orders, setOrders] = useState<VendorOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">(
+    typeof Notification === "undefined" ? "unsupported" : Notification.permission,
+  );
+  const [reportOpen, setReportOpen] = useState(false);
+  const knownIdsRef = useRef<Set<string> | null>(null);
+  const playBeep = useNotificationSound();
 
   const load = useCallback(async () => {
     setRefreshing(true);
@@ -76,7 +117,7 @@ function VendorDashboard() {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, code, customer_name, phone, note, order_type, pickup_time, payment_status, pickup_status, created_at, order_items ( id, order_id, name, qty, price, preparation_status )",
+          "id, code, customer_name, phone, note, order_type, pickup_time, payment_status, pickup_status, created_at, order_items ( id, order_id, name, qty, price, preparation_status, vendor_type )",
         )
         .order("created_at", { ascending: false })
         .limit(200);
@@ -95,7 +136,37 @@ function VendorDashboard() {
         items: (o.order_items ?? []) as VendorOrderItem[],
       })) as VendorOrder[];
       // RLS already filters items to this vendor's type
-      setOrders(rows.filter((o) => o.items.length > 0));
+      const visible = rows.filter((o) => o.items.length > 0);
+
+      // Diff for notifications — only trigger AFTER first load has established baseline.
+      if (knownIdsRef.current !== null) {
+        const prev = knownIdsRef.current;
+        const fresh = visible.filter((o) => !prev.has(o.id));
+        if (fresh.length > 0) {
+          for (const o of fresh) {
+            playBeep();
+            setAlerts((a) => [
+              {
+                id: o.id,
+                code: o.code,
+                customerName: o.customer_name,
+                pickupTime: o.pickup_time,
+              },
+              ...a,
+            ]);
+            if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+              try {
+                new Notification(`New Order ${o.code}`, {
+                  body: `${o.customer_name}${o.pickup_time ? " · Pickup " + o.pickup_time : ""}`,
+                  tag: o.id,
+                });
+              } catch {}
+            }
+          }
+        }
+      }
+      knownIdsRef.current = new Set(visible.map((o) => o.id));
+      setOrders(visible);
     } catch (e: any) {
       console.error("[vendor] load failed", e);
       toast.error("Failed to load orders");
@@ -103,7 +174,7 @@ function VendorDashboard() {
       setRefreshing(false);
       setLoading(false);
     }
-  }, []);
+  }, [playBeep]);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,6 +224,45 @@ function VendorDashboard() {
     };
   }, [vendorType, load]);
 
+  const counters = useMemo(() => {
+    let newCt = 0,
+      prep = 0,
+      ready = 0,
+      collected = 0,
+      pending = 0;
+    for (const o of orders) {
+      if (o.payment_status === "unpaid") pending += 1;
+      for (const it of o.items) {
+        if (it.preparation_status === "pending") newCt += 1;
+        else if (it.preparation_status === "preparing") prep += 1;
+        else if (it.preparation_status === "ready") ready += 1;
+        else if (it.preparation_status === "collected") collected += 1;
+      }
+    }
+    return { newCt, prep, ready, collected, pending };
+  }, [orders]);
+
+  const reportOrders = useMemo<ReportOrder[]>(
+    () =>
+      orders.map((o) => ({
+        code: o.code,
+        customerName: o.customer_name,
+        phone: o.phone,
+        createdAt: new Date(o.created_at).getTime(),
+        pickupTime: o.pickup_time,
+        paymentStatus: o.payment_status,
+        pickupStatus: o.pickup_status,
+        items: o.items.map((it) => ({
+          name: it.name,
+          qty: it.qty,
+          price: it.price,
+          vendorType: it.vendor_type ?? vendorType,
+          preparationStatus: it.preparation_status,
+        })),
+      })),
+    [orders, vendorType],
+  );
+
   async function updateItem(itemId: string, status: PrepStatus) {
     const prev = orders;
     setOrders((os) =>
@@ -174,6 +284,27 @@ function VendorDashboard() {
     }
   }
 
+  async function downloadOrderReceipt(code: string) {
+    try {
+      const full = await fetchOrderByCode(code);
+      if (!full) {
+        toast.error("Receipt not found");
+        return;
+      }
+      await downloadReceiptPdf(full);
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to generate receipt");
+    }
+  }
+
+  async function requestNotifications() {
+    if (typeof Notification === "undefined") return;
+    const perm = await Notification.requestPermission();
+    setNotifPermission(perm);
+    if (perm === "granted") toast.success("Notifications enabled");
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
     navigate({ to: "/vendor/login", replace: true });
@@ -187,6 +318,8 @@ function VendorDashboard() {
     );
   }
 
+  const scope = (vendorType ?? "food") as ReportScope;
+
   return (
     <div className="min-h-screen bg-muted/40">
       <header className="sticky top-0 z-30 border-b border-sidebar-border bg-sidebar text-sidebar-foreground">
@@ -198,6 +331,26 @@ function VendorDashboard() {
             </span>
           </Link>
           <div className="flex items-center gap-2">
+            {notifPermission !== "granted" && notifPermission !== "unsupported" && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                onClick={() => void requestNotifications()}
+              >
+                <BellRing className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">Enable Alerts</span>
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              onClick={() => setReportOpen(true)}
+            >
+              <FileDown className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">End of Day Report</span>
+            </Button>
             <Button
               size="sm"
               variant="ghost"
@@ -222,9 +375,49 @@ function VendorDashboard() {
 
       <main className="mx-auto max-w-6xl px-4 py-6">
         <h1 className="font-display text-3xl font-bold">My Orders</h1>
-        <p className="mb-6 text-sm text-muted-foreground">
+        <p className="mb-4 text-sm text-muted-foreground">
           Only items assigned to you are shown. Updates sync live.
         </p>
+
+        {alerts.length > 0 && (
+          <div className="mb-4 space-y-2">
+            {alerts.map((a) => (
+              <div
+                key={a.id}
+                className="flex items-start justify-between gap-3 rounded-xl border-2 border-amber-400 bg-amber-50 p-3 shadow-md animate-in slide-in-from-top-2"
+              >
+                <div>
+                  <p className="font-display text-sm font-bold text-amber-900">
+                    🔔 New Order Received
+                  </p>
+                  <p className="mt-0.5 font-display text-lg font-bold text-amber-900">
+                    {a.code}
+                    {a.pickupTime && (
+                      <span className="ml-2 text-sm font-semibold">Pickup: {a.pickupTime}</span>
+                    )}
+                  </p>
+                  <p className="text-xs text-amber-900/80">Customer: {a.customerName}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAlerts((xs) => xs.filter((x) => x.id !== a.id))}
+                >
+                  <X className="mr-1 h-3 w-3" />
+                  Acknowledge
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-5">
+          <CounterCard label="New" value={counters.newCt} tint="bg-amber-50" />
+          <CounterCard label="Preparing" value={counters.prep} tint="bg-blue-50" />
+          <CounterCard label="Ready" value={counters.ready} tint="bg-emerald-50" />
+          <CounterCard label="Collected" value={counters.collected} tint="bg-muted" />
+          <CounterCard label="Pending Payment" value={counters.pending} tint="bg-rose-50" />
+        </div>
 
         {orders.length === 0 ? (
           <p className="rounded-2xl border border-border bg-card p-8 text-center text-sm text-muted-foreground shadow-soft">
@@ -244,11 +437,14 @@ function VendorDashboard() {
                     <p className="text-xs text-muted-foreground">{o.phone}</p>
                   </div>
                   <div className="text-right text-[10px] uppercase text-muted-foreground">
-                    <div>{new Date(o.created_at).toLocaleTimeString()}</div>
                     <div>{o.order_type}</div>
                     {o.pickup_time && <div>Pickup: {o.pickup_time}</div>}
                   </div>
                 </div>
+
+                <p className="mt-1 text-[11px] font-medium text-muted-foreground">
+                  {formatDayLine(o.created_at)}
+                </p>
 
                 <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-bold uppercase">
                   <span
@@ -311,11 +507,52 @@ function VendorDashboard() {
                     );
                   })}
                 </ul>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void downloadOrderReceipt(o.code)}
+                  >
+                    <FileDown className="mr-1 h-3 w-3" />
+                    Download PDF
+                  </Button>
+                  <Button size="sm" variant="ghost" asChild>
+                    <Link to="/receipt/$code" params={{ code: o.code }} target="_blank">
+                      <FileText className="mr-1 h-3 w-3" />
+                      View Full Receipt
+                    </Link>
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </main>
+
+      <ReportDialog
+        open={reportOpen}
+        onOpenChange={setReportOpen}
+        scope={scope}
+        orders={reportOrders}
+      />
+    </div>
+  );
+}
+
+function CounterCard({
+  label,
+  value,
+  tint,
+}: {
+  label: string;
+  value: number;
+  tint: string;
+}) {
+  return (
+    <div className={"rounded-xl border border-border p-3 shadow-soft " + tint}>
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="mt-1 font-display text-2xl font-bold">{value}</p>
     </div>
   );
 }

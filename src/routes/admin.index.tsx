@@ -1,11 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Search, Power } from "lucide-react";
+import { useMemo, useState } from "react";
+import { FileDown, Power, Search } from "lucide-react";
 import { AdminGuard, AdminShell } from "@/components/AdminShell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { actions, formatNaira, useStore, type OrderStatus } from "@/lib/store";
+import { actions, formatNaira, useStore, type Order, type OrderStatus } from "@/lib/store";
+import { ReportDialog } from "@/components/ReportDialog";
+import type { ReportOrder, ReportScope } from "@/lib/reports";
+import { VENDOR_LABELS } from "@/lib/reports";
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({
@@ -42,6 +45,28 @@ function Dashboard() {
   const orders = useStore((s) => s.orders);
   const orderingOpen = useStore((s) => s.orderingOpen);
   const [q, setQ] = useState("");
+  const [reportScope, setReportScope] = useState<ReportScope | null>(null);
+
+  const reportOrders = useMemo<ReportOrder[]>(
+    () =>
+      orders.map((o: Order) => ({
+        code: o.code,
+        customerName: o.customerName,
+        phone: o.phone,
+        createdAt: o.createdAt,
+        pickupTime: o.pickupTime,
+        paymentStatus: o.paymentStatus,
+        pickupStatus: o.pickupStatus,
+        items: o.items.map((it) => ({
+          name: it.name,
+          qty: it.qty,
+          price: it.price,
+          vendorType: it.vendorType,
+          preparationStatus: it.preparationStatus,
+        })),
+      })),
+    [orders],
+  );
 
   const todays = orders.filter((o) => isToday(o.createdAt));
   const counts = {
@@ -93,6 +118,30 @@ function Dashboard() {
         <div className="col-span-2 rounded-2xl bg-primary p-4 text-primary-foreground shadow-soft md:col-span-1">
           <p className="text-xs uppercase tracking-wider text-brand">Today's revenue</p>
           <p className="mt-2 font-display text-2xl font-bold">{formatNaira(revenue)}</p>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div>
+            <h2 className="font-display text-lg font-bold">Vendor Reports</h2>
+            <p className="text-xs text-muted-foreground">
+              Download sales reports as PDF or Excel. Live totals.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {(["food", "snacks", "coffee", "drinks", "all"] as ReportScope[]).map((s) => (
+            <Button
+              key={s}
+              size="sm"
+              variant={s === "all" ? "default" : "outline"}
+              onClick={() => setReportScope(s)}
+            >
+              <FileDown className="mr-1 h-3 w-3" />
+              {s === "all" ? "Overall Report" : VENDOR_LABELS[s]}
+            </Button>
+          ))}
         </div>
       </div>
 
@@ -205,6 +254,13 @@ function Dashboard() {
           </div>
         )}
       </div>
+
+      <ReportDialog
+        open={reportScope !== null}
+        onOpenChange={(v) => !v && setReportScope(null)}
+        scope={reportScope ?? "all"}
+        orders={reportOrders}
+      />
     </div>
   );
 }

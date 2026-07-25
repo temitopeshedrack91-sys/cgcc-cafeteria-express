@@ -13,6 +13,15 @@ export type OrderStatus =
   | "ready"
   | "collected";
 
+export type OrderItem = {
+  id: string;
+  name: string;
+  price: number;
+  qty: number;
+  vendorType?: string | null;
+  preparationStatus?: string;
+};
+
 export type Order = {
   code: string;
   receiptNo: string;
@@ -21,7 +30,7 @@ export type Order = {
   note?: string;
   orderType: "dine-in" | "takeaway";
   pickupTime?: string;
-  items: { id: string; name: string; price: number; qty: number }[];
+  items: OrderItem[];
   total: number;
   paymentStatus: "paid" | "unpaid";
   pickupStatus: OrderStatus;
@@ -125,6 +134,8 @@ type OrderRow = {
     name: string;
     price: number;
     qty: number;
+    vendor_type?: string | null;
+    preparation_status?: string | null;
   }[];
 };
 
@@ -142,6 +153,8 @@ function mapOrder(row: OrderRow): Order {
       name: i.name,
       price: i.price,
       qty: i.qty,
+      vendorType: i.vendor_type ?? null,
+      preparationStatus: i.preparation_status ?? undefined,
     })),
     total: row.total,
     paymentStatus: row.payment_status,
@@ -154,7 +167,7 @@ async function fetchOrders() {
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, code, receipt_no, customer_name, phone, note, order_type, pickup_time, total, payment_status, pickup_status, created_at, order_items ( menu_item_id, name, price, qty )",
+      "id, code, receipt_no, customer_name, phone, note, order_type, pickup_time, total, payment_status, pickup_status, created_at, order_items ( menu_item_id, name, price, qty, vendor_type, preparation_status )",
     )
     .order("created_at", { ascending: false })
     .limit(500);
@@ -169,7 +182,7 @@ async function fetchOneOrder(id: string) {
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, code, receipt_no, customer_name, phone, note, order_type, pickup_time, total, payment_status, pickup_status, created_at, order_items ( menu_item_id, name, price, qty )",
+      "id, code, receipt_no, customer_name, phone, note, order_type, pickup_time, total, payment_status, pickup_status, created_at, order_items ( menu_item_id, name, price, qty, vendor_type, preparation_status )",
     )
     .eq("id", id)
     .maybeSingle();
