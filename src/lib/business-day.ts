@@ -104,10 +104,10 @@ export function labelForFilter(f: BusinessDayFilter): string {
 // ------- RPCs -------
 
 export async function closeBusinessDay(day?: string, note?: string) {
-  const { data, error } = await supabase.rpc("close_business_day", {
-    _day: day ?? null,
-    _note: note ?? null,
-  });
+  const args: Record<string, string> = {};
+  if (day) args._day = day;
+  if (note) args._note = note;
+  const { data, error } = await supabase.rpc("close_business_day", args as never);
   if (error) throw error;
   return data as {
     ok: boolean;

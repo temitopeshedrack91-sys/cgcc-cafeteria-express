@@ -45,6 +45,8 @@ export type Order = {
   paymentReference?: string | null;
   pickupStatus: OrderStatus;
   createdAt: number;
+  businessDay?: string | null;
+  archivedAt?: string | null;
 };
 
 type MenuState = Record<string, { available: boolean }>;
@@ -141,6 +143,8 @@ type OrderRow = {
   payment_reference?: string | null;
   pickup_status: OrderStatus;
   created_at: string;
+  business_day?: string | null;
+  archived_at?: string | null;
   order_items?: {
     menu_item_id: string | null;
     name: string;
@@ -174,6 +178,8 @@ function mapOrder(row: OrderRow): Order {
     paymentReference: row.payment_reference ?? null,
     pickupStatus: row.pickup_status,
     createdAt: new Date(row.created_at).getTime(),
+    businessDay: row.business_day ?? null,
+    archivedAt: row.archived_at ?? null,
   };
 }
 
@@ -181,7 +187,7 @@ async function fetchOrders() {
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, code, receipt_no, customer_name, phone, note, order_type, pickup_time, total, payment_status, payment_provider, payment_reference, pickup_status, created_at, order_items ( menu_item_id, name, price, qty, vendor_type, preparation_status )",
+      "id, code, receipt_no, customer_name, phone, note, order_type, pickup_time, total, payment_status, payment_provider, payment_reference, pickup_status, created_at, business_day, archived_at, order_items ( menu_item_id, name, price, qty, vendor_type, preparation_status )",
     )
     .order("created_at", { ascending: false })
     .limit(500);
@@ -196,7 +202,7 @@ async function fetchOneOrder(id: string) {
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, code, receipt_no, customer_name, phone, note, order_type, pickup_time, total, payment_status, payment_provider, payment_reference, pickup_status, created_at, order_items ( menu_item_id, name, price, qty, vendor_type, preparation_status )",
+      "id, code, receipt_no, customer_name, phone, note, order_type, pickup_time, total, payment_status, payment_provider, payment_reference, pickup_status, created_at, business_day, archived_at, order_items ( menu_item_id, name, price, qty, vendor_type, preparation_status )",
     )
     .eq("id", id)
     .maybeSingle();
