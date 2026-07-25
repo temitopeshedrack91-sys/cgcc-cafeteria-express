@@ -54,10 +54,7 @@ function CashierReceipts() {
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     return sales.filter((x) => {
-      if (date) {
-        const d = new Date(x.created_at).toISOString().slice(0, 10);
-        if (d !== date) return false;
-      }
+      if (!matchesFilter({ businessDay: x.business_day, archivedAt: x.archived_at }, filter)) return false;
       if (!s) return true;
       return (
         x.code.toLowerCase().includes(s) ||
@@ -65,7 +62,7 @@ function CashierReceipts() {
         (x.customer_name ?? "").toLowerCase().includes(s)
       );
     });
-  }, [sales, q, date]);
+  }, [sales, q, filter]);
 
   return (
     <div className="space-y-4">
