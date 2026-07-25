@@ -98,8 +98,10 @@ export async function generateReceiptPdf(order: Order): Promise<jsPDF> {
   );
   drawKV("Payment Method", PAYMENT_METHOD, M + colW, y);
   y += 36;
-  drawKV("Payment Status", order.paymentStatus.toUpperCase(), M, y);
-  drawKV("Pickup Status", order.pickupStatus.toUpperCase(), M + colW, y);
+  drawKV("Pickup Time", order.pickupTime ?? "Not set", M, y);
+  drawKV("Payment Status", order.paymentStatus.toUpperCase(), M + colW, y);
+  y += 36;
+  drawKV("Pickup Status", order.pickupStatus.toUpperCase(), M, y);
   y += 30;
 
   if (order.note) {
