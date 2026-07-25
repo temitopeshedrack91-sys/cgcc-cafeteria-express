@@ -208,7 +208,6 @@ function ReceiptPage() {
   }
 
   const created = new Date(order.createdAt);
-  const estimated = new Date(order.createdAt + 20 * 60 * 1000);
   const timeline = buildTimeline(order);
   const pTone = pickupTone(order.pickupStatus);
   const payTone = paymentTone(order.paymentStatus);
@@ -293,13 +292,14 @@ function ReceiptPage() {
               </p>
             </div>
             <div className="col-span-2 rounded-lg bg-brand/5 p-3">
-              <p className="text-xs uppercase text-muted-foreground">Estimated pickup</p>
+              <p className="text-xs uppercase text-muted-foreground">Your pickup time</p>
               <p className="font-semibold">
-                By {estimated.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
-                <span className="ml-1 text-xs font-normal text-muted-foreground">(~15–20 min)</span>
+                {order.pickupTime ?? "Not set"}
+                <span className="ml-1 text-xs font-normal text-muted-foreground">(chosen at checkout)</span>
               </p>
             </div>
           </div>
+
 
           {order.note && (
             <div className="rounded-lg border border-border bg-muted/50 p-3 text-sm">
