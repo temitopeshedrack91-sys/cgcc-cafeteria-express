@@ -22,6 +22,14 @@ export type OrderItem = {
   preparationStatus?: string;
 };
 
+export type PaymentStatus =
+  | "unpaid"
+  | "pending"
+  | "paid"
+  | "failed"
+  | "cancelled"
+  | "refunded";
+
 export type Order = {
   code: string;
   receiptNo: string;
@@ -32,7 +40,9 @@ export type Order = {
   pickupTime?: string;
   items: OrderItem[];
   total: number;
-  paymentStatus: "paid" | "unpaid";
+  paymentStatus: PaymentStatus;
+  paymentProvider?: string | null;
+  paymentReference?: string | null;
   pickupStatus: OrderStatus;
   createdAt: number;
 };
@@ -126,7 +136,9 @@ type OrderRow = {
   order_type: "dine-in" | "takeaway";
   pickup_time?: string | null;
   total: number;
-  payment_status: "paid" | "unpaid";
+  payment_status: PaymentStatus;
+  payment_provider?: string | null;
+  payment_reference?: string | null;
   pickup_status: OrderStatus;
   created_at: string;
   order_items?: {
