@@ -18,6 +18,7 @@ import {
   listCashiers,
   setCashierActive,
   setCashierPassword,
+  updateCashierEmail,
   type CashierRow,
   type CashierUsername,
 } from "@/lib/cashiers.functions";
