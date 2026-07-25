@@ -1,12 +1,25 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cartTotal, formatNaira, useStore } from "@/lib/store";
 import { DEFAULT_MENU } from "@/lib/menu-data";
+import { buildPickupSlots, isPickupSlotValid } from "@/lib/pickup-times";
+import {
+  clearCustomerProfile,
+  loadCustomerProfile,
+  saveCustomerProfile,
+} from "@/lib/customer-profile";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -23,6 +36,7 @@ const schema = z.object({
     .regex(/^[0-9+\-\s]{7,20}$/, "Enter a valid phone number"),
   note: z.string().trim().max(200).optional(),
   orderType: z.enum(["dine-in", "takeaway"]),
+  pickupTime: z.string().trim().min(1, "Please select your preferred pickup time before placing your order."),
 });
 
 const TAKEAWAY_PACK_ID = "e1";
@@ -36,12 +50,26 @@ function CheckoutPage() {
   const [phone, setPhone] = useState("");
   const [note, setNote] = useState("");
   const [orderType, setOrderType] = useState<"dine-in" | "takeaway">("dine-in");
+  const [pickupTime, setPickupTime] = useState<string>("");
   const [suggest, setSuggest] = useState(false);
 
+  const slots = useMemo(() => buildPickupSlots(), []);
+
+  // Prefill from remembered profile so returning customers don't retype.
+  useEffect(() => {
+    const p = loadCustomerProfile();
+    if (p.name) setName(p.name);
+    if (p.phone) setPhone(p.phone);
+  }, []);
+
   function proceed() {
-    const parsed = schema.safeParse({ name, phone, note, orderType });
+    const parsed = schema.safeParse({ name, phone, note, orderType, pickupTime });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0]?.message ?? "Invalid form");
+      return;
+    }
+    if (!isPickupSlotValid(pickupTime)) {
+      toast.error("That pickup time is no longer available. Please pick another.");
       return;
     }
     if (
@@ -52,10 +80,17 @@ function CheckoutPage() {
       setSuggest(true);
       return;
     }
-    // Persist checkout details in sessionStorage-lite via localStorage key
+    // Remember name + phone on this device for repeat orders.
+    saveCustomerProfile({ name: name.trim(), phone: phone.trim() });
     localStorage.setItem(
       "cgcc-checkout-draft",
-      JSON.stringify({ name: name.trim(), phone: phone.trim(), note: note.trim(), orderType }),
+      JSON.stringify({
+        name: name.trim(),
+        phone: phone.trim(),
+        note: note.trim(),
+        orderType,
+        pickupTime,
+      }),
     );
     navigate({ to: "/payment" });
   }
@@ -75,7 +110,23 @@ function CheckoutPage() {
 
       <div className="mt-6 space-y-5 rounded-2xl border border-border bg-card p-5 shadow-soft">
         <div>
-          <Label htmlFor="name">Customer name</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="name">Customer name</Label>
+            {(name || phone) && (
+              <button
+                type="button"
+                onClick={() => {
+                  clearCustomerProfile();
+                  setName("");
+                  setPhone("");
+                  toast("Saved details cleared");
+                }}
+                className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-primary hover:underline"
+              >
+                Clear saved details
+              </button>
+            )}
+          </div>
           <Input
             id="name"
             className="mt-1.5"
@@ -83,6 +134,7 @@ function CheckoutPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={80}
+            autoComplete="name"
           />
         </div>
         <div>
@@ -95,7 +147,28 @@ function CheckoutPage() {
             onChange={(e) => setPhone(e.target.value)}
             inputMode="tel"
             maxLength={20}
+            autoComplete="tel"
           />
+        </div>
+        <div>
+          <Label htmlFor="pickupTime">
+            Pickup time <span className="text-destructive">*</span>
+          </Label>
+          <Select value={pickupTime} onValueChange={setPickupTime}>
+            <SelectTrigger id="pickupTime" className="mt-1.5 h-11">
+              <SelectValue placeholder="Choose when you'll collect your order" />
+            </SelectTrigger>
+            <SelectContent className="max-h-72">
+              {slots.map((s) => (
+                <SelectItem key={s.value} value={s.value}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            15-minute slots between 8:00 AM and 4:00 PM.
+          </p>
         </div>
         <div>
           <Label htmlFor="note">Optional note</Label>

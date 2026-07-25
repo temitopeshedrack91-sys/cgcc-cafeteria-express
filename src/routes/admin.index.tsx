@@ -150,6 +150,12 @@ function Dashboard() {
                   </span>
                 </div>
 
+                {o.pickupTime && (
+                  <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
+                    Pickup: {o.pickupTime}
+                  </div>
+                )}
+
                 <div className="mt-2">
                   <span
                     className={
