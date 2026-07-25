@@ -275,24 +275,37 @@ function CashierSales() {
               </p>
             ) : (
               filtered.map((i) => {
-                const low = i.stock_qty > 0 && i.stock_qty <= 10;
+                const soldOut = i.stock_walkin <= 0;
+                const low = !soldOut && i.stock_walkin <= 10;
                 return (
                   <button
                     key={i.id}
                     type="button"
                     onClick={() => addToCart(i)}
-                    className="rounded-xl border border-border bg-card p-3 text-left shadow-soft transition hover:border-brand hover:shadow-elegant"
+                    disabled={soldOut}
+                    className={
+                      "rounded-xl border bg-card p-3 text-left shadow-soft transition " +
+                      (soldOut
+                        ? "cursor-not-allowed border-destructive/40 opacity-60"
+                        : "border-border hover:border-brand hover:shadow-elegant")
+                    }
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="font-display text-sm font-bold leading-tight">{i.name}</p>
-                      {low && (
+                      {soldOut ? (
+                        <span className="rounded-full border border-destructive/40 bg-destructive/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-destructive">
+                          Sold Out Walk-in
+                        </span>
+                      ) : low ? (
                         <span className="rounded-full border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-900">
                           Low
                         </span>
-                      )}
+                      ) : null}
                     </div>
                     <p className="mt-1 text-sm font-bold text-primary">{formatNaira(i.price)}</p>
-                    <p className="mt-1 text-[10px] uppercase text-muted-foreground">Stock: {i.stock_qty}</p>
+                    <p className="mt-1 text-[10px] uppercase text-muted-foreground">
+                      Walk-in: {i.stock_walkin} · Online: {i.stock_online}
+                    </p>
                   </button>
                 );
               })
