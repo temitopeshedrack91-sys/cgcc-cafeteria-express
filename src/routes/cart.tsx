@@ -3,6 +3,7 @@ import { Minus, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { actions, cartTotal, formatNaira, useStore } from "@/lib/store";
 import { DEFAULT_MENU } from "@/lib/menu-data";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/cart")({
   head: () => ({ meta: [{ title: "Your Cart · CGCC Cafeteria Express" }] }),
