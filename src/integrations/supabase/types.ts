@@ -19,18 +19,21 @@ export type Database = {
           id: string
           ordering_open: boolean
           payment_config: Json
+          transfer_config: Json
           updated_at: string
         }
         Insert: {
           id: string
           ordering_open?: boolean
           payment_config?: Json
+          transfer_config?: Json
           updated_at?: string
         }
         Update: {
           id?: string
           ordering_open?: boolean
           payment_config?: Json
+          transfer_config?: Json
           updated_at?: string
         }
         Relationships: []
@@ -77,7 +80,11 @@ export type Database = {
           created_at: string
           enabled: boolean
           id: string
+          instructions: string | null
           is_default: boolean
+          logo_url: string | null
+          narration: string | null
+          sort_order: number
           updated_at: string
         }
         Insert: {
@@ -88,7 +95,11 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           id?: string
+          instructions?: string | null
           is_default?: boolean
+          logo_url?: string | null
+          narration?: string | null
+          sort_order?: number
           updated_at?: string
         }
         Update: {
@@ -99,7 +110,11 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           id?: string
+          instructions?: string | null
           is_default?: boolean
+          logo_url?: string | null
+          narration?: string | null
+          sort_order?: number
           updated_at?: string
         }
         Relationships: []
@@ -580,8 +595,10 @@ export type Database = {
           phone: string
           pickup_status: string
           pickup_time: string | null
+          proof_url: string | null
           receipt_no: string
           total: number
+          transfer_reference: string | null
         }
         Insert: {
           archived_at?: string | null
@@ -602,8 +619,10 @@ export type Database = {
           phone: string
           pickup_status?: string
           pickup_time?: string | null
+          proof_url?: string | null
           receipt_no: string
           total: number
+          transfer_reference?: string | null
         }
         Update: {
           archived_at?: string | null
@@ -624,8 +643,10 @@ export type Database = {
           phone?: string
           pickup_status?: string
           pickup_time?: string | null
+          proof_url?: string | null
           receipt_no?: string
           total?: number
+          transfer_reference?: string | null
         }
         Relationships: [
           {
@@ -740,6 +761,10 @@ export type Database = {
       }
       archive_category: { Args: { _id: string }; Returns: Json }
       archive_menu_item: { Args: { _id: string }; Returns: Json }
+      attach_transfer_proof: {
+        Args: { _code: string; _proof_url: string; _reference: string }
+        Returns: Json
+      }
       bulk_move_products: {
         Args: { _category_id?: string; _ids: string[]; _vendor_type?: string }
         Returns: Json
@@ -871,10 +896,12 @@ export type Database = {
         Returns: Json
       }
       reopen_business_day: { Args: { _day: string }; Returns: Json }
+      reorder_bank_accounts: { Args: { _ids: string[] }; Returns: Json }
       reorder_categories: { Args: { _ids: string[] }; Returns: Json }
       restore_category: { Args: { _id: string }; Returns: Json }
       restore_menu_item: { Args: { _id: string }; Returns: Json }
       save_system_settings: { Args: { _data: Json }; Returns: Json }
+      save_transfer_config: { Args: { _data: Json }; Returns: Json }
       upsert_category: {
         Args: { _id: string; _name: string; _sort_order?: number }
         Returns: Json
