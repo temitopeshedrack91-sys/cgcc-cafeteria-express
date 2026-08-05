@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { Loader2, Save, Building2, ShieldCheck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Loader2, Save, Building2, ShieldCheck, Upload, Trash2, Image as ImageIcon } from "lucide-react";
 import { AdminGuard, AdminShell } from "@/components/AdminShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import {
   saveSettings,
   type SystemSettings,
 } from "@/lib/settings";
+import { uploadLogoImage, validateLogoFile } from "@/lib/admin-ops";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/settings")({
@@ -371,6 +372,94 @@ function Field({
       <Label className="text-xs font-semibold uppercase tracking-wider">{label}</Label>
       <div className="mt-1">{children}</div>
       {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
+function LogoField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (url: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function pick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const invalid = validateLogoFile(file);
+    if (invalid) {
+      toast.error(invalid);
+      return;
+    }
+    setBusy(true);
+    try {
+      const url = await uploadLogoImage(file);
+      onChange(url);
+      toast.success(`${label} uploaded. Click “Save settings” to apply it everywhere.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <Label className="text-xs font-semibold uppercase tracking-wider">{label}</Label>
+      <div className="mt-2 flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-3">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-background">
+          {value ? (
+            <img src={value} alt={`${label} preview`} className="h-full w-full object-contain" />
+          ) : (
+            <ImageIcon className="h-6 w-6 text-muted-foreground" />
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".png,.jpg,.jpeg,.svg,.webp,image/png,image/jpeg,image/svg+xml,image/webp"
+            className="hidden"
+            onChange={pick}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="rounded-full"
+            disabled={busy}
+            onClick={() => inputRef.current?.click()}
+          >
+            {busy ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="mr-2 h-4 w-4" />
+            )}
+            {value ? "Replace" : "Upload logo"}
+          </Button>
+          {value && !busy && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="rounded-full text-destructive"
+              onClick={() => onChange("")}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Remove
+            </Button>
+          )}
+        </div>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        PNG, JPG, JPEG, SVG or WebP · up to 2MB
+      </p>
     </div>
   );
 }
