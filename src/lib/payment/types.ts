@@ -16,6 +16,8 @@ export type PaymentMode = "test" | "live";
 
 export type PaymentConfig = {
   mode: PaymentMode;
+  enabled: boolean;
+  provider: string; // "opay" today; provider-independent by design
   merchantId: string;
   publicKey: string;
   secretKey: string;
@@ -27,6 +29,8 @@ export type PaymentConfig = {
 
 export const EMPTY_PAYMENT_CONFIG: PaymentConfig = {
   mode: "test",
+  enabled: true,
+  provider: "opay",
   merchantId: "",
   publicKey: "",
   secretKey: "",
