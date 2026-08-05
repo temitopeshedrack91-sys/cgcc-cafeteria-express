@@ -1,11 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Copy, Check, ShieldCheck, Loader2, ChevronDown, Landmark, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { actions, cartTotal, formatNaira, useStore } from "@/lib/store";
 import { DEFAULT_MENU } from "@/lib/menu-data";
 import { initPayment } from "@/lib/payment/service";
+import { getDefaultBankAccount, type BankAccount } from "@/lib/bank-accounts";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/payment")({
@@ -13,7 +14,8 @@ export const Route = createFileRoute("/payment")({
   component: PaymentPage,
 });
 
-const BANK = { bank: "OPay", accountName: "Olunike Olajumoke Adewumi", accountNumber: "6104885281" };
+// Bank details are database-driven: Admin → Finance & Payment → Bank transfer.
+const FALLBACK_BANK = { bank_name: "—", account_name: "—", account_number: "—" };
 
 type Method = "opay" | "transfer";
 
@@ -27,6 +29,13 @@ function PaymentPage() {
   const [copied, setCopied] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [bank, setBank] = useState<Pick<BankAccount, "bank_name" | "account_name" | "account_number">>(FALLBACK_BANK);
+
+  useEffect(() => {
+    void getDefaultBankAccount().then((a) => {
+      if (a) setBank(a);
+    });
+  }, []);
 
   const draft = useMemo(() => {
     if (typeof window === "undefined") return null;
@@ -41,7 +50,7 @@ function PaymentPage() {
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText(BANK.accountNumber);
+      await navigator.clipboard.writeText(bank.account_number);
       setCopied(true);
       toast.success("Account Number Copied.");
       setTimeout(() => setCopied(false), 2000);
@@ -240,17 +249,17 @@ function PaymentPage() {
           <div className="space-y-4 p-5">
             <div>
               <p className="text-xs uppercase tracking-wider text-muted-foreground">Bank</p>
-              <p className="text-lg font-semibold">{BANK.bank}</p>
+              <p className="text-lg font-semibold">{bank.bank_name}</p>
             </div>
             <div>
               <p className="text-xs uppercase tracking-wider text-muted-foreground">Account name</p>
-              <p className="text-lg font-semibold">{BANK.accountName}</p>
+              <p className="text-lg font-semibold">{bank.account_name}</p>
             </div>
             <div>
               <p className="text-xs uppercase tracking-wider text-muted-foreground">Account number</p>
               <div className="mt-1 flex items-center gap-3">
                 <p className="font-display text-2xl font-bold tracking-wider text-primary">
-                  {BANK.accountNumber}
+                  {bank.account_number}
                 </p>
                 <button
                   onClick={copy}
