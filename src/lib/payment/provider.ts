@@ -1,8 +1,9 @@
-// Provider interface + OPay driver. The `initialize` step in Test Mode fakes
-// what the real OPay Checkout API would return: a `reference` and an
-// `authorizationUrl`. In Live Mode this will call OPay's REST API. The rest of
-// the app never knows which mode is active.
+// Provider interface + gateway driver. In Test Mode `initialize` fakes what a
+// real checkout API returns: a `reference` (and, live, an authorization URL).
+// In Live Mode it calls the configured provider. The rest of the app never
+// knows which provider or mode is active.
 
+import { activeCredentials } from "./config";
 import type {
   InitPaymentInput,
   InitPaymentResult,
@@ -10,11 +11,10 @@ import type {
   PaymentResult,
   SimulatedOutcome,
 } from "./types";
+import { providerMeta } from "./types";
 
 export interface PaymentProviderDriver {
-  readonly id: "opay";
   initialize(cfg: PaymentConfig, input: InitPaymentInput): Promise<InitPaymentResult>;
-  // Live mode only: verify a webhook signature. In Test Mode this is unused.
   verifyWebhookSignature(cfg: PaymentConfig, rawBody: string, signature: string): boolean;
 }
 
@@ -24,52 +24,60 @@ function newReference(prefix: string): string {
   return `${prefix}-${ts}-${rand}`;
 }
 
-export const opayDriver: PaymentProviderDriver = {
-  id: "opay",
-  async initialize(cfg, input) {
+export const gatewayDriver: PaymentProviderDriver = {
+  async initialize(cfg, _input) {
+    const meta = providerMeta(cfg.provider);
     if (cfg.mode === "live") {
+      const creds = activeCredentials(cfg);
+      if (!creds.publicKey || !creds.secretKey) {
+        throw new Error(
+          `${meta.name} live credentials are missing. Open Admin → Online Gateway and paste your keys.`,
+        );
+      }
       // ------------------------------------------------------------------
       // LIVE INTEGRATION PLACEHOLDER
-      // When credentials are inserted into the Payment Configuration page and
-      // mode is switched to "live", replace this block with a fetch to
-      // OPay's Checkout API (POST /api/v1/international/cashier/create) using
-      // cfg.merchantId / cfg.publicKey / cfg.secretKey. Return the real
-      // reference + cashierUrl from the response.
+      // Credentials are already loaded from the database (creds.*). Swap this
+      // block for the provider's checkout-create REST call and return the real
+      // reference + authorization URL. No other file needs to change.
       // ------------------------------------------------------------------
       throw new Error(
-        "OPay live credentials required. Open Admin → Payment Configuration and enter your Merchant ID, Public Key, and Secret Key.",
+        `${meta.name} live checkout is awaiting activation. Verify your credentials in Admin → Online Gateway.`,
       );
     }
-    // Test Mode: mint a simulated reference. The customer's browser drives
-    // the outcome via the /payment/opay/return simulator page.
+    // Test Mode: mint a simulated reference. The customer's browser drives the
+    // outcome via the /payment/opay/return simulator page.
     return {
-      reference: newReference("TEST-OPAY"),
-      provider: "opay",
+      reference: newReference(`TEST-${cfg.provider.toUpperCase()}`),
+      provider: cfg.provider,
       mode: "test",
     };
   },
-  verifyWebhookSignature(cfg, rawBody, signature) {
+  verifyWebhookSignature(cfg, _rawBody, _signature) {
     if (cfg.mode === "test") return true;
-    // Live: HMAC-SHA512 of rawBody with cfg.webhookSecret, timing-safe compare.
+    // Live: HMAC of rawBody with the provider webhook secret, timing-safe compare.
     // Implemented inside the server route to keep node:crypto off the client.
     return false;
   },
 };
+
+/** Back-compat alias — older imports used `opayDriver`. */
+export const opayDriver = gatewayDriver;
 
 // Simulated outcome → PaymentResult mapping used only in Test Mode.
 export function simulatedResult(
   outcome: SimulatedOutcome,
   reference: string,
   amount: number,
+  provider: PaymentResult["provider"] = "opay",
 ): PaymentResult {
   switch (outcome) {
     case "success":
-      return { reference, status: "paid", provider: "opay", amount, meta: { simulated: true } };
+      return { reference, status: "paid", provider, amount, meta: { simulated: true } };
     case "failed":
-      return { reference, status: "failed", provider: "opay", amount, meta: { simulated: true, reason: "declined" } };
+      return { reference, status: "failed", provider, amount, meta: { simulated: true, reason: "declined" } };
     case "cancelled":
-      return { reference, status: "cancelled", provider: "opay", amount, meta: { simulated: true } };
+      return { reference, status: "cancelled", provider, amount, meta: { simulated: true } };
     case "timeout":
-      return { reference, status: "failed", provider: "opay", amount, meta: { simulated: true, reason: "timeout" } };
+      return { reference, status: "failed", provider, amount, meta: { simulated: true, reason: "timeout" } };
   }
 }
