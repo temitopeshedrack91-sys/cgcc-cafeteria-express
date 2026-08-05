@@ -76,6 +76,27 @@ function LandingPage() {
 
   return (
     <div>
+      {(settings.maintenanceMessage || settings.announcement) && (
+        <section className="mx-auto max-w-5xl space-y-3 px-4 pt-6">
+          {settings.maintenanceMessage && (
+            <div
+              role="alert"
+              className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-medium text-rose-800"
+            >
+              {settings.maintenanceMessage}
+            </div>
+          )}
+          {settings.announcement && (
+            <div
+              role="status"
+              className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-900"
+            >
+              {settings.announcement}
+            </div>
+          )}
+        </section>
+      )}
+
       {/* Welcome Banner */}
       <section className="mx-auto max-w-5xl px-4 pt-6">
         <div
