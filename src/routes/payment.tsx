@@ -1,12 +1,22 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Copy, Check, ShieldCheck, Loader2, ChevronDown, Landmark, Sparkles } from "lucide-react";
+import { Copy, Check, ShieldCheck, Loader2, ChevronDown, Landmark, Sparkles, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { actions, cartTotal, formatNaira, useStore } from "@/lib/store";
 import { DEFAULT_MENU } from "@/lib/menu-data";
 import { initPayment } from "@/lib/payment/service";
-import { getDefaultBankAccount, type BankAccount } from "@/lib/bank-accounts";
+import { listPayableBankAccounts, type BankAccount } from "@/lib/bank-accounts";
+import { Input } from "@/components/ui/input";
+import {
+  DEFAULT_TRANSFER_SETTINGS,
+  attachTransferProof,
+  loadTransferSettings,
+  uploadPaymentProof,
+  type TransferSettings,
+} from "@/lib/transfer-settings";
+import { loadPaymentConfig } from "@/lib/payment/config";
+import { providerMeta } from "@/lib/payment/types";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/payment")({
@@ -14,9 +24,7 @@ export const Route = createFileRoute("/payment")({
   component: PaymentPage,
 });
 
-// Bank details are database-driven: Admin → Finance & Payment → Bank transfer.
-const FALLBACK_BANK = { bank_name: "—", account_name: "—", account_number: "—" };
-
+// Bank details are database-driven: Admin → Bank Transfer.
 type Method = "opay" | "transfer";
 
 function PaymentPage() {
@@ -29,13 +37,34 @@ function PaymentPage() {
   const [copied, setCopied] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [bank, setBank] = useState<Pick<BankAccount, "bank_name" | "account_name" | "account_number">>(FALLBACK_BANK);
+  const [accounts, setAccounts] = useState<BankAccount[]>([]);
+  const [bankId, setBankId] = useState<string | null>(null);
+  const [transferCfg, setTransferCfg] = useState<TransferSettings>(DEFAULT_TRANSFER_SETTINGS);
+  const [gatewayEnabled, setGatewayEnabled] = useState(true);
+  const [gatewayName, setGatewayName] = useState("OPay");
+  const [reference, setReference] = useState("");
+  const [proof, setProof] = useState<File | null>(null);
 
   useEffect(() => {
-    void getDefaultBankAccount().then((a) => {
-      if (a) setBank(a);
-    });
+    void (async () => {
+      const [list, cfg, pay] = await Promise.all([
+        listPayableBankAccounts(),
+        loadTransferSettings(true),
+        loadPaymentConfig(true),
+      ]);
+      setAccounts(list);
+      setBankId(list[0]?.id ?? null);
+      setTransferCfg(cfg);
+      setGatewayEnabled(pay.enabled);
+      setGatewayName(providerMeta(pay.provider).name);
+      if (!pay.enabled && cfg.enabled) {
+        setMethod("transfer");
+        setShowTransfer(true);
+      }
+    })();
   }, []);
+
+  const bank = accounts.find((a) => a.id === bankId) ?? null;
 
   const draft = useMemo(() => {
     if (typeof window === "undefined") return null;
@@ -49,6 +78,7 @@ function PaymentPage() {
   }, []);
 
   async function copy() {
+    if (!bank) return;
     try {
       await navigator.clipboard.writeText(bank.account_number);
       setCopied(true);
@@ -131,10 +161,30 @@ function PaymentPage() {
       toast.error("Please confirm that you have completed payment.");
       return;
     }
+    if (transferCfg.requireReference && !reference.trim()) {
+      toast.error("Please enter the transfer reference from your bank.");
+      return;
+    }
     setSubmitting(true);
     try {
       const order = await createOrderRecord();
       if (!order) { setSubmitting(false); return; }
+      try {
+        let proofUrl: string | undefined;
+        if (transferCfg.requireProof && proof) {
+          proofUrl = await uploadPaymentProof(proof, order.code);
+        }
+        if (reference.trim() || proofUrl) {
+          await attachTransferProof({
+            code: order.code,
+            ...(reference.trim() ? { reference: reference.trim() } : {}),
+            ...(proofUrl ? { proofUrl } : {}),
+          });
+        }
+      } catch (err) {
+        console.warn("[transfer] proof attach failed", err);
+        toast.warning("Order saved, but we could not attach your payment proof.");
+      }
       actions.clearCart();
       localStorage.removeItem("cgcc-checkout-draft");
       navigate({ to: "/receipt/$code", params: { code: order.code } });
@@ -177,7 +227,8 @@ function PaymentPage() {
         </div>
       </div>
 
-      {/* PRIMARY: OPay Online */}
+      {/* PRIMARY: Online gateway */}
+      {gatewayEnabled && (
       <button
         type="button"
         onClick={() => setMethod("opay")}
@@ -197,7 +248,7 @@ function PaymentPage() {
               🟢
             </span>
             <div>
-              <p className="text-lg font-bold">Pay Online with OPay</p>
+              <p className="text-lg font-bold">Pay Online with {gatewayName}</p>
               <p className="text-xs text-muted-foreground">
                 Instant confirmation · No proof upload needed
               </p>
@@ -206,8 +257,9 @@ function PaymentPage() {
           <span className="text-lg font-bold text-primary">{formatNaira(total)}</span>
         </div>
       </button>
+      )}
 
-      {method === "opay" && (
+      {gatewayEnabled && method === "opay" && (
         <Button
           size="lg"
           className="mt-4 h-14 w-full rounded-full bg-emerald-600 shadow-elegant hover:bg-emerald-700"
@@ -215,11 +267,12 @@ function PaymentPage() {
           disabled={submitting}
         >
           {submitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-          Pay {formatNaira(total)} with OPay
+          Pay {formatNaira(total)} with {gatewayName}
         </Button>
       )}
 
-      {/* Secondary: Other Payment Options */}
+      {/* Secondary: Manual bank transfer — independent of the gateway */}
+      {transferCfg.enabled && (
       <button
         type="button"
         onClick={() => { setShowTransfer((v) => !v); setMethod("transfer"); }}
@@ -227,12 +280,13 @@ function PaymentPage() {
       >
         <span className="inline-flex items-center gap-2">
           <Landmark className="h-4 w-4" />
-          Other Payment Options
+          {gatewayEnabled ? "Pay by Bank Transfer" : "Bank Transfer"}
         </span>
         <ChevronDown className={`h-4 w-4 transition ${showTransfer ? "rotate-180" : ""}`} />
       </button>
+      )}
 
-      {showTransfer && (
+      {transferCfg.enabled && showTransfer && (
         <div
           className={`mt-3 overflow-hidden rounded-2xl border ${
             method === "transfer" ? "border-border" : "border-border/60"
@@ -247,6 +301,34 @@ function PaymentPage() {
             <p className="text-sm text-primary-foreground/70">Amount to transfer</p>
           </div>
           <div className="space-y-4 p-5">
+            {transferCfg.instructions && (
+              <p className="rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">
+                {transferCfg.instructions}
+              </p>
+            )}
+            {accounts.length > 1 && (
+              <div className="flex flex-wrap gap-2">
+                {accounts.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => setBankId(a.id)}
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                      a.id === bankId ? "border-primary bg-primary/10 text-primary" : "border-border"
+                    }`}
+                  >
+                    {a.logo_url && <img src={a.logo_url} alt="" className="h-4 w-4 object-contain" />}
+                    {a.bank_name}
+                  </button>
+                ))}
+              </div>
+            )}
+            {!bank ? (
+              <p className="text-sm text-muted-foreground">
+                No bank account is available right now. Please choose another payment option.
+              </p>
+            ) : (
+            <>
             <div>
               <p className="text-xs uppercase tracking-wider text-muted-foreground">Bank</p>
               <p className="text-lg font-semibold">{bank.bank_name}</p>
@@ -271,6 +353,44 @@ function PaymentPage() {
                 </button>
               </div>
             </div>
+            {(bank.narration || transferCfg.narration) && (
+              <p className="text-sm text-muted-foreground">{bank.narration || transferCfg.narration}</p>
+            )}
+            {bank.instructions && (
+              <p className="text-sm text-muted-foreground">{bank.instructions}</p>
+            )}
+            {transferCfg.requireReference && (
+              <div>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Transfer reference
+                </p>
+                <Input
+                  className="mt-1"
+                  placeholder="Reference from your bank app"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                />
+              </div>
+            )}
+            {transferCfg.requireProof && (
+              <div>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Proof of payment
+                </p>
+                <label className="mt-1 inline-flex cursor-pointer items-center gap-2 rounded-full border border-border px-3 py-2 text-xs font-semibold">
+                  <Upload className="h-3.5 w-3.5" />
+                  {proof ? proof.name : "Attach receipt (PNG, JPG or PDF)"}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,application/pdf"
+                    className="hidden"
+                    onChange={(e) => setProof(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+              </div>
+            )}
+            </>
+            )}
           </div>
 
           <label className="flex cursor-pointer items-start gap-3 border-t border-border bg-muted/40 p-4">
@@ -283,7 +403,9 @@ function PaymentPage() {
               <span className="font-semibold">I have completed the transfer.</span>
               <br />
               <span className="text-muted-foreground">
-                An admin will verify your transfer before preparing your order.
+                {transferCfg.manualVerification
+                  ? "An admin will verify your transfer before preparing your order."
+                  : "Your order will be sent to the kitchen right away."}
               </span>
             </span>
           </label>
@@ -294,7 +416,7 @@ function PaymentPage() {
               className="mt-4 h-14 w-full rounded-full"
               variant="secondary"
               onClick={payWithTransfer}
-              disabled={submitting || !confirmed}
+              disabled={submitting || !confirmed || !bank}
             >
               Continue with transfer
             </Button>

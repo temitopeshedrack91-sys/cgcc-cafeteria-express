@@ -1,8 +1,10 @@
 // Payment integration status data for the Finance & Payment status card.
 import { supabase } from "@/integrations/supabase/client";
 import { getDefaultBankAccount, type BankAccount } from "@/lib/bank-accounts";
-import { loadPaymentConfig, isLiveReady } from "./config";
+import { activeCredentials, loadPaymentConfig, isLiveReady } from "./config";
 import type { PaymentConfig } from "./types";
+import { providerMeta } from "./types";
+import { loadTransferSettings, type TransferSettings } from "@/lib/transfer-settings";
 
 export type Health = "healthy" | "warning" | "error";
 
@@ -26,6 +28,8 @@ export type PaymentStatusSnapshot = {
   transferHealth: Health;
   transferMessage: string;
   defaultAccount: BankAccount | null;
+  transfer: TransferSettings;
+  providerName: string;
 };
 
 const TXN_COLS = "code, total, payment_status, payment_reference, payment_updated_at";
@@ -44,11 +48,14 @@ async function lastTxn(statuses: string[]): Promise<PaymentTxn | null> {
 
 export async function loadPaymentStatus(): Promise<PaymentStatusSnapshot> {
   const config = await loadPaymentConfig(true);
-  const [lastSuccess, lastFailed, defaultAccount] = await Promise.all([
+  const [lastSuccess, lastFailed, defaultAccount, transfer] = await Promise.all([
     lastTxn(["paid"]),
     lastTxn(["failed", "cancelled"]),
     getDefaultBankAccount(),
+    loadTransferSettings(true),
   ]);
+  const creds = activeCredentials(config);
+  const providerName = providerMeta(config.provider).name;
 
   let gatewayHealth: Health = "healthy";
   let gatewayMessage = "Test Mode simulator active — no real money moves.";
@@ -68,17 +75,20 @@ export async function loadPaymentStatus(): Promise<PaymentStatusSnapshot> {
 
   let webhookHealth: Health = "warning";
   let webhookMessage = "No callback URL configured yet.";
-  if (config.callbackUrl && config.webhookSecret) {
+  if (creds.callbackUrl && creds.webhookSecret) {
     webhookHealth = "healthy";
     webhookMessage = "Callback URL and webhook secret configured.";
-  } else if (config.callbackUrl) {
+  } else if (creds.callbackUrl) {
     webhookHealth = config.mode === "live" ? "error" : "warning";
     webhookMessage = "Callback URL set but webhook secret is missing — signatures cannot be verified.";
   }
 
   let transferHealth: Health = "error";
   let transferMessage = "No active bank account. Customers cannot pay by transfer.";
-  if (defaultAccount) {
+  if (!transfer.enabled) {
+    transferHealth = "warning";
+    transferMessage = "Bank transfer is turned off for customers.";
+  } else if (defaultAccount) {
     transferHealth = "healthy";
     transferMessage = `${defaultAccount.bank_name} · ${defaultAccount.account_number}`;
   }
@@ -95,6 +105,8 @@ export async function loadPaymentStatus(): Promise<PaymentStatusSnapshot> {
     transferHealth,
     transferMessage,
     defaultAccount,
+    transfer,
+    providerName,
   };
 }
 
@@ -103,16 +115,18 @@ export function validateGateway(cfg: PaymentConfig): { ok: boolean; issues: stri
   const issues: string[] = [];
   if (!cfg.enabled) issues.push("Gateway is disabled.");
   if (!cfg.provider) issues.push("No payment provider selected.");
+  const meta = providerMeta(cfg.provider);
+  const c = activeCredentials(cfg);
   if (cfg.mode === "live") {
-    if (!cfg.merchantId) issues.push("Merchant ID is missing.");
-    if (!cfg.publicKey) issues.push("Public Key is missing.");
-    if (!cfg.secretKey) issues.push("Secret/API Key is missing.");
-    if (!cfg.webhookSecret) issues.push("Webhook Secret is missing.");
-    if (!cfg.callbackUrl) issues.push("Callback URL is missing.");
-    if (!cfg.returnUrl) issues.push("Return URL is missing.");
-    if (cfg.callbackUrl && !/^https:\/\//.test(cfg.callbackUrl))
+    if (meta.usesMerchantId && !c.merchantId) issues.push(`${meta.merchantLabel} is missing.`);
+    if (!c.publicKey) issues.push(`${meta.publicLabel} is missing.`);
+    if (!c.secretKey) issues.push(`${meta.secretLabel} is missing.`);
+    if (!c.webhookSecret) issues.push("Webhook Secret is missing.");
+    if (!c.callbackUrl) issues.push("Callback URL is missing.");
+    if (!c.returnUrl) issues.push("Return URL is missing.");
+    if (c.callbackUrl && !/^https:\/\//.test(c.callbackUrl))
       issues.push("Callback URL must start with https://");
-    if (cfg.returnUrl && !/^https:\/\//.test(cfg.returnUrl))
+    if (c.returnUrl && !/^https:\/\//.test(c.returnUrl))
       issues.push("Return URL must start with https://");
   }
   if (!cfg.currency) issues.push("Currency is missing.");

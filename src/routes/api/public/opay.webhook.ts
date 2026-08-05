@@ -65,13 +65,17 @@ export const Route = createFileRoute("/api/public/opay/webhook")({
         const cfg = (settings?.payment_config ?? {}) as {
           mode?: "test" | "live";
           webhookSecret?: string;
+          provider?: string;
+          credentials?: Record<string, { webhookSecret?: string }>;
         };
 
         // In live mode, require and verify the signature. In test mode, accept
         // but still require a body — the browser simulator does not call this
         // endpoint, so a POST here in test mode is an external caller.
         if (cfg.mode === "live") {
-          if (!verifySignature(cfg.webhookSecret ?? "", rawBody, signature)) {
+          const secret =
+            cfg.credentials?.[cfg.provider ?? "opay"]?.webhookSecret ?? cfg.webhookSecret ?? "";
+          if (!verifySignature(secret, rawBody, signature)) {
             return new Response("Invalid signature", { status: 401 });
           }
         }
