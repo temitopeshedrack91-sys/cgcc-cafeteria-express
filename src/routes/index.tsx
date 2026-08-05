@@ -1,3 +1,4 @@
+import { useSystemSettings } from "@/lib/settings";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowRight,
@@ -70,6 +71,7 @@ const FEATURES = [
 ];
 
 function LandingPage() {
+  const settings = useSystemSettings();
   const orderingOpen = useStore((s) => s.orderingOpen);
 
   return (
@@ -86,7 +88,7 @@ function LandingPage() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="font-display text-sm font-bold text-primary sm:text-base">
-              🎉 Welcome to CGCC Cafeteria Express
+              {settings.welcomeMessage}
             </p>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
               Skip the queue by placing your order before arriving. We're excited to make your
