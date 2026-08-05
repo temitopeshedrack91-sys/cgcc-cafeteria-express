@@ -65,6 +65,92 @@ export async function deleteProduct(id: string) {
   const { error } = await supabase.rpc("delete_menu_item", { _id: id });
   if (error) throw error;
 }
+export async function duplicateProduct(id: string) {
+  const { data, error } = await supabase.rpc("duplicate_menu_item" as any, { _id: id });
+  if (error) throw error;
+  return data as any;
+}
+
+export type BulkAction = "enable" | "disable" | "archive" | "restore" | "price_set" | "price_percent";
+
+export async function bulkUpdateProducts(ids: string[], action: BulkAction, value?: number) {
+  const args: any = { _ids: ids, _action: action };
+  if (value !== undefined) args._value = value;
+  const { data, error } = await supabase.rpc("bulk_update_products" as any, args);
+  if (error) throw error;
+  return data as any;
+}
+
+export async function bulkMoveProducts(ids: string[], vendorType?: string, categoryId?: string) {
+  const args: any = { _ids: ids };
+  if (vendorType) args._vendor_type = vendorType;
+  if (categoryId) args._category_id = categoryId;
+  const { data, error } = await supabase.rpc("bulk_move_products" as any, args);
+  if (error) throw error;
+  return data as any;
+}
+
+/* ---------------- Categories ---------------- */
+
+export type CategoryRow = {
+  id: string;
+  name: string;
+  sort_order: number;
+  archived_at: string | null;
+};
+
+export async function listCategories(includeArchived = true): Promise<CategoryRow[]> {
+  let q = supabase.from("categories").select("id, name, sort_order, archived_at").order("sort_order");
+  if (!includeArchived) q = q.is("archived_at", null);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []) as any;
+}
+
+export async function upsertCategory(input: { id?: string; name: string; sort_order?: number }) {
+  const args: any = { _name: input.name };
+  if (input.id) args._id = input.id;
+  if (input.sort_order !== undefined) args._sort_order = input.sort_order;
+  const { data, error } = await supabase.rpc("upsert_category" as any, args);
+  if (error) throw error;
+  return data as any;
+}
+export async function archiveCategory(id: string) {
+  const { error } = await supabase.rpc("archive_category" as any, { _id: id });
+  if (error) throw error;
+}
+export async function restoreCategory(id: string) {
+  const { error } = await supabase.rpc("restore_category" as any, { _id: id });
+  if (error) throw error;
+}
+export async function deleteCategory(id: string) {
+  const { error } = await supabase.rpc("delete_category" as any, { _id: id });
+  if (error) throw error;
+}
+export async function reorderCategories(ids: string[]) {
+  const { error } = await supabase.rpc("reorder_categories" as any, { _ids: ids });
+  if (error) throw error;
+}
+
+/* ---------------- Product images ---------------- */
+
+const IMAGE_BUCKET = "product-images";
+const TEN_YEARS = 60 * 60 * 24 * 365 * 10;
+
+export async function uploadProductImage(file: File): Promise<string> {
+  const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
+  const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(path, file, {
+    cacheControl: "31536000",
+    upsert: false,
+    contentType: file.type || undefined,
+  });
+  if (error) throw error;
+  const { data, error: signErr } = await supabase.storage.from(IMAGE_BUCKET).createSignedUrl(path, TEN_YEARS);
+  if (signErr) throw signErr;
+  return data.signedUrl;
+}
+
 
 export type AuditEntry = {
   id: string;
