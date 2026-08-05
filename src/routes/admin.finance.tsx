@@ -548,391 +548,45 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-/* --------------------------------------------------------------- gateway */
+/* ------------------------------------------- pointers to dedicated pages */
 
 function GatewaySettings() {
-  const [cfg, setCfg] = useState<PaymentConfig>(EMPTY_PAYMENT_CONFIG);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    void loadPaymentConfig(true).then((c) => {
-      setCfg(c);
-      setLoading(false);
-    });
-  }, []);
-
-  function bind<K extends keyof PaymentConfig>(key: K) {
-    return {
-      value: String(cfg[key] ?? ""),
-      onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-        setCfg((c) => ({ ...c, [key]: e.target.value })),
-    };
-  }
-
-  async function save() {
-    setSaving(true);
-    try {
-      await savePaymentConfig(cfg);
-      toast.success("Payment gateway configuration saved.");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not save configuration.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function validate() {
-    const res = validateGateway(cfg);
-    if (res.ok) toast.success("Gateway configuration looks valid.");
-    else toast.error(res.issues.join(" "));
-  }
-
-  if (loading) {
-    return (
-      <div className="p-12 text-center">
-        <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-  const liveReady = isLiveReady(cfg);
-
   return (
     <Card>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-display text-lg font-bold">Online payment gateway</h2>
-          <p className="text-xs text-muted-foreground">
-            Provider-independent. Changing provider or credentials never requires code changes.
-          </p>
-        </div>
-        <label className="flex items-center gap-2 text-sm font-medium">
-          <Switch
-            checked={cfg.enabled}
-            onCheckedChange={(v) => setCfg((c) => ({ ...c, enabled: v }))}
-          />
-          {cfg.enabled ? "Enabled" : "Disabled"}
-        </label>
-      </div>
-
-      <div className="mb-6 grid gap-3 sm:grid-cols-2">
-        <ModeCard
-          active={cfg.mode === "test"}
-          onClick={() => setCfg((c) => ({ ...c, mode: "test" }))}
-          title="Sandbox (Test Mode)"
-          subtitle="Simulate all outcomes without real money"
-          tint="amber"
-        />
-        <ModeCard
-          active={cfg.mode === "live"}
-          disabled={!liveReady}
-          onClick={() => {
-            if (!liveReady) {
-              toast.error("Fill in all credentials before enabling Live Mode.");
-              return;
-            }
-            setCfg((c) => ({ ...c, mode: "live" }));
-          }}
-          title="Live Mode"
-          subtitle={liveReady ? "Ready to accept real payments" : "Fill in all credentials first"}
-          tint="emerald"
-        />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Payment Provider" hint="e.g. opay, paystack, flutterwave">
-          <Input {...bind("provider")} />
-        </Field>
-        <Field label="Currency">
-          <Input {...bind("currency")} />
-        </Field>
-        <Field label="Merchant ID">
-          <Input {...bind("merchantId")} />
-        </Field>
-        <Field label="Public Key">
-          <Input {...bind("publicKey")} />
-        </Field>
-        <Field label="Secret / API Key" hint="Write-only in practice — never displayed in plain text">
-          <Input type="password" {...bind("secretKey")} />
-        </Field>
-        <Field label="Webhook Secret">
-          <Input type="password" {...bind("webhookSecret")} />
-        </Field>
-        <Field label="Callback URL" hint="Provider posts payment events here" full>
-          <Input
-            placeholder="https://your-domain.lovable.app/api/public/opay/webhook"
-            {...bind("callbackUrl")}
-          />
-        </Field>
-        <Field label="Return URL" hint="Customer returns here after paying" full>
-          <Input
-            placeholder="https://your-domain.lovable.app/payment/opay/return"
-            {...bind("returnUrl")}
-          />
-        </Field>
-      </div>
-
-      <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-border pt-4">
-        <Button variant="outline" className="rounded-full" onClick={validate}>
-          <PlugZap className="mr-2 h-4 w-4" />Validate connection
-        </Button>
-        <Button onClick={save} disabled={saving} className="rounded-full">
-          {saving ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="mr-2 h-4 w-4" />
-          )}
-          Save credentials
-        </Button>
-      </div>
+      <h2 className="font-display text-lg font-bold">Online Payment Gateway</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Provider selection, Test/Live mode and credentials now live on their own
+        page so the gateway stays completely independent of bank transfer.
+      </p>
+      <Link
+        to="/admin/payment"
+        className="mt-4 inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground"
+      >
+        <CreditCard className="h-4 w-4" />
+        Open Online Gateway
+      </Link>
     </Card>
   );
 }
 
-function ModeCard({
-  active,
-  onClick,
-  title,
-  subtitle,
-  tint,
-  disabled,
-}: {
-  active: boolean;
-  onClick: () => void;
-  title: string;
-  subtitle: string;
-  tint: "amber" | "emerald";
-  disabled?: boolean;
-}) {
-  const activeCls =
-    tint === "amber"
-      ? "border-amber-500 bg-amber-50 ring-2 ring-amber-200"
-      : "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200";
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`rounded-2xl border-2 p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
-        active ? activeCls : "border-border bg-card hover:border-primary/40"
-      }`}
-    >
-      <p className="font-bold">{title}</p>
-      <p className="text-xs text-muted-foreground">{subtitle}</p>
-    </button>
-  );
-}
-
-/* --------------------------------------------------------- bank accounts */
-
 function BankAccounts() {
-  const [rows, setRows] = useState<BankAccount[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [draft, setDraft] = useState<{
-    id?: string;
-    bank_name: string;
-    account_name: string;
-    account_number: string;
-  } | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const reload = useCallback(async () => {
-    setRows(await listBankAccounts(true));
-    setLoading(false);
-  }, []);
-  useEffect(() => {
-    void reload();
-  }, [reload]);
-
-  async function run(fn: () => Promise<void>, msg: string) {
-    setBusy(true);
-    try {
-      await fn();
-      await reload();
-      toast.success(msg);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Action failed.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="p-12 text-center">
-        <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-4">
-      <Card>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="font-display text-lg font-bold">Manual bank transfer</h2>
-            <p className="text-xs text-muted-foreground">
-              The default account appears on customer checkout instantly.
-            </p>
-          </div>
-          <Button
-            className="rounded-full"
-            onClick={() => setDraft({ bank_name: "", account_name: "", account_number: "" })}
-          >
-            <Plus className="mr-2 h-4 w-4" />Add account
-          </Button>
-        </div>
-      </Card>
-
-      {draft && (
-        <Card>
-          <h3 className="mb-3 font-bold">{draft.id ? "Edit account" : "New account"}</h3>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Bank Name">
-              <Input
-                value={draft.bank_name}
-                onChange={(e) => setDraft({ ...draft, bank_name: e.target.value })}
-              />
-            </Field>
-            <Field label="Account Name">
-              <Input
-                value={draft.account_name}
-                onChange={(e) => setDraft({ ...draft, account_name: e.target.value })}
-              />
-            </Field>
-            <Field label="Account Number">
-              <Input
-                inputMode="numeric"
-                value={draft.account_number}
-                onChange={(e) => setDraft({ ...draft, account_number: e.target.value })}
-              />
-            </Field>
-          </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <Button variant="outline" className="rounded-full" onClick={() => setDraft(null)}>
-              Cancel
-            </Button>
-            <Button
-              className="rounded-full"
-              disabled={busy || !draft.bank_name || !draft.account_name || !draft.account_number}
-              onClick={() =>
-                run(async () => {
-                  await saveBankAccount(draft);
-                  setDraft(null);
-                }, "Account saved.")
-              }
-            >
-              <Save className="mr-2 h-4 w-4" />Save
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {rows.length === 0 && (
-        <Card>
-          <p className="text-sm text-muted-foreground">
-            No bank accounts yet. Add one so customers can pay by transfer.
-          </p>
-        </Card>
-      )}
-
-      {rows.map((a) => (
-        <Card key={a.id}>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="font-display font-bold">
-                {a.bank_name}{" "}
-                {a.is_default && (
-                  <span className="ml-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-                    Default
-                  </span>
-                )}
-                {a.archived_at && (
-                  <span className="ml-1 rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
-                    Archived
-                  </span>
-                )}
-              </p>
-              <p className="text-sm text-muted-foreground">{a.account_name}</p>
-              <p className="font-mono text-lg font-semibold">{a.account_number}</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-2 text-xs font-medium">
-                <Switch
-                  checked={a.enabled}
-                  disabled={busy}
-                  onCheckedChange={(v) =>
-                    run(() => setBankAccountEnabled(a.id, v), v ? "Enabled." : "Disabled.")
-                  }
-                />
-                {a.enabled ? "Enabled" : "Disabled"}
-              </label>
-              <Button
-                size="sm"
-                variant="outline"
-                className="rounded-full"
-                disabled={busy || a.is_default}
-                onClick={() => run(() => setDefaultBankAccount(a.id), "Default account updated.")}
-              >
-                <Star className="mr-1 h-3.5 w-3.5" />Set default
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="rounded-full"
-                disabled={busy}
-                onClick={() =>
-                  setDraft({
-                    id: a.id,
-                    bank_name: a.bank_name,
-                    account_name: a.account_name,
-                    account_number: a.account_number,
-                  })
-                }
-              >
-                Edit
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="rounded-full"
-                disabled={busy}
-                onClick={() =>
-                  run(
-                    () => setBankAccountArchived(a.id, !a.archived_at),
-                    a.archived_at ? "Restored." : "Archived.",
-                  )
-                }
-              >
-                {a.archived_at ? (
-                  <RotateCcw className="mr-1 h-3.5 w-3.5" />
-                ) : (
-                  <Archive className="mr-1 h-3.5 w-3.5" />
-                )}
-                {a.archived_at ? "Restore" : "Archive"}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="rounded-full text-rose-600"
-                disabled={busy}
-                onClick={() => {
-                  if (!confirm(`Delete ${a.bank_name} — ${a.account_number}? This cannot be undone.`))
-                    return;
-                  void run(() => deleteBankAccount(a.id), "Account deleted.");
-                }}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </div>
-        </Card>
-      ))}
-    </div>
+    <Card>
+      <h2 className="font-display text-lg font-bold">Manual Bank Transfer</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Bank accounts, customer instructions, proof-of-payment and verification
+        settings are managed on the dedicated Bank Transfer page.
+      </p>
+      <Link
+        to="/admin/transfer"
+        className="mt-4 inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground"
+      >
+        <Landmark className="h-4 w-4" />
+        Open Bank Transfer
+      </Link>
+    </Card>
   );
 }
-
-/* -------------------------------------------------------------- security */
 
 function SecuritySettings({
   status,
