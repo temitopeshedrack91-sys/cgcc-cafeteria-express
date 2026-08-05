@@ -1,3 +1,4 @@
+import { useSystemSettings } from "@/lib/settings";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Download, MessageCircle, CheckCircle2, Clock, Loader2, RefreshCw, Bell } from "lucide-react";
@@ -25,6 +26,7 @@ export const Route = createFileRoute("/receipt/$code")({
 });
 
 function ReceiptPage() {
+  useSystemSettings();
   const { code } = Route.useParams();
   const cached = useStore((s) => s.orders.find((o) => o.code === code));
   const [order, setOrder] = useState<Order | null>(cached ?? null);

@@ -1,3 +1,4 @@
+import { useSystemSettings } from "@/lib/settings";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ const schema = z.object({
 const TAKEAWAY_PACK_ID = "e1";
 
 function CheckoutPage() {
+  useSystemSettings();
   const navigate = useNavigate();
   const cart = useStore((s) => s.cart);
   const total = cartTotal(cart, DEFAULT_MENU);
