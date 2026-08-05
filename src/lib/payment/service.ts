@@ -6,7 +6,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { loadPaymentConfig } from "./config";
-import { opayDriver, simulatedResult } from "./provider";
+import { gatewayDriver, simulatedResult } from "./provider";
 import type {
   InitPaymentInput,
   InitPaymentResult,
@@ -16,7 +16,7 @@ import type {
 
 export async function initPayment(input: InitPaymentInput): Promise<InitPaymentResult> {
   const cfg = await loadPaymentConfig();
-  return opayDriver.initialize(cfg, input);
+  return gatewayDriver.initialize(cfg, input);
 }
 
 export async function finalizePayment(
