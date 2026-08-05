@@ -150,13 +150,18 @@ function GeneralSettings() {
         <Field label="Cafeteria Name">
           <Input {...bind("cafeteriaName")} />
         </Field>
-        <Field label="Church Logo URL">
-          <Input placeholder="https://…" {...bind("churchLogoUrl")} />
-        </Field>
-        <Field label="Cafeteria Logo URL">
-          <Input placeholder="https://…" {...bind("cafeteriaLogoUrl")} />
-        </Field>
+        <LogoField
+          label="Church Logo"
+          value={cfg.churchLogoUrl}
+          onChange={(url) => setCfg((c) => ({ ...c, churchLogoUrl: url }))}
+        />
+        <LogoField
+          label="Cafeteria Logo"
+          value={cfg.cafeteriaLogoUrl}
+          onChange={(url) => setCfg((c) => ({ ...c, cafeteriaLogoUrl: url }))}
+        />
       </Section>
+
 
       <Section title="Contact">
         <Field label="Contact Phone Number">
