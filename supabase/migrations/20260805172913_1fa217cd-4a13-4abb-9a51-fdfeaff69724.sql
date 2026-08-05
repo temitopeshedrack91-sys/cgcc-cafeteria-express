@@ -1,0 +1,2 @@
+CREATE POLICY "Admins manage brand logos" ON storage.objects FOR ALL TO authenticated USING (bucket_id = 'brand-logos' AND public.has_role(auth.uid(),'admin')) WITH CHECK (bucket_id = 'brand-logos' AND public.has_role(auth.uid(),'admin'));
+CREATE POLICY "Signed read brand logos" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'brand-logos');
