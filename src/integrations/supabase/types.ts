@@ -874,6 +874,7 @@ export type Database = {
       reorder_categories: { Args: { _ids: string[] }; Returns: Json }
       restore_category: { Args: { _id: string }; Returns: Json }
       restore_menu_item: { Args: { _id: string }; Returns: Json }
+      save_system_settings: { Args: { _data: Json }; Returns: Json }
       upsert_category: {
         Args: { _id: string; _name: string; _sort_order?: number }
         Returns: Json

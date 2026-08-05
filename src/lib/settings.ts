@@ -66,15 +66,25 @@ export async function loadSettings(force = false): Promise<SystemSettings> {
 }
 
 export async function saveSettings(next: SystemSettings): Promise<void> {
-  const { error } = await supabase.from("system_settings").upsert({
-    id: "global",
-    data: next as unknown as never,
-    updated_at: new Date().toISOString(),
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session) {
+    throw new Error("Your admin session expired. Please sign in again.");
+  }
+  const { error } = await supabase.rpc("save_system_settings", {
+    _data: next as unknown as never,
   });
-  if (error) throw error;
+  if (error) {
+    console.error("[settings] save failed", error);
+    throw new Error(
+      error.message.includes("forbidden")
+        ? "Only administrators can change system settings."
+        : error.message,
+    );
+  }
   cached = { ...next };
   listeners.forEach((fn) => fn(cached!));
 }
+
 
 /** Synchronous access for non-React modules (PDF generation etc.). */
 export function currentSettings(): SystemSettings {
