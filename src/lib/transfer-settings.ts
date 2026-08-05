@@ -43,9 +43,7 @@ export async function loadTransferSettings(force = false): Promise<TransferSetti
 }
 
 export async function saveTransferSettings(next: TransferSettings): Promise<void> {
-  const { error } = await supabase.rpc("save_transfer_config" as never, {
-    _data: next as unknown as never,
-  });
+  const { error } = await (supabase.rpc as any)("save_transfer_config", { _data: next });
   if (error) throw error;
   cached = { ...next };
 }
@@ -60,10 +58,10 @@ export async function attachTransferProof(input: {
   reference?: string;
   proofUrl?: string;
 }) {
-  const { error } = await supabase.rpc("attach_transfer_proof" as never, {
+  const { error } = await (supabase.rpc as any)("attach_transfer_proof", {
     _code: input.code,
-    _reference: (input.reference ?? null) as never,
-    _proof_url: (input.proofUrl ?? null) as never,
+    _reference: input.reference ?? null,
+    _proof_url: input.proofUrl ?? null,
   });
   if (error) throw error;
 }
