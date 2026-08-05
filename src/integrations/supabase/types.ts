@@ -217,19 +217,28 @@ export type Database = {
       }
       categories: {
         Row: {
+          archived_at: string | null
+          created_at: string
           id: string
           name: string
           sort_order: number
+          updated_at: string
         }
         Insert: {
+          archived_at?: string | null
+          created_at?: string
           id: string
           name: string
           sort_order?: number
+          updated_at?: string
         }
         Update: {
+          archived_at?: string | null
+          created_at?: string
           id?: string
           name?: string
           sort_order?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -729,7 +738,16 @@ export type Database = {
         }
         Returns: Json
       }
+      archive_category: { Args: { _id: string }; Returns: Json }
       archive_menu_item: { Args: { _id: string }; Returns: Json }
+      bulk_move_products: {
+        Args: { _category_id?: string; _ids: string[]; _vendor_type?: string }
+        Returns: Json
+      }
+      bulk_update_products: {
+        Args: { _action: string; _ids: string[]; _value?: number }
+        Returns: Json
+      }
       close_business_day: {
         Args: { _day?: string; _note?: string }
         Returns: Json
@@ -779,7 +797,9 @@ export type Database = {
             }[]
           }
       current_business_day: { Args: never; Returns: string }
+      delete_category: { Args: { _id: string }; Returns: Json }
       delete_menu_item: { Args: { _id: string }; Returns: Json }
+      duplicate_menu_item: { Args: { _id: string }; Returns: Json }
       finance_change_pin: {
         Args: { _current: string; _new: string }
         Returns: Json
@@ -851,7 +871,13 @@ export type Database = {
         Returns: Json
       }
       reopen_business_day: { Args: { _day: string }; Returns: Json }
+      reorder_categories: { Args: { _ids: string[] }; Returns: Json }
+      restore_category: { Args: { _id: string }; Returns: Json }
       restore_menu_item: { Args: { _id: string }; Returns: Json }
+      upsert_category: {
+        Args: { _id: string; _name: string; _sort_order?: number }
+        Returns: Json
+      }
       upsert_menu_item: {
         Args: {
           _available?: boolean
