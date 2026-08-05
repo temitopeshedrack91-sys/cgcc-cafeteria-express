@@ -1,3 +1,4 @@
+import { currentSettings } from "@/lib/settings";
 import jsPDF from "jspdf";
 import type { Order } from "./store";
 import { formatNaira } from "./store";
@@ -162,7 +163,7 @@ export async function generateReceiptPdf(order: Order): Promise<jsPDF> {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(...brandNavy);
-  doc.text("Thank you and God bless.", M, y + 24);
+  doc.text(currentSettings().receiptFooterText || "Thank you and God bless.", M, y + 24);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(...muted);
