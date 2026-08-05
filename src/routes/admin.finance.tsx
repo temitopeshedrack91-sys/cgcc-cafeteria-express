@@ -10,6 +10,7 @@ import {
   Landmark,
   Activity,
   CreditCard,
+  CheckCircle2,
 } from "lucide-react";
 import { AdminGuard, AdminShell } from "@/components/AdminShell";
 import { Button } from "@/components/ui/button";
