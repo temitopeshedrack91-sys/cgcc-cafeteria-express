@@ -1,6 +1,6 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-import { Boxes, ClipboardList, CreditCard, LayoutDashboard, LogOut, Package, ShoppingCart, UtensilsCrossed, Users } from "lucide-react";
+import { Boxes, ClipboardList, CreditCard, LayoutDashboard, LogOut, Package, Settings, ShoppingCart, UtensilsCrossed, Users } from "lucide-react";
 import { Logo } from "./Logo";
 import { actions, useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
