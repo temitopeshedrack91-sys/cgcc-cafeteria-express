@@ -189,3 +189,42 @@ export async function isBusinessDayClosed(day?: string): Promise<boolean> {
   if (error) return false;
   return Boolean(data);
 }
+
+/* ---------------- Brand logos ---------------- */
+
+const LOGO_BUCKET = "brand-logos";
+const ALLOWED_LOGO_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/svg+xml",
+  "image/webp",
+];
+export const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+
+export function validateLogoFile(file: File): string | null {
+  const ext = (file.name.split(".").pop() ?? "").toLowerCase();
+  const okExt = ["png", "jpg", "jpeg", "svg", "webp"].includes(ext);
+  const okType = !file.type || ALLOWED_LOGO_TYPES.includes(file.type.toLowerCase());
+  if (!okExt || !okType) return "Unsupported file type. Use PNG, JPG, JPEG, SVG or WebP.";
+  if (file.size > MAX_LOGO_BYTES) return "Image is too large. Maximum size is 2MB.";
+  return null;
+}
+
+export async function uploadLogoImage(file: File): Promise<string> {
+  const invalid = validateLogoFile(file);
+  if (invalid) throw new Error(invalid);
+  const ext = (file.name.split(".").pop() ?? "png").toLowerCase();
+  const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await supabase.storage.from(LOGO_BUCKET).upload(path, file, {
+    cacheControl: "31536000",
+    upsert: false,
+    contentType: file.type || undefined,
+  });
+  if (error) throw new Error(error.message || "Upload failed. Please try again.");
+  const { data, error: signErr } = await supabase.storage
+    .from(LOGO_BUCKET)
+    .createSignedUrl(path, TEN_YEARS);
+  if (signErr || !data?.signedUrl) throw new Error("Could not generate a link for the uploaded image.");
+  return data.signedUrl;
+}
