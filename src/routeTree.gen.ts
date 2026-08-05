@@ -23,6 +23,7 @@ import { Route as ReceiptCodeRouteImport } from './routes/receipt.$code'
 import { Route as CashierReceiptsRouteImport } from './routes/cashier.receipts'
 import { Route as CashierLoginRouteImport } from './routes/cashier.login'
 import { Route as AdminVendorsRouteImport } from './routes/admin.vendors'
+import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminProductsRouteImport } from './routes/admin.products'
 import { Route as AdminPaymentRouteImport } from './routes/admin.payment'
 import { Route as AdminMenuRouteImport } from './routes/admin.menu'
@@ -104,6 +105,11 @@ const AdminVendorsRoute = AdminVendorsRouteImport.update({
   path: '/admin/vendors',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/admin/settings',
+  path: '/admin/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminProductsRoute = AdminProductsRouteImport.update({
   id: '/admin/products',
   path: '/admin/products',
@@ -169,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/admin/menu': typeof AdminMenuRoute
   '/admin/payment': typeof AdminPaymentRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/vendors': typeof AdminVendorsRoute
   '/cashier/login': typeof CashierLoginRoute
   '/cashier/receipts': typeof CashierReceiptsRoute
@@ -195,6 +202,7 @@ export interface FileRoutesByTo {
   '/admin/menu': typeof AdminMenuRoute
   '/admin/payment': typeof AdminPaymentRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/vendors': typeof AdminVendorsRoute
   '/cashier/login': typeof CashierLoginRoute
   '/cashier/receipts': typeof CashierReceiptsRoute
@@ -222,6 +230,7 @@ export interface FileRoutesById {
   '/admin/menu': typeof AdminMenuRoute
   '/admin/payment': typeof AdminPaymentRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/vendors': typeof AdminVendorsRoute
   '/cashier/login': typeof CashierLoginRoute
   '/cashier/receipts': typeof CashierReceiptsRoute
@@ -250,6 +259,7 @@ export interface FileRouteTypes {
     | '/admin/menu'
     | '/admin/payment'
     | '/admin/products'
+    | '/admin/settings'
     | '/admin/vendors'
     | '/cashier/login'
     | '/cashier/receipts'
@@ -276,6 +286,7 @@ export interface FileRouteTypes {
     | '/admin/menu'
     | '/admin/payment'
     | '/admin/products'
+    | '/admin/settings'
     | '/admin/vendors'
     | '/cashier/login'
     | '/cashier/receipts'
@@ -302,6 +313,7 @@ export interface FileRouteTypes {
     | '/admin/menu'
     | '/admin/payment'
     | '/admin/products'
+    | '/admin/settings'
     | '/admin/vendors'
     | '/cashier/login'
     | '/cashier/receipts'
@@ -329,6 +341,7 @@ export interface RootRouteChildren {
   AdminMenuRoute: typeof AdminMenuRoute
   AdminPaymentRoute: typeof AdminPaymentRoute
   AdminProductsRoute: typeof AdminProductsRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
   AdminVendorsRoute: typeof AdminVendorsRoute
   CashierLoginRoute: typeof CashierLoginRoute
   CashierReceiptsRoute: typeof CashierReceiptsRoute
@@ -441,6 +454,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminVendorsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/admin/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/products': {
       id: '/admin/products'
       path: '/admin/products'
@@ -539,6 +559,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminMenuRoute: AdminMenuRoute,
   AdminPaymentRoute: AdminPaymentRoute,
   AdminProductsRoute: AdminProductsRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
   AdminVendorsRoute: AdminVendorsRoute,
   CashierLoginRoute: CashierLoginRoute,
   CashierReceiptsRoute: CashierReceiptsRoute,
@@ -553,13 +574,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
