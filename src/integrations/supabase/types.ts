@@ -68,6 +68,42 @@ export type Database = {
         }
         Relationships: []
       }
+      bank_accounts: {
+        Row: {
+          account_name: string
+          account_number: string
+          archived_at: string | null
+          bank_name: string
+          created_at: string
+          enabled: boolean
+          id: string
+          is_default: boolean
+          updated_at: string
+        }
+        Insert: {
+          account_name: string
+          account_number: string
+          archived_at?: string | null
+          bank_name: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          is_default?: boolean
+          updated_at?: string
+        }
+        Update: {
+          account_name?: string
+          account_number?: string
+          archived_at?: string | null
+          bank_name?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          is_default?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       business_day_closures: {
         Row: {
           business_day: string
@@ -215,6 +251,140 @@ export type Database = {
           id?: string
           name?: string
           phone?: string
+        }
+        Relationships: []
+      }
+      finance_login_events: {
+        Row: {
+          created_at: string
+          detail: string | null
+          event: string
+          id: string
+          success: boolean
+          user_id: string | null
+          user_label: string | null
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          event: string
+          id?: string
+          success?: boolean
+          user_id?: string | null
+          user_label?: string | null
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          event?: string
+          id?: string
+          success?: boolean
+          user_id?: string | null
+          user_label?: string | null
+        }
+        Relationships: []
+      }
+      finance_otps: {
+        Row: {
+          code_hash: string
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          session_id: string
+        }
+        Insert: {
+          code_hash: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          session_id: string
+        }
+        Update: {
+          code_hash?: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_otps_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "finance_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_security: {
+        Row: {
+          configured_at: string | null
+          failed_attempts: number
+          id: string
+          locked_until: string | null
+          otp_enabled: boolean
+          pin_hash: string | null
+          recovery_email: string | null
+          timeout_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          configured_at?: string | null
+          failed_attempts?: number
+          id: string
+          locked_until?: string | null
+          otp_enabled?: boolean
+          pin_hash?: string | null
+          recovery_email?: string | null
+          timeout_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          configured_at?: string | null
+          failed_attempts?: number
+          id?: string
+          locked_until?: string | null
+          otp_enabled?: boolean
+          pin_hash?: string | null
+          recovery_email?: string | null
+          timeout_minutes?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      finance_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          last_seen_at: string
+          otp_verified: boolean
+          revoked_at: string | null
+          user_id: string
+          user_label: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          last_seen_at?: string
+          otp_verified?: boolean
+          revoked_at?: string | null
+          user_id: string
+          user_label?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          last_seen_at?: string
+          otp_verified?: boolean
+          revoked_at?: string | null
+          user_id?: string
+          user_label?: string | null
         }
         Relationships: []
       }
@@ -458,6 +628,24 @@ export type Database = {
           },
         ]
       }
+      system_settings: {
+        Row: {
+          data: Json
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          data?: Json
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          data?: Json
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -592,6 +780,30 @@ export type Database = {
           }
       current_business_day: { Args: never; Returns: string }
       delete_menu_item: { Args: { _id: string }; Returns: Json }
+      finance_change_pin: {
+        Args: { _current: string; _new: string }
+        Returns: Json
+      }
+      finance_logout_all: { Args: never; Returns: Json }
+      finance_session_valid: { Args: { _session_id: string }; Returns: boolean }
+      finance_setup: {
+        Args: { _email: string; _otp_enabled: boolean; _pin: string }
+        Returns: Json
+      }
+      finance_status: { Args: never; Returns: Json }
+      finance_unlock: { Args: { _pin: string }; Returns: Json }
+      finance_update_settings: {
+        Args: {
+          _otp_enabled: boolean
+          _recovery_email: string
+          _timeout_minutes: number
+        }
+        Returns: Json
+      }
+      finance_verify_otp: {
+        Args: { _code: string; _session_id: string }
+        Returns: Json
+      }
       get_order_by_code: { Args: { _code: string }; Returns: Json }
       get_orders_by_phone: { Args: { _phone: string }; Returns: Json }
       has_role: {
