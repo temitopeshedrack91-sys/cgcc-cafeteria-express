@@ -27,7 +27,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
     { to: "/admin/vendors", label: "Vendors", icon: Users },
     { to: "/admin/cashiers", label: "Cashiers", icon: ShoppingCart },
     { to: "/admin/audit", label: "Audit", icon: ClipboardList },
-    { to: "/admin/payment", label: "Payment", icon: CreditCard },
+    { to: "/admin/finance", label: "Finance", icon: CreditCard },
+    { to: "/admin/settings", label: "System Settings", icon: Settings },
   ] as const;
 
   return (
