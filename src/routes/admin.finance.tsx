@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Loader2,
@@ -10,13 +10,6 @@ import {
   Landmark,
   Activity,
   CreditCard,
-  Plus,
-  Star,
-  Archive,
-  RotateCcw,
-  Trash2,
-  PlugZap,
-  CheckCircle2,
 } from "lucide-react";
 import { AdminGuard, AdminShell } from "@/components/AdminShell";
 import { Button } from "@/components/ui/button";
@@ -42,23 +35,12 @@ import {
   type FinanceSession,
   type FinanceStatus,
 } from "@/lib/finance";
-import { loadPaymentConfig, savePaymentConfig, isLiveReady } from "@/lib/payment/config";
-import { EMPTY_PAYMENT_CONFIG, type PaymentConfig } from "@/lib/payment/types";
 import {
   loadPaymentStatus,
-  validateGateway,
   type PaymentStatusSnapshot,
   type Health,
 } from "@/lib/payment/health";
-import {
-  listBankAccounts,
-  saveBankAccount,
-  setBankAccountArchived,
-  setBankAccountEnabled,
-  setDefaultBankAccount,
-  deleteBankAccount,
-  type BankAccount,
-} from "@/lib/bank-accounts";
+
 
 export const Route = createFileRoute("/admin/finance")({
   head: () => ({
