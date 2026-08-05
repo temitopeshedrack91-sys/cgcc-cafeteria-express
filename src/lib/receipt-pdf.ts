@@ -9,7 +9,9 @@ const PAYMENT_METHOD = "OPay Transfer";
 
 async function loadLogoDataUrl(): Promise<string | null> {
   try {
-    const res = await fetch(logoAsset.url);
+    const s = currentSettings();
+    const url = s.cafeteriaLogoUrl || s.churchLogoUrl || logoAsset.url;
+    const res = await fetch(url);
     if (!res.ok) return null;
     const blob = await res.blob();
     return await new Promise((resolve) => {
