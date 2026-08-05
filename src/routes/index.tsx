@@ -1,3 +1,4 @@
+import { useSystemSettings } from "@/lib/settings";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowRight,
@@ -70,10 +71,32 @@ const FEATURES = [
 ];
 
 function LandingPage() {
+  const settings = useSystemSettings();
   const orderingOpen = useStore((s) => s.orderingOpen);
 
   return (
     <div>
+      {(settings.maintenanceMessage || settings.announcement) && (
+        <section className="mx-auto max-w-5xl space-y-3 px-4 pt-6">
+          {settings.maintenanceMessage && (
+            <div
+              role="alert"
+              className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-medium text-rose-800"
+            >
+              {settings.maintenanceMessage}
+            </div>
+          )}
+          {settings.announcement && (
+            <div
+              role="status"
+              className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-900"
+            >
+              {settings.announcement}
+            </div>
+          )}
+        </section>
+      )}
+
       {/* Welcome Banner */}
       <section className="mx-auto max-w-5xl px-4 pt-6">
         <div
@@ -86,7 +109,7 @@ function LandingPage() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="font-display text-sm font-bold text-primary sm:text-base">
-              🎉 Welcome to CGCC Cafeteria Express
+              {settings.welcomeMessage}
             </p>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
               Skip the queue by placing your order before arriving. We're excited to make your
