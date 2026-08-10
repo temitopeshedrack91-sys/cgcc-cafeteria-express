@@ -786,41 +786,24 @@ export type Database = {
         }
         Returns: Json
       }
-      create_customer_order:
-        | {
-            Args: {
-              _customer_name: string
-              _items: Json
-              _note: string
-              _order_type: string
-              _phone: string
-            }
-            Returns: {
-              code: string
-              created_at: string
-              id: string
-              receipt_no: string
-              total: number
-            }[]
-          }
-        | {
-            Args: {
-              _customer_name: string
-              _items: Json
-              _note: string
-              _order_type: string
-              _phone: string
-              _pickup_time?: string
-            }
-            Returns: {
-              code: string
-              created_at: string
-              id: string
-              pickup_time: string
-              receipt_no: string
-              total: number
-            }[]
-          }
+      create_customer_order: {
+        Args: {
+          _customer_name: string
+          _items: Json
+          _note: string
+          _order_type: string
+          _phone: string
+          _pickup_time?: string
+        }
+        Returns: {
+          code: string
+          created_at: string
+          id: string
+          pickup_time: string
+          receipt_no: string
+          total: number
+        }[]
+      }
       current_business_day: { Args: never; Returns: string }
       delete_category: { Args: { _id: string }; Returns: Json }
       delete_menu_item: { Args: { _id: string }; Returns: Json }
