@@ -382,17 +382,30 @@ function FinancePanel({
             Every financial setting lives here and is stored in the database.
           </p>
         </div>
-        <Button
-          variant="outline"
-          className="rounded-full"
-          onClick={() => {
-            clearFinanceSession();
-            window.location.reload();
-          }}
-        >
-          <Lock className="mr-2 h-4 w-4" />Lock finance
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" className="rounded-full">
+            <Link to="/admin/payment">
+              <CreditCard className="mr-2 h-4 w-4" />Online Payment Gateway
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="rounded-full">
+            <Link to="/admin/transfer">
+              <Landmark className="mr-2 h-4 w-4" />Bank Transfer
+            </Link>
+          </Button>
+          <Button
+            variant="outline"
+            className="rounded-full"
+            onClick={() => {
+              clearFinanceSession();
+              window.location.reload();
+            }}
+          >
+            <Lock className="mr-2 h-4 w-4" />Lock finance
+          </Button>
+        </div>
       </div>
+
 
       <div className="mb-6 flex flex-wrap gap-1 rounded-full border border-border bg-card p-1">
         <Tab active={tab === "status"} onClick={() => setTab("status")} icon={Activity}>

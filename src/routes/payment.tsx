@@ -44,6 +44,7 @@ function PaymentPage() {
   const [gatewayName, setGatewayName] = useState("OPay");
   const [reference, setReference] = useState("");
   const [proof, setProof] = useState<File | null>(null);
+  const [createdOrder, setCreatedOrder] = useState<Awaited<ReturnType<typeof actions.createOrder>> | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -89,9 +90,30 @@ function PaymentPage() {
     }
   }
 
+  /** Turns backend errors into something a customer can act on. */
+  function friendlyError(e: unknown): string {
+    const raw = e instanceof Error ? e.message : typeof e === "string" ? e : "";
+    const msg = raw.toLowerCase();
+    if (msg.includes("sold out") || msg.includes("currently available") || msg.includes("not available")) {
+      return raw; // stock messages from the server are already customer-friendly
+    }
+    if (msg.includes("pickup_time")) return "Please choose a pickup time before placing your order.";
+    if (msg.includes("phone")) return "Please enter a valid phone number.";
+    if (msg.includes("customer_name")) return "Please enter your name.";
+    if (msg.includes("at least one item")) return "Your cart is empty. Add an item before paying.";
+    if (msg.includes("closed")) return "Ordering is closed for today. Please try again tomorrow.";
+    if (msg.includes("network") || msg.includes("fetch")) {
+      return "Network problem. Check your connection and try again.";
+    }
+    return "We could not complete your order right now. Please try again in a moment.";
+  }
+
   async function createOrderRecord() {
+    // Never create a second order if one was already saved in this session.
+    if (createdOrder) return createdOrder;
+
     if (!draft) {
-      toast.error("Checkout details missing. Please try again.");
+      toast.error("Your checkout details are missing. Please fill the checkout form again.");
       navigate({ to: "/checkout" });
       return null;
     }
@@ -108,7 +130,13 @@ function PaymentPage() {
       })
       .filter(Boolean) as { id: string; name: string; price: number; qty: number }[];
 
-    return actions.createOrder({
+    if (items.length === 0) {
+      toast.error("Your cart is empty. Add an item before paying.");
+      navigate({ to: "/menu" });
+      return null;
+    }
+
+    const order = await actions.createOrder({
       customerName: draft.name,
       phone: draft.phone,
       note: draft.note,
@@ -117,9 +145,12 @@ function PaymentPage() {
       items,
       total,
     });
+    setCreatedOrder(order);
+    return order;
   }
 
   async function payWithOpay() {
+    if (submitting) return;
     setSubmitting(true);
     try {
       const order = await createOrderRecord();
@@ -138,7 +169,7 @@ function PaymentPage() {
       localStorage.removeItem("cgcc-checkout-draft");
 
       if (init.mode === "live" && init.authorizationUrl) {
-        // Live OPay checkout redirect.
+        // Live gateway checkout redirect.
         window.location.href = init.authorizationUrl;
         return;
       }
@@ -149,16 +180,16 @@ function PaymentPage() {
         search: { code: order.code, reference: init.reference } as never,
       });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Could not start payment.";
       console.error(e);
-      toast.error(msg);
+      toast.error(friendlyError(e));
       setSubmitting(false);
     }
   }
 
   async function payWithTransfer() {
+    if (submitting) return;
     if (!confirmed) {
-      toast.error("Please confirm that you have completed payment.");
+      toast.error("Please tick the box to confirm you have completed the transfer.");
       return;
     }
     if (transferCfg.requireReference && !reference.trim()) {
@@ -167,33 +198,38 @@ function PaymentPage() {
     }
     setSubmitting(true);
     try {
+      // 1. Save the order FIRST — manual transfer never depends on the gateway.
       const order = await createOrderRecord();
       if (!order) { setSubmitting(false); return; }
+
+      // 2. Best-effort: tag it as a manual transfer awaiting verification and
+      //    attach any reference / proof. Failure here must not lose the order.
       try {
         let proofUrl: string | undefined;
         if (transferCfg.requireProof && proof) {
           proofUrl = await uploadPaymentProof(proof, order.code);
         }
-        if (reference.trim() || proofUrl) {
-          await attachTransferProof({
-            code: order.code,
-            ...(reference.trim() ? { reference: reference.trim() } : {}),
-            ...(proofUrl ? { proofUrl } : {}),
-          });
-        }
+        await attachTransferProof({
+          code: order.code,
+          ...(reference.trim() ? { reference: reference.trim() } : {}),
+          ...(proofUrl ? { proofUrl } : {}),
+        });
       } catch (err) {
         console.warn("[transfer] proof attach failed", err);
-        toast.warning("Order saved, but we could not attach your payment proof.");
+        toast.warning("Order saved. We could not attach your payment details — show your receipt at pickup.");
       }
+
       actions.clearCart();
       localStorage.removeItem("cgcc-checkout-draft");
+      toast.success("Order saved. Payment will be verified shortly.");
       navigate({ to: "/receipt/$code", params: { code: order.code } });
     } catch (e) {
       console.error(e);
-      toast.error("Could not save your order. Please try again.");
+      toast.error(friendlyError(e));
       setSubmitting(false);
     }
   }
+
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 pb-24">
