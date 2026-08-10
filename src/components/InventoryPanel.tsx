@@ -231,13 +231,26 @@ export function InventoryPanel({ scope, allowThreshold = false, title = "Invento
                     <div className="text-[10px] uppercase text-muted-foreground">{r.vendor_type ?? "—"}</div>
                   </td>
                   <td className="px-3 py-2 text-right">{formatNaira(r.price)}</td>
-                  <td className="px-3 py-2 text-center font-bold">{r.stock_qty}</td>
+                  <td className="px-3 py-2">
+                    <QtyField
+                      value={r.stock_qty}
+                      ariaLabel={`Total quantity for ${r.name}`}
+                      onCommit={(total) => {
+                        const online = Math.min(r.stock_online, total);
+                        void commitSplit(r, online, total - online);
+                      }}
+                    />
+                  </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center justify-center gap-1">
                       <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => void bumpOnline(r, -1)}>
                         <Minus className="h-3 w-3" />
                       </Button>
-                      <span className="min-w-6 text-center text-sm font-semibold">{r.stock_online}</span>
+                      <QtyField
+                        value={r.stock_online}
+                        ariaLabel={`Online quantity for ${r.name}`}
+                        onCommit={(v) => void commitSplit(r, v, r.stock_walkin)}
+                      />
                       <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => void bumpOnline(r, 1)}>
                         <Plus className="h-3 w-3" />
                       </Button>
@@ -248,12 +261,17 @@ export function InventoryPanel({ scope, allowThreshold = false, title = "Invento
                       <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => void bumpWalkin(r, -1)}>
                         <Minus className="h-3 w-3" />
                       </Button>
-                      <span className="min-w-6 text-center text-sm font-semibold">{r.stock_walkin}</span>
+                      <QtyField
+                        value={r.stock_walkin}
+                        ariaLabel={`Walk-in quantity for ${r.name}`}
+                        onCommit={(v) => void commitSplit(r, r.stock_online, v)}
+                      />
                       <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => void bumpWalkin(r, 1)}>
                         <Plus className="h-3 w-3" />
                       </Button>
                     </div>
                   </td>
+
                   <td className="px-3 py-2 text-center">
                     <Button
                       size="sm"
