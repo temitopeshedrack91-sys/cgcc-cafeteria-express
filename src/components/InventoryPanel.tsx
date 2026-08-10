@@ -25,6 +25,68 @@ import { toast } from "sonner";
 
 type Props = { scope?: string | null; allowThreshold?: boolean; title?: string };
 
+/**
+ * Whole-number quantity field vendors can type into directly (e.g. 150)
+ * instead of clicking + repeatedly. Commits on blur or Enter.
+ */
+function QtyField({
+  value,
+  onCommit,
+  ariaLabel,
+}: {
+  value: number;
+  onCommit: (next: number) => void;
+  ariaLabel: string;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    if (!editing) setDraft(String(value));
+  }, [value, editing]);
+
+  function commit() {
+    setEditing(false);
+    const n = parseInt(draft, 10);
+    if (!Number.isFinite(n) || n < 0) {
+      setDraft(String(value));
+      toast.error("Enter a whole number of 0 or more");
+      return;
+    }
+    if (n === value) {
+      setDraft(String(value));
+      return;
+    }
+    onCommit(Math.floor(n));
+  }
+
+  return (
+    <Input
+      aria-label={ariaLabel}
+      className="mx-auto h-8 w-16 text-center font-semibold tabular-nums"
+      type="number"
+      min={0}
+      step={1}
+      inputMode="numeric"
+      value={draft}
+      onFocus={(e) => {
+        setEditing(true);
+        e.currentTarget.select();
+      }}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") {
+          setDraft(String(value));
+          setEditing(false);
+          e.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
+
 export function InventoryPanel({ scope, allowThreshold = false, title = "Inventory Management" }: Props) {
   const [rows, setRows] = useState<InventoryRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -231,13 +293,26 @@ export function InventoryPanel({ scope, allowThreshold = false, title = "Invento
                     <div className="text-[10px] uppercase text-muted-foreground">{r.vendor_type ?? "—"}</div>
                   </td>
                   <td className="px-3 py-2 text-right">{formatNaira(r.price)}</td>
-                  <td className="px-3 py-2 text-center font-bold">{r.stock_qty}</td>
+                  <td className="px-3 py-2">
+                    <QtyField
+                      value={r.stock_qty}
+                      ariaLabel={`Total quantity for ${r.name}`}
+                      onCommit={(total) => {
+                        const online = Math.min(r.stock_online, total);
+                        void commitSplit(r, online, total - online);
+                      }}
+                    />
+                  </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center justify-center gap-1">
                       <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => void bumpOnline(r, -1)}>
                         <Minus className="h-3 w-3" />
                       </Button>
-                      <span className="min-w-6 text-center text-sm font-semibold">{r.stock_online}</span>
+                      <QtyField
+                        value={r.stock_online}
+                        ariaLabel={`Online quantity for ${r.name}`}
+                        onCommit={(v) => void commitSplit(r, v, r.stock_walkin)}
+                      />
                       <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => void bumpOnline(r, 1)}>
                         <Plus className="h-3 w-3" />
                       </Button>
@@ -248,12 +323,17 @@ export function InventoryPanel({ scope, allowThreshold = false, title = "Invento
                       <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => void bumpWalkin(r, -1)}>
                         <Minus className="h-3 w-3" />
                       </Button>
-                      <span className="min-w-6 text-center text-sm font-semibold">{r.stock_walkin}</span>
+                      <QtyField
+                        value={r.stock_walkin}
+                        ariaLabel={`Walk-in quantity for ${r.name}`}
+                        onCommit={(v) => void commitSplit(r, r.stock_online, v)}
+                      />
                       <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => void bumpWalkin(r, 1)}>
                         <Plus className="h-3 w-3" />
                       </Button>
                     </div>
                   </td>
+
                   <td className="px-3 py-2 text-center">
                     <Button
                       size="sm"
