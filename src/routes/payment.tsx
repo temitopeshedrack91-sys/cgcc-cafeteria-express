@@ -44,6 +44,7 @@ function PaymentPage() {
   const [gatewayName, setGatewayName] = useState("OPay");
   const [reference, setReference] = useState("");
   const [proof, setProof] = useState<File | null>(null);
+  const [createdOrder, setCreatedOrder] = useState<Awaited<ReturnType<typeof actions.createOrder>> | null>(null);
 
   useEffect(() => {
     void (async () => {
