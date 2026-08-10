@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { AdminGuard, AdminShell } from "@/components/AdminShell";
+import { FinanceLock } from "@/components/FinanceLock";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,7 +55,9 @@ export const Route = createFileRoute("/admin/transfer")({
   component: () => (
     <AdminGuard>
       <AdminShell>
-        <TransferPage />
+        <FinanceLock>
+          <TransferPage />
+        </FinanceLock>
       </AdminShell>
     </AdminGuard>
   ),

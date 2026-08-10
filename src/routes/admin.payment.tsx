@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { CheckCircle2, Loader2, PlugZap, Radio, Save, TestTube2 } from "lucide-react";
 import { AdminGuard, AdminShell } from "@/components/AdminShell";
+import { FinanceLock } from "@/components/FinanceLock";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,7 +41,9 @@ export const Route = createFileRoute("/admin/payment")({
   component: () => (
     <AdminGuard>
       <AdminShell>
-        <GatewayPage />
+        <FinanceLock>
+          <GatewayPage />
+        </FinanceLock>
       </AdminShell>
     </AdminGuard>
   ),
