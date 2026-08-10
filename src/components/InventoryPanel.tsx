@@ -25,6 +25,68 @@ import { toast } from "sonner";
 
 type Props = { scope?: string | null; allowThreshold?: boolean; title?: string };
 
+/**
+ * Whole-number quantity field vendors can type into directly (e.g. 150)
+ * instead of clicking + repeatedly. Commits on blur or Enter.
+ */
+function QtyField({
+  value,
+  onCommit,
+  ariaLabel,
+}: {
+  value: number;
+  onCommit: (next: number) => void;
+  ariaLabel: string;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    if (!editing) setDraft(String(value));
+  }, [value, editing]);
+
+  function commit() {
+    setEditing(false);
+    const n = parseInt(draft, 10);
+    if (!Number.isFinite(n) || n < 0) {
+      setDraft(String(value));
+      toast.error("Enter a whole number of 0 or more");
+      return;
+    }
+    if (n === value) {
+      setDraft(String(value));
+      return;
+    }
+    onCommit(Math.floor(n));
+  }
+
+  return (
+    <Input
+      aria-label={ariaLabel}
+      className="mx-auto h-8 w-16 text-center font-semibold tabular-nums"
+      type="number"
+      min={0}
+      step={1}
+      inputMode="numeric"
+      value={draft}
+      onFocus={(e) => {
+        setEditing(true);
+        e.currentTarget.select();
+      }}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") {
+          setDraft(String(value));
+          setEditing(false);
+          e.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
+
 export function InventoryPanel({ scope, allowThreshold = false, title = "Inventory Management" }: Props) {
   const [rows, setRows] = useState<InventoryRow[]>([]);
   const [loading, setLoading] = useState(true);
