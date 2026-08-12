@@ -298,13 +298,13 @@ export function InventoryPanel({ scope, allowThreshold = false, title = "Invento
                       value={r.stock_qty}
                       ariaLabel={`Total quantity for ${r.name}`}
                       onCommit={(total) => {
-                        // Online-first: new totals go to Online; vendor can move some to Walk-in.
+                        // Online-first: extra stock goes to Online; reductions come off Online first.
                         const walkin = Math.min(r.stock_walkin, total);
-                        const online = total - walkin;
-                        void commitSplit(r, total > r.stock_qty ? total : online, total > r.stock_qty ? 0 : walkin);
+                        void commitSplit(r, total - walkin, walkin);
                       }}
                     />
                   </td>
+
 
                   <td className="px-3 py-2">
                     <div className="flex items-center justify-center gap-1">
