@@ -254,6 +254,10 @@ export function InventoryPanel({ scope, allowThreshold = false, title = "Invento
           <p className="text-xs text-muted-foreground">
             {rows.length} products · {lowCount} low stock · {soldOutCount} sold out
           </p>
+          <p className="text-[11px] text-muted-foreground">
+            Type a Total (e.g. 150) — new stock goes to Online first. Use Move or the Walk-in field to split.
+          </p>
+
         </div>
         <div className="flex items-center gap-2">
           <Input className="h-9 w-52" placeholder="Search products" value={q} onChange={(e) => setQ(e.target.value)} />
