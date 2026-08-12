@@ -254,6 +254,10 @@ export function InventoryPanel({ scope, allowThreshold = false, title = "Invento
           <p className="text-xs text-muted-foreground">
             {rows.length} products · {lowCount} low stock · {soldOutCount} sold out
           </p>
+          <p className="text-[11px] text-muted-foreground">
+            Type a Total (e.g. 150) — new stock goes to Online first. Use Move or the Walk-in field to split.
+          </p>
+
         </div>
         <div className="flex items-center gap-2">
           <Input className="h-9 w-52" placeholder="Search products" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -298,11 +302,14 @@ export function InventoryPanel({ scope, allowThreshold = false, title = "Invento
                       value={r.stock_qty}
                       ariaLabel={`Total quantity for ${r.name}`}
                       onCommit={(total) => {
-                        const online = Math.min(r.stock_online, total);
-                        void commitSplit(r, online, total - online);
+                        // Online-first: extra stock goes to Online; reductions come off Online first.
+                        const walkin = Math.min(r.stock_walkin, total);
+                        void commitSplit(r, total - walkin, walkin);
                       }}
                     />
                   </td>
+
+
                   <td className="px-3 py-2">
                     <div className="flex items-center justify-center gap-1">
                       <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => void bumpOnline(r, -1)}>
