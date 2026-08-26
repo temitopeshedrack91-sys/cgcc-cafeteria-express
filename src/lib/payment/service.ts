@@ -41,7 +41,8 @@ export async function simulatePayment(
   amount: number,
   outcome: SimulatedOutcome,
 ): Promise<PaymentResult> {
-  const result = simulatedResult(outcome, reference, amount);
+  const cfg = await loadPaymentConfig();
+  const result = simulatedResult(outcome, reference, amount, cfg.provider);
   await finalizePayment(orderCode, result);
   return result;
 }

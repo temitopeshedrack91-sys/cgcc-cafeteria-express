@@ -16,7 +16,6 @@ import {
   type TransferSettings,
 } from "@/lib/transfer-settings";
 import { loadPaymentConfig } from "@/lib/payment/config";
-import { providerMeta } from "@/lib/payment/types";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/payment")({
@@ -25,14 +24,14 @@ export const Route = createFileRoute("/payment")({
 });
 
 // Bank details are database-driven: Admin → Bank Transfer.
-type Method = "opay" | "transfer";
+type Method = "online" | "transfer";
 
 function PaymentPage() {
   const navigate = useNavigate();
   const cart = useStore((s) => s.cart);
   const total = cartTotal(cart, DEFAULT_MENU);
 
-  const [method, setMethod] = useState<Method>("opay");
+  const [method, setMethod] = useState<Method>("online");
   const [showTransfer, setShowTransfer] = useState(false);
   const [copied, setCopied] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
@@ -41,7 +40,6 @@ function PaymentPage() {
   const [bankId, setBankId] = useState<string | null>(null);
   const [transferCfg, setTransferCfg] = useState<TransferSettings>(DEFAULT_TRANSFER_SETTINGS);
   const [gatewayEnabled, setGatewayEnabled] = useState(true);
-  const [gatewayName, setGatewayName] = useState("OPay");
   const [reference, setReference] = useState("");
   const [proof, setProof] = useState<File | null>(null);
   const [createdOrder, setCreatedOrder] = useState<Awaited<ReturnType<typeof actions.createOrder>> | null>(null);
@@ -57,7 +55,6 @@ function PaymentPage() {
       setBankId(list[0]?.id ?? null);
       setTransferCfg(cfg);
       setGatewayEnabled(pay.enabled);
-      setGatewayName(providerMeta(pay.provider).name);
       if (!pay.enabled && cfg.enabled) {
         setMethod("transfer");
         setShowTransfer(true);
@@ -149,7 +146,7 @@ function PaymentPage() {
     return order;
   }
 
-  async function payWithOpay() {
+  async function payOnline() {
     if (submitting) return;
     setSubmitting(true);
     try {
@@ -267,9 +264,9 @@ function PaymentPage() {
       {gatewayEnabled && (
       <button
         type="button"
-        onClick={() => setMethod("opay")}
+        onClick={() => setMethod("online")}
         className={`mt-6 w-full overflow-hidden rounded-2xl border-2 text-left shadow-elegant transition ${
-          method === "opay"
+          method === "online"
             ? "border-emerald-500 ring-2 ring-emerald-200"
             : "border-border"
         }`}
@@ -284,7 +281,7 @@ function PaymentPage() {
               🟢
             </span>
             <div>
-              <p className="text-lg font-bold">Pay Online with {gatewayName}</p>
+              <p className="text-lg font-bold">Pay Online</p>
               <p className="text-xs text-muted-foreground">
                 Instant confirmation · No proof upload needed
               </p>
@@ -295,15 +292,15 @@ function PaymentPage() {
       </button>
       )}
 
-      {gatewayEnabled && method === "opay" && (
+      {gatewayEnabled && method === "online" && (
         <Button
           size="lg"
           className="mt-4 h-14 w-full rounded-full bg-emerald-600 shadow-elegant hover:bg-emerald-700"
-          onClick={payWithOpay}
+          onClick={payOnline}
           disabled={submitting}
         >
           {submitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-          Pay {formatNaira(total)} with {gatewayName}
+          Pay {formatNaira(total)} Online
         </Button>
       )}
 
