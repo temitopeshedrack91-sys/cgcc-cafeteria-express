@@ -1,5 +1,5 @@
-// OPay return / Test Mode simulator page. In LIVE mode, OPay redirects the
-// customer back to this URL after payment; a webhook has usually already
+// Online payment return / Test Mode simulator page. In LIVE mode the active
+// provider redirects the customer back here after payment; a webhook has usually already
 // posted the true result. In TEST mode, this screen lets the customer pick
 // one of the simulated outcomes so QA can exercise every branch.
 
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { formatNaira, useStore, fetchOrderByCode } from "@/lib/store";
 import { simulatePayment, finalizePayment } from "@/lib/payment/service";
 import { loadPaymentConfig } from "@/lib/payment/config";
-import type { SimulatedOutcome } from "@/lib/payment/types";
+import type { GatewayProviderId, SimulatedOutcome } from "@/lib/payment/types";
 import { toast } from "sonner";
 
 type Search = { code?: string; reference?: string; status?: string };
@@ -32,9 +32,10 @@ function OpayReturnPage() {
   const [mode, setMode] = useState<"test" | "live" | null>(null);
   const [busy, setBusy] = useState<SimulatedOutcome | null>(null);
   const [amount, setAmount] = useState<number>(cachedOrder?.total ?? 0);
+  const [provider, setProvider] = useState<GatewayProviderId>("opay");
 
   useEffect(() => {
-    void loadPaymentConfig().then((cfg) => setMode(cfg.mode));
+    void loadPaymentConfig().then((cfg) => { setMode(cfg.mode); setProvider(cfg.provider); });
   }, []);
 
   useEffect(() => {
@@ -43,15 +44,15 @@ function OpayReturnPage() {
     void fetchOrderByCode(code).then((o) => { if (o) setAmount(o.total); }).catch(() => {});
   }, [code, cachedOrder]);
 
-  // If OPay redirected with a status query (live flow), finalize immediately.
+  // If the provider redirected with a status query (live flow), finalize immediately.
   useEffect(() => {
     if (mode !== "live" || !code || !reference || !status) return;
     const s = status === "success" ? "paid" : status === "cancelled" ? "cancelled" : "failed";
     void finalizePayment(code, {
-      reference, provider: "opay", amount, status: s as never,
+      reference, provider, amount, status: s as never,
     }).then(() => navigate({ to: "/receipt/$code", params: { code } }))
       .catch((e) => toast.error(e instanceof Error ? e.message : "Payment update failed"));
-  }, [mode, code, reference, status, amount, navigate]);
+  }, [mode, code, reference, status, amount, provider, navigate]);
 
   const outcomes = useMemo(() => ([
     { key: "success" as const, label: "Payment Successful", icon: CheckCircle2, cls: "bg-emerald-600 hover:bg-emerald-700" },
@@ -92,7 +93,7 @@ function OpayReturnPage() {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center">
         <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-        <p className="mt-4 text-sm text-muted-foreground">Confirming payment with OPay…</p>
+        <p className="mt-4 text-sm text-muted-foreground">Confirming your payment…</p>
       </div>
     );
   }
@@ -102,7 +103,7 @@ function OpayReturnPage() {
       <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-center text-xs font-semibold uppercase tracking-widest text-amber-800">
         Test Mode · Simulator
       </div>
-      <h1 className="mt-6 font-display text-2xl font-bold">Complete OPay payment</h1>
+      <h1 className="mt-6 font-display text-2xl font-bold">Complete your online payment</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Order <span className="font-semibold text-foreground">{code}</span> · {formatNaira(amount)}
       </p>
@@ -131,9 +132,9 @@ function OpayReturnPage() {
       </div>
 
       <p className="mt-6 text-center text-xs text-muted-foreground">
-        When live OPay credentials are entered in Admin → Payment Configuration
-        and Mode is switched to Live, this simulator disappears and the customer
-        is redirected to OPay's real checkout automatically.
+        This screen only appears in Test Mode. Once live credentials are saved
+        and Live Mode is switched on, customers are redirected straight to the
+        secure checkout page.
       </p>
     </div>
   );
