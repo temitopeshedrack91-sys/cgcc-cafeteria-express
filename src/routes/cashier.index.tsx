@@ -538,7 +538,7 @@ function CashierReportDialog({
           <Stat label="Cash" value={formatNaira(byMethod.cash)} />
           <Stat label="POS" value={formatNaira(byMethod.pos)} />
           <Stat label="Transfer" value={formatNaira(byMethod.transfer)} />
-          <Stat label="OPay" value={formatNaira(byMethod.opay)} />
+          <Stat label="Online" value={formatNaira(byMethod.opay)} />
           <Stat label="Transactions" value={String(inRange.length)} />
           <Stat label="Items Sold" value={String(items)} />
           <Stat label="Revenue" value={formatNaira(totalRev)} highlight />

@@ -84,5 +84,5 @@ export async function listCashierSales(limit = 200): Promise<CashierSale[]> {
 }
 
 export function paymentLabel(m: CashierPaymentMethod): string {
-  return { cash: "Cash", pos: "POS / Card", transfer: "Bank Transfer", opay: "OPay Online" }[m];
+  return { cash: "Cash", pos: "POS / Card", transfer: "Bank Transfer", opay: "Online Payment" }[m];
 }

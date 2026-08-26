@@ -2,15 +2,14 @@ import { currentSettings } from "@/lib/settings";
 import jsPDF from "jspdf";
 import type { Order } from "./store";
 import { formatNaira } from "./store";
-import logoAsset from "@/assets/cgcc_logo.png.asset.json";
 
 const BUSINESS_WHATSAPP = "09134749319";
-const PAYMENT_METHOD = "OPay Transfer";
 
 async function loadLogoDataUrl(): Promise<string | null> {
   try {
     const s = currentSettings();
-    const url = s.cafeteriaLogoUrl || s.churchLogoUrl || logoAsset.url;
+    const url = s.cafeteriaLogoUrl || s.churchLogoUrl;
+    if (!url) return null;
     const res = await fetch(url);
     if (!res.ok) return null;
     const blob = await res.blob();
@@ -99,7 +98,12 @@ export async function generateReceiptPdf(order: Order): Promise<jsPDF> {
     M,
     y,
   );
-  drawKV("Payment Method", PAYMENT_METHOD, M + colW, y);
+  drawKV(
+    "Payment Method",
+    order.payment_provider === "manual_transfer" ? "Bank Transfer" : "Online Payment",
+    M + colW,
+    y,
+  );
   y += 36;
   drawKV("Pickup Time", order.pickupTime ?? "Not set", M, y);
   drawKV("Payment Status", order.paymentStatus.toUpperCase(), M + colW, y);
