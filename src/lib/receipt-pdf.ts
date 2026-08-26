@@ -100,7 +100,7 @@ export async function generateReceiptPdf(order: Order): Promise<jsPDF> {
   );
   drawKV(
     "Payment Method",
-    order.payment_provider === "manual_transfer" ? "Bank Transfer" : "Online Payment",
+    order.paymentProvider === "manual_transfer" ? "Bank Transfer" : "Online Payment",
     M + colW,
     y,
   );
