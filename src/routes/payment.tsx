@@ -16,7 +16,6 @@ import {
   type TransferSettings,
 } from "@/lib/transfer-settings";
 import { loadPaymentConfig } from "@/lib/payment/config";
-import { providerMeta } from "@/lib/payment/types";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/payment")({
@@ -41,7 +40,6 @@ function PaymentPage() {
   const [bankId, setBankId] = useState<string | null>(null);
   const [transferCfg, setTransferCfg] = useState<TransferSettings>(DEFAULT_TRANSFER_SETTINGS);
   const [gatewayEnabled, setGatewayEnabled] = useState(true);
-  const [gatewayName, setGatewayName] = useState("OPay");
   const [reference, setReference] = useState("");
   const [proof, setProof] = useState<File | null>(null);
   const [createdOrder, setCreatedOrder] = useState<Awaited<ReturnType<typeof actions.createOrder>> | null>(null);
@@ -57,7 +55,6 @@ function PaymentPage() {
       setBankId(list[0]?.id ?? null);
       setTransferCfg(cfg);
       setGatewayEnabled(pay.enabled);
-      setGatewayName(providerMeta(pay.provider).name);
       if (!pay.enabled && cfg.enabled) {
         setMethod("transfer");
         setShowTransfer(true);
@@ -284,7 +281,7 @@ function PaymentPage() {
               🟢
             </span>
             <div>
-              <p className="text-lg font-bold">Pay Online with {gatewayName}</p>
+              <p className="text-lg font-bold">Pay Online</p>
               <p className="text-xs text-muted-foreground">
                 Instant confirmation · No proof upload needed
               </p>
@@ -303,7 +300,7 @@ function PaymentPage() {
           disabled={submitting}
         >
           {submitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-          Pay {formatNaira(total)} with {gatewayName}
+          Pay {formatNaira(total)} Online
         </Button>
       )}
 
