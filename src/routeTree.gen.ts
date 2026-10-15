@@ -9,52 +9,37 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as PaymentRouteImport } from './routes/payment'
-import { Route as MenuRouteImport } from './routes/menu'
-import { Route as HistoryRouteImport } from './routes/history'
-import { Route as CheckoutRouteImport } from './routes/checkout'
-import { Route as CartRouteImport } from './routes/cart'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as VendorIndexRouteImport } from './routes/vendor.index'
-import { Route as CashierIndexRouteImport } from './routes/cashier.index'
+import { Route as CartRouteImport } from './routes/cart'
+import { Route as CheckoutRouteImport } from './routes/checkout'
+import { Route as HistoryRouteImport } from './routes/history'
+import { Route as MenuRouteImport } from './routes/menu'
+import { Route as PaymentRouteImport } from './routes/payment'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
-import { Route as VendorLoginRouteImport } from './routes/vendor.login'
-import { Route as ReceiptCodeRouteImport } from './routes/receipt.$code'
-import { Route as CashierReceiptsRouteImport } from './routes/cashier.receipts'
-import { Route as CashierLoginRouteImport } from './routes/cashier.login'
-import { Route as AdminVendorsRouteImport } from './routes/admin.vendors'
-import { Route as AdminTransferRouteImport } from './routes/admin.transfer'
-import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
-import { Route as AdminProductsRouteImport } from './routes/admin.products'
-import { Route as AdminPaymentRouteImport } from './routes/admin.payment'
-import { Route as AdminMenuRouteImport } from './routes/admin.menu'
-import { Route as AdminLoginRouteImport } from './routes/admin.login'
-import { Route as AdminInventoryRouteImport } from './routes/admin.inventory'
-import { Route as AdminFinanceRouteImport } from './routes/admin.finance'
-import { Route as AdminCashiersRouteImport } from './routes/admin.cashiers'
 import { Route as AdminAuditRouteImport } from './routes/admin.audit'
-import { Route as PaymentOpayReturnRouteImport } from './routes/payment.opay.return'
+import { Route as AdminCashiersRouteImport } from './routes/admin.cashiers'
+import { Route as AdminFinanceRouteImport } from './routes/admin.finance'
+import { Route as AdminInventoryRouteImport } from './routes/admin.inventory'
+import { Route as AdminLoginRouteImport } from './routes/admin.login'
+import { Route as AdminMenuRouteImport } from './routes/admin.menu'
+import { Route as AdminPaymentRouteImport } from './routes/admin.payment'
+import { Route as AdminProductsRouteImport } from './routes/admin.products'
+import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
+import { Route as AdminTransferRouteImport } from './routes/admin.transfer'
+import { Route as AdminVendorsRouteImport } from './routes/admin.vendors'
+import { Route as CashierIndexRouteImport } from './routes/cashier.index'
+import { Route as CashierLoginRouteImport } from './routes/cashier.login'
+import { Route as CashierReceiptsRouteImport } from './routes/cashier.receipts'
+import { Route as ReceiptCodeRouteImport } from './routes/receipt.$code'
+import { Route as VendorIndexRouteImport } from './routes/vendor.index'
+import { Route as VendorLoginRouteImport } from './routes/vendor.login'
 import { Route as CashierReceiptIdRouteImport } from './routes/cashier.receipt.$id'
+import { Route as PaymentOpayReturnRouteImport } from './routes/payment.opay.return'
 import { Route as ApiPublicOpayWebhookRouteImport } from './routes/api/public/opay.webhook'
 
-const PaymentRoute = PaymentRouteImport.update({
-  id: '/payment',
-  path: '/payment',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MenuRoute = MenuRouteImport.update({
-  id: '/menu',
-  path: '/menu',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HistoryRoute = HistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CheckoutRoute = CheckoutRouteImport.update({
-  id: '/checkout',
-  path: '/checkout',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CartRoute = CartRouteImport.update({
@@ -62,19 +47,24 @@ const CartRoute = CartRouteImport.update({
   path: '/cart',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
   getParentRoute: () => rootRouteImport,
 } as any)
-const VendorIndexRoute = VendorIndexRouteImport.update({
-  id: '/vendor/',
-  path: '/vendor/',
+const HistoryRoute = HistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CashierIndexRoute = CashierIndexRouteImport.update({
-  id: '/cashier/',
-  path: '/cashier/',
+const MenuRoute = MenuRouteImport.update({
+  id: '/menu',
+  path: '/menu',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PaymentRoute = PaymentRouteImport.update({
+  id: '/payment',
+  path: '/payment',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -82,69 +72,9 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const VendorLoginRoute = VendorLoginRouteImport.update({
-  id: '/vendor/login',
-  path: '/vendor/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReceiptCodeRoute = ReceiptCodeRouteImport.update({
-  id: '/receipt/$code',
-  path: '/receipt/$code',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CashierReceiptsRoute = CashierReceiptsRouteImport.update({
-  id: '/cashier/receipts',
-  path: '/cashier/receipts',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CashierLoginRoute = CashierLoginRouteImport.update({
-  id: '/cashier/login',
-  path: '/cashier/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminVendorsRoute = AdminVendorsRouteImport.update({
-  id: '/admin/vendors',
-  path: '/admin/vendors',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminTransferRoute = AdminTransferRouteImport.update({
-  id: '/admin/transfer',
-  path: '/admin/transfer',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminSettingsRoute = AdminSettingsRouteImport.update({
-  id: '/admin/settings',
-  path: '/admin/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminProductsRoute = AdminProductsRouteImport.update({
-  id: '/admin/products',
-  path: '/admin/products',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminPaymentRoute = AdminPaymentRouteImport.update({
-  id: '/admin/payment',
-  path: '/admin/payment',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminMenuRoute = AdminMenuRouteImport.update({
-  id: '/admin/menu',
-  path: '/admin/menu',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminLoginRoute = AdminLoginRouteImport.update({
-  id: '/admin/login',
-  path: '/admin/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminInventoryRoute = AdminInventoryRouteImport.update({
-  id: '/admin/inventory',
-  path: '/admin/inventory',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminFinanceRoute = AdminFinanceRouteImport.update({
-  id: '/admin/finance',
-  path: '/admin/finance',
+const AdminAuditRoute = AdminAuditRouteImport.update({
+  id: '/admin/audit',
+  path: '/admin/audit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminCashiersRoute = AdminCashiersRouteImport.update({
@@ -152,20 +82,90 @@ const AdminCashiersRoute = AdminCashiersRouteImport.update({
   path: '/admin/cashiers',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminAuditRoute = AdminAuditRouteImport.update({
-  id: '/admin/audit',
-  path: '/admin/audit',
+const AdminFinanceRoute = AdminFinanceRouteImport.update({
+  id: '/admin/finance',
+  path: '/admin/finance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminInventoryRoute = AdminInventoryRouteImport.update({
+  id: '/admin/inventory',
+  path: '/admin/inventory',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/admin/login',
+  path: '/admin/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminMenuRoute = AdminMenuRouteImport.update({
+  id: '/admin/menu',
+  path: '/admin/menu',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminPaymentRoute = AdminPaymentRouteImport.update({
+  id: '/admin/payment',
+  path: '/admin/payment',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminProductsRoute = AdminProductsRouteImport.update({
+  id: '/admin/products',
+  path: '/admin/products',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/admin/settings',
+  path: '/admin/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminTransferRoute = AdminTransferRouteImport.update({
+  id: '/admin/transfer',
+  path: '/admin/transfer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminVendorsRoute = AdminVendorsRouteImport.update({
+  id: '/admin/vendors',
+  path: '/admin/vendors',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CashierIndexRoute = CashierIndexRouteImport.update({
+  id: '/cashier/',
+  path: '/cashier/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CashierLoginRoute = CashierLoginRouteImport.update({
+  id: '/cashier/login',
+  path: '/cashier/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CashierReceiptsRoute = CashierReceiptsRouteImport.update({
+  id: '/cashier/receipts',
+  path: '/cashier/receipts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReceiptCodeRoute = ReceiptCodeRouteImport.update({
+  id: '/receipt/$code',
+  path: '/receipt/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VendorIndexRoute = VendorIndexRouteImport.update({
+  id: '/vendor/',
+  path: '/vendor/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VendorLoginRoute = VendorLoginRouteImport.update({
+  id: '/vendor/login',
+  path: '/vendor/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CashierReceiptIdRoute = CashierReceiptIdRouteImport.update({
+  id: '/cashier/receipt/$id',
+  path: '/cashier/receipt/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PaymentOpayReturnRoute = PaymentOpayReturnRouteImport.update({
   id: '/opay/return',
   path: '/opay/return',
   getParentRoute: () => PaymentRoute,
-} as any)
-const CashierReceiptIdRoute = CashierReceiptIdRouteImport.update({
-  id: '/cashier/receipt/$id',
-  path: '/cashier/receipt/$id',
-  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicOpayWebhookRoute = ApiPublicOpayWebhookRouteImport.update({
   id: '/api/public/opay/webhook',
@@ -382,32 +382,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/payment': {
-      id: '/payment'
-      path: '/payment'
-      fullPath: '/payment'
-      preLoaderRoute: typeof PaymentRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/menu': {
-      id: '/menu'
-      path: '/menu'
-      fullPath: '/menu'
-      preLoaderRoute: typeof MenuRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/history': {
-      id: '/history'
-      path: '/history'
-      fullPath: '/history'
-      preLoaderRoute: typeof HistoryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/checkout': {
-      id: '/checkout'
-      path: '/checkout'
-      fullPath: '/checkout'
-      preLoaderRoute: typeof CheckoutRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cart': {
@@ -417,25 +396,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CartRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/vendor/': {
-      id: '/vendor/'
-      path: '/vendor'
-      fullPath: '/vendor/'
-      preLoaderRoute: typeof VendorIndexRouteImport
+    '/history': {
+      id: '/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof HistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/cashier/': {
-      id: '/cashier/'
-      path: '/cashier'
-      fullPath: '/cashier/'
-      preLoaderRoute: typeof CashierIndexRouteImport
+    '/menu': {
+      id: '/menu'
+      path: '/menu'
+      fullPath: '/menu'
+      preLoaderRoute: typeof MenuRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/payment': {
+      id: '/payment'
+      path: '/payment'
+      fullPath: '/payment'
+      preLoaderRoute: typeof PaymentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -445,95 +431,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/vendor/login': {
-      id: '/vendor/login'
-      path: '/vendor/login'
-      fullPath: '/vendor/login'
-      preLoaderRoute: typeof VendorLoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/receipt/$code': {
-      id: '/receipt/$code'
-      path: '/receipt/$code'
-      fullPath: '/receipt/$code'
-      preLoaderRoute: typeof ReceiptCodeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/cashier/receipts': {
-      id: '/cashier/receipts'
-      path: '/cashier/receipts'
-      fullPath: '/cashier/receipts'
-      preLoaderRoute: typeof CashierReceiptsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/cashier/login': {
-      id: '/cashier/login'
-      path: '/cashier/login'
-      fullPath: '/cashier/login'
-      preLoaderRoute: typeof CashierLoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/vendors': {
-      id: '/admin/vendors'
-      path: '/admin/vendors'
-      fullPath: '/admin/vendors'
-      preLoaderRoute: typeof AdminVendorsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/transfer': {
-      id: '/admin/transfer'
-      path: '/admin/transfer'
-      fullPath: '/admin/transfer'
-      preLoaderRoute: typeof AdminTransferRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/settings': {
-      id: '/admin/settings'
-      path: '/admin/settings'
-      fullPath: '/admin/settings'
-      preLoaderRoute: typeof AdminSettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/products': {
-      id: '/admin/products'
-      path: '/admin/products'
-      fullPath: '/admin/products'
-      preLoaderRoute: typeof AdminProductsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/payment': {
-      id: '/admin/payment'
-      path: '/admin/payment'
-      fullPath: '/admin/payment'
-      preLoaderRoute: typeof AdminPaymentRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/menu': {
-      id: '/admin/menu'
-      path: '/admin/menu'
-      fullPath: '/admin/menu'
-      preLoaderRoute: typeof AdminMenuRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/login': {
-      id: '/admin/login'
-      path: '/admin/login'
-      fullPath: '/admin/login'
-      preLoaderRoute: typeof AdminLoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/inventory': {
-      id: '/admin/inventory'
-      path: '/admin/inventory'
-      fullPath: '/admin/inventory'
-      preLoaderRoute: typeof AdminInventoryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/finance': {
-      id: '/admin/finance'
-      path: '/admin/finance'
-      fullPath: '/admin/finance'
-      preLoaderRoute: typeof AdminFinanceRouteImport
+    '/admin/audit': {
+      id: '/admin/audit'
+      path: '/admin/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AdminAuditRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/cashiers': {
@@ -543,11 +445,116 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCashiersRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/audit': {
-      id: '/admin/audit'
-      path: '/admin/audit'
-      fullPath: '/admin/audit'
-      preLoaderRoute: typeof AdminAuditRouteImport
+    '/admin/finance': {
+      id: '/admin/finance'
+      path: '/admin/finance'
+      fullPath: '/admin/finance'
+      preLoaderRoute: typeof AdminFinanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/inventory': {
+      id: '/admin/inventory'
+      path: '/admin/inventory'
+      fullPath: '/admin/inventory'
+      preLoaderRoute: typeof AdminInventoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/login': {
+      id: '/admin/login'
+      path: '/admin/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/menu': {
+      id: '/admin/menu'
+      path: '/admin/menu'
+      fullPath: '/admin/menu'
+      preLoaderRoute: typeof AdminMenuRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/payment': {
+      id: '/admin/payment'
+      path: '/admin/payment'
+      fullPath: '/admin/payment'
+      preLoaderRoute: typeof AdminPaymentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/products': {
+      id: '/admin/products'
+      path: '/admin/products'
+      fullPath: '/admin/products'
+      preLoaderRoute: typeof AdminProductsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/admin/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/transfer': {
+      id: '/admin/transfer'
+      path: '/admin/transfer'
+      fullPath: '/admin/transfer'
+      preLoaderRoute: typeof AdminTransferRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/vendors': {
+      id: '/admin/vendors'
+      path: '/admin/vendors'
+      fullPath: '/admin/vendors'
+      preLoaderRoute: typeof AdminVendorsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cashier/': {
+      id: '/cashier/'
+      path: '/cashier'
+      fullPath: '/cashier/'
+      preLoaderRoute: typeof CashierIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cashier/login': {
+      id: '/cashier/login'
+      path: '/cashier/login'
+      fullPath: '/cashier/login'
+      preLoaderRoute: typeof CashierLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cashier/receipts': {
+      id: '/cashier/receipts'
+      path: '/cashier/receipts'
+      fullPath: '/cashier/receipts'
+      preLoaderRoute: typeof CashierReceiptsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/receipt/$code': {
+      id: '/receipt/$code'
+      path: '/receipt/$code'
+      fullPath: '/receipt/$code'
+      preLoaderRoute: typeof ReceiptCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vendor/': {
+      id: '/vendor/'
+      path: '/vendor'
+      fullPath: '/vendor/'
+      preLoaderRoute: typeof VendorIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vendor/login': {
+      id: '/vendor/login'
+      path: '/vendor/login'
+      fullPath: '/vendor/login'
+      preLoaderRoute: typeof VendorLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cashier/receipt/$id': {
+      id: '/cashier/receipt/$id'
+      path: '/cashier/receipt/$id'
+      fullPath: '/cashier/receipt/$id'
+      preLoaderRoute: typeof CashierReceiptIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/payment/opay/return': {
@@ -556,13 +563,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/payment/opay/return'
       preLoaderRoute: typeof PaymentOpayReturnRouteImport
       parentRoute: typeof PaymentRoute
-    }
-    '/cashier/receipt/$id': {
-      id: '/cashier/receipt/$id'
-      path: '/cashier/receipt/$id'
-      fullPath: '/cashier/receipt/$id'
-      preLoaderRoute: typeof CashierReceiptIdRouteImport
-      parentRoute: typeof rootRouteImport
     }
     '/api/public/opay/webhook': {
       id: '/api/public/opay/webhook'
