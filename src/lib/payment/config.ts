@@ -72,7 +72,27 @@ export async function loadPaymentConfig(force = false): Promise<PaymentConfig> {
       cached = { ...EMPTY_PAYMENT_CONFIG };
       return cached;
     }
-    cached = normalize((data?.payment_config ?? {}) as Partial<PaymentConfig>);
+    const cfg = normalize((data?.payment_config ?? {}) as Partial<PaymentConfig>);
+    // Credentials live in the locked payment_secrets vault — only admins can
+    // read them (via the admin-only RPC). Non-admins get an empty set.
+    try {
+      const { data: secrets } = await supabase.rpc("get_payment_secrets");
+      const s = (secrets ?? {}) as {
+        credentials?: PaymentConfig["credentials"];
+        legacy?: Partial<ProviderCredentials>;
+      };
+      if (s.credentials) cfg.credentials = { ...s.credentials };
+      const active = cfg.credentials?.[cfg.provider];
+      if (!active && s.legacy && (s.legacy.secretKey || s.legacy.publicKey)) {
+        cfg.credentials = {
+          ...(cfg.credentials ?? {}),
+          [cfg.provider]: { ...EMPTY_CREDENTIALS, ...s.legacy },
+        };
+      }
+    } catch {
+      // Not an admin — credentials intentionally unavailable.
+    }
+    cached = cfg;
     return cached;
   })();
   try {
@@ -83,11 +103,18 @@ export async function loadPaymentConfig(force = false): Promise<PaymentConfig> {
 }
 
 export async function savePaymentConfig(next: PaymentConfig): Promise<void> {
+  // Split: credentials go to the locked vault, everything else stays in
+  // the publicly readable app_settings row.
+  const { credentials, ...publicPart } = next;
+  const { error: secErr } = await supabase.rpc("save_payment_secrets", {
+    _data: { credentials: credentials ?? {} } as unknown as never,
+  });
+  if (secErr) throw secErr;
   const { error } = await supabase
     .from("app_settings")
     .upsert({
       id: "global",
-      payment_config: next as unknown as never,
+      payment_config: publicPart as unknown as never,
       updated_at: new Date().toISOString(),
     });
   if (error) throw error;

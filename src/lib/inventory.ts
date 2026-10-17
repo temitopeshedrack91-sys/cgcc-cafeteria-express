@@ -91,15 +91,18 @@ export async function reallocateStockRpc(
 }
 
 export async function setAvailable(itemId: string, available: boolean) {
-  const { error } = await supabase.from("menu_items").update({ available }).eq("id", itemId);
+  const { error } = await supabase.rpc("vendor_set_item_availability", {
+    _id: itemId,
+    _available: available,
+  });
   if (error) throw error;
 }
 
 export async function setLowStockThreshold(itemId: string, threshold: number) {
-  const { error } = await supabase
-    .from("menu_items")
-    .update({ low_stock_threshold: Math.max(0, threshold) })
-    .eq("id", itemId);
+  const { error } = await supabase.rpc("vendor_set_low_stock_threshold", {
+    _id: itemId,
+    _threshold: Math.max(0, threshold),
+  });
   if (error) throw error;
 }
 
