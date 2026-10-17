@@ -293,10 +293,10 @@ function VendorDashboard() {
         ),
       })),
     );
-    const { error } = await supabase
-      .from("order_items")
-      .update({ preparation_status: status })
-      .eq("id", itemId);
+    const { error } = await supabase.rpc("vendor_set_preparation_status", {
+      _item_id: itemId,
+      _status: status,
+    });
     if (error) {
       console.error(error);
       toast.error("Update failed");

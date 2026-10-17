@@ -64,9 +64,18 @@ export const Route = createFileRoute("/api/public/opay/webhook")({
         }
         const cfg = (settings?.payment_config ?? {}) as {
           mode?: "test" | "live";
-          webhookSecret?: string;
           provider?: string;
+        };
+
+        // Secrets live in the locked payment_secrets vault (service role only).
+        const { data: secRow } = await supabaseAdmin
+          .from("payment_secrets" as never)
+          .select("secrets")
+          .eq("id", "global")
+          .maybeSingle();
+        const secrets = ((secRow as { secrets?: unknown } | null)?.secrets ?? {}) as {
           credentials?: Record<string, { webhookSecret?: string }>;
+          legacy?: { webhookSecret?: string };
         };
 
         // In live mode, require and verify the signature. In test mode, accept
@@ -74,7 +83,9 @@ export const Route = createFileRoute("/api/public/opay/webhook")({
         // endpoint, so a POST here in test mode is an external caller.
         if (cfg.mode === "live") {
           const secret =
-            cfg.credentials?.[cfg.provider ?? "opay"]?.webhookSecret ?? cfg.webhookSecret ?? "";
+            secrets.credentials?.[cfg.provider ?? "opay"]?.webhookSecret ??
+            secrets.legacy?.webhookSecret ??
+            "";
           if (!verifySignature(secret, rawBody, signature)) {
             return new Response("Invalid signature", { status: 401 });
           }
