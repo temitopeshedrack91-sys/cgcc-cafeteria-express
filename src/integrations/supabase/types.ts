@@ -658,6 +658,24 @@ export type Database = {
           },
         ]
       }
+      payment_secrets: {
+        Row: {
+          id: string
+          secrets: Json
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          secrets?: Json
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          secrets?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       system_settings: {
         Row: {
           data: Json
@@ -834,6 +852,7 @@ export type Database = {
       }
       get_order_by_code: { Args: { _code: string }; Returns: Json }
       get_orders_by_phone: { Args: { _phone: string }; Returns: Json }
+      get_payment_secrets: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -883,6 +902,7 @@ export type Database = {
       reorder_categories: { Args: { _ids: string[] }; Returns: Json }
       restore_category: { Args: { _id: string }; Returns: Json }
       restore_menu_item: { Args: { _id: string }; Returns: Json }
+      save_payment_secrets: { Args: { _data: Json }; Returns: Json }
       save_system_settings: { Args: { _data: Json }; Returns: Json }
       save_transfer_config: { Args: { _data: Json }; Returns: Json }
       upsert_category: {
@@ -900,6 +920,18 @@ export type Database = {
           _price: number
           _vendor_type: string
         }
+        Returns: Json
+      }
+      vendor_set_item_availability: {
+        Args: { _available: boolean; _id: string }
+        Returns: Json
+      }
+      vendor_set_low_stock_threshold: {
+        Args: { _id: string; _threshold: number }
+        Returns: Json
+      }
+      vendor_set_preparation_status: {
+        Args: { _item_id: string; _status: string }
         Returns: Json
       }
       vendor_type_for_user: { Args: { _user_id: string }; Returns: string }
