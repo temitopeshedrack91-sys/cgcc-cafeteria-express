@@ -8,6 +8,13 @@
       "when": 1792198754139,
       "tag": "0000_stage1_security_fixes",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792199100068,
+      "tag": "0001_enforce_price_insert_only",
+      "breakpoints": true
     }
   ]
 }
