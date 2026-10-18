@@ -15,6 +15,13 @@
       "when": 1792199100068,
       "tag": "0001_enforce_price_insert_only",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792296794081,
+      "tag": "0002_vendor_management_v2",
+      "breakpoints": true
     }
   ]
 }

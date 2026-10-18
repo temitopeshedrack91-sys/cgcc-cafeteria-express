@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import { KeyRound, Power, RefreshCw, ShieldCheck } from "lucide-react";
+import { KeyRound, Pencil, Power, RefreshCw, ShieldCheck, UserPlus } from "lucide-react";
 import { AdminGuard, AdminShell } from "@/components/AdminShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -13,12 +14,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  createVendorAccount,
   initVendors,
   listVendors,
   resetVendorPassword,
   setVendorActive,
+  setVendorLabel,
   setVendorPassword,
+  setVendorStockPermission,
   VENDOR_TYPES,
+  VENDOR_TYPE_LABELS,
   type VendorType,
 } from "@/lib/vendors.functions";
 import { toast } from "sonner";
@@ -26,7 +31,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/admin/vendors")({
   head: () => ({
     meta: [
-      { title: "Vendor Management · CGCC Admin" },
+      { title: "Service Staff Management · CGCC Admin" },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -39,27 +44,34 @@ export const Route = createFileRoute("/admin/vendors")({
   ),
 });
 
-const LABELS: Record<VendorType, string> = {
-  food: "Food Vendor",
-  snacks: "Snacks Vendor",
-  coffee: "Coffee Vendor",
-  drinks: "Drinks Vendor (Cafeteria Management)",
-};
-
 type VendorRow = {
+  id: string;
   vendor_type: VendorType;
   username: string;
+  display_label: string | null;
+  can_manage_stock: boolean;
   active: boolean;
   last_login: string | null;
   created_at: string;
 };
 
+function label(v: VendorRow) {
+  return v.display_label ?? `${VENDOR_TYPE_LABELS[v.vendor_type]} Vendor`;
+}
+
 function VendorManagement() {
   const [rows, setRows] = useState<VendorRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [pwDialog, setPwDialog] = useState<VendorType | null>(null);
+  const [pwDialog, setPwDialog] = useState<VendorRow | null>(null);
   const [newPw, setNewPw] = useState("");
+  const [labelDialog, setLabelDialog] = useState<VendorRow | null>(null);
+  const [newLabel, setNewLabel] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [addType, setAddType] = useState<VendorType>("food");
+  const [addUsername, setAddUsername] = useState("");
+  const [addEmail, setAddEmail] = useState("");
+  const [addLabel, setAddLabel] = useState("");
   const [tempPwDialog, setTempPwDialog] = useState<{
     vendor: string;
     password: string;
@@ -71,7 +83,7 @@ function VendorManagement() {
       const data = await listVendors();
       setRows(data as VendorRow[]);
     } catch (e: any) {
-      toast.error(e.message ?? "Failed to load vendors");
+      toast.error(e.message ?? "Failed to load staff accounts");
     } finally {
       setLoading(false);
     }
@@ -86,9 +98,9 @@ function VendorManagement() {
     try {
       const res = await initVendors();
       if (res.created.length) {
-        toast.success(`Created ${res.created.length} vendor account(s)`);
+        toast.success(`Created ${res.created.length} staff account(s)`);
       } else {
-        toast.info("All vendor accounts already exist");
+        toast.info("All default staff accounts already exist");
       }
       await load();
     } catch (e: any) {
@@ -98,11 +110,21 @@ function VendorManagement() {
     }
   }
 
-  async function toggleActive(vt: VendorType, next: boolean) {
+  async function toggleActive(v: VendorRow, next: boolean) {
     try {
-      await setVendorActive({ data: { vendorType: vt, active: next } });
-      toast.success(next ? "Vendor activated" : "Vendor deactivated");
+      await setVendorActive({ data: { vendorId: v.id, active: next } });
+      toast.success(next ? "Account activated" : "Account deactivated");
       await load();
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed");
+    }
+  }
+
+  async function toggleStock(v: VendorRow, next: boolean) {
+    try {
+      await setVendorStockPermission({ data: { vendorId: v.id, canManageStock: next } });
+      toast.success(next ? "Stock management allowed" : "Stock management blocked");
+      setRows((rs) => rs.map((r) => (r.id === v.id ? { ...r, can_manage_stock: next } : r)));
     } catch (e: any) {
       toast.error(e.message ?? "Failed");
     }
@@ -115,7 +137,7 @@ function VendorManagement() {
       return;
     }
     try {
-      await setVendorPassword({ data: { vendorType: pwDialog, password: newPw } });
+      await setVendorPassword({ data: { vendorId: pwDialog.id, password: newPw } });
       toast.success("Password updated");
       setPwDialog(null);
       setNewPw("");
@@ -124,12 +146,56 @@ function VendorManagement() {
     }
   }
 
-  async function resetPassword(vt: VendorType) {
+  async function saveLabel() {
+    if (!labelDialog) return;
+    if (newLabel.trim().length < 2) {
+      toast.error("Enter a name of at least 2 characters");
+      return;
+    }
     try {
-      const res = await resetVendorPassword({ data: { vendorType: vt } });
-      setTempPwDialog({ vendor: LABELS[vt], password: res.temporaryPassword });
+      await setVendorLabel({ data: { vendorId: labelDialog.id, label: newLabel.trim() } });
+      toast.success("Name updated");
+      setLabelDialog(null);
+      await load();
     } catch (e: any) {
       toast.error(e.message ?? "Failed");
+    }
+  }
+
+  async function resetPassword(v: VendorRow) {
+    try {
+      const res = await resetVendorPassword({ data: { vendorId: v.id } });
+      setTempPwDialog({ vendor: label(v), password: res.temporaryPassword });
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed");
+    }
+  }
+
+  async function submitAdd() {
+    if (addUsername.trim().length < 2 || !addEmail.includes("@") || addLabel.trim().length < 2) {
+      toast.error("Fill in name, username and a valid email");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await createVendorAccount({
+        data: {
+          vendorType: addType,
+          username: addUsername.trim(),
+          email: addEmail.trim(),
+          label: addLabel.trim(),
+        },
+      });
+      setAddOpen(false);
+      setAddUsername("");
+      setAddEmail("");
+      setAddLabel("");
+      setTempPwDialog({ vendor: `${addLabel.trim()} (${res.email})`, password: res.temporaryPassword });
+      await load();
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to create account");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -141,9 +207,9 @@ function VendorManagement() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl font-bold">Vendor Management</h1>
+          <h1 className="font-display text-3xl font-bold">Service Staff Management</h1>
           <p className="text-sm text-muted-foreground">
-            Activate vendors, change passwords, and reset credentials.
+            Rename staff accounts, change or reset passwords, control stock access, and add new staff.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -151,10 +217,13 @@ function VendorManagement() {
             <RefreshCw className={"mr-1 h-4 w-4 " + (loading ? "animate-spin" : "")} />
             Refresh
           </Button>
+          <Button size="sm" onClick={() => setAddOpen(true)}>
+            <UserPlus className="mr-1 h-4 w-4" /> Add Staff Account
+          </Button>
           {missing.length > 0 && (
-            <Button size="sm" onClick={runInit} disabled={busy}>
+            <Button size="sm" variant="outline" onClick={runInit} disabled={busy}>
               <ShieldCheck className="mr-1 h-4 w-4" />
-              {busy ? "Setting up…" : `Create ${missing.length} vendor account(s)`}
+              {busy ? "Setting up…" : `Create ${missing.length} default account(s)`}
             </Button>
           )}
         </div>
@@ -162,26 +231,27 @@ function VendorManagement() {
 
       {loading ? (
         <p className="rounded-2xl border border-border bg-card p-6 text-center text-sm text-muted-foreground shadow-soft">
-          Loading vendors…
+          Loading staff accounts…
         </p>
       ) : rows.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-6 text-center shadow-soft">
           <p className="text-sm text-muted-foreground">
-            No vendor accounts yet. Click "Create vendor accounts" above.
+            No staff accounts yet. Use "Add Staff Account" above.
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {rows.map((v) => (
             <div
-              key={v.vendor_type}
+              key={v.id}
               className="rounded-2xl border border-border bg-card p-4 shadow-soft"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-display text-lg font-bold">{LABELS[v.vendor_type]}</p>
+                  <p className="font-display text-lg font-bold">{label(v)}</p>
                   <p className="text-sm text-muted-foreground">
-                    Username: <span className="font-mono">{v.username}</span>
+                    {VENDOR_TYPE_LABELS[v.vendor_type]} section · Username:{" "}
+                    <span className="font-mono">{v.username}</span>
                   </p>
                 </div>
                 <span
@@ -209,27 +279,39 @@ function VendorManagement() {
                     {v.last_login ? new Date(v.last_login).toLocaleString() : "Never"}
                   </dd>
                 </div>
-                <div className="col-span-2">
-                  <dt className="uppercase">Password</dt>
-                  <dd className="font-mono">••••••••</dd>
+                <div className="col-span-2 flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2">
+                  <div>
+                    <dt className="uppercase">Stock management</dt>
+                    <dd className="text-foreground">
+                      {v.can_manage_stock ? "Can add and remove stock" : "Blocked from changing stock"}
+                    </dd>
+                  </div>
+                  <Switch
+                    checked={v.can_manage_stock}
+                    onCheckedChange={(next) => void toggleStock(v, Boolean(next))}
+                    aria-label={`Stock management for ${label(v)}`}
+                  />
                 </div>
               </dl>
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={() => setPwDialog(v.vendor_type)}>
+                <Button size="sm" variant="outline" onClick={() => { setLabelDialog(v); setNewLabel(label(v)); }}>
+                  <Pencil className="mr-1 h-3.5 w-3.5" /> Rename
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setPwDialog(v)}>
                   <KeyRound className="mr-1 h-3.5 w-3.5" /> Change Password
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => void resetPassword(v.vendor_type)}
+                  onClick={() => void resetPassword(v)}
                 >
                   Reset Password
                 </Button>
                 <Button
                   size="sm"
                   variant={v.active ? "destructive" : "default"}
-                  onClick={() => void toggleActive(v.vendor_type, !v.active)}
+                  onClick={() => void toggleActive(v, !v.active)}
                 >
                   <Power className="mr-1 h-3.5 w-3.5" />
                   {v.active ? "Deactivate" : "Activate"}
@@ -244,7 +326,7 @@ function VendorManagement() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Change password{pwDialog ? ` · ${LABELS[pwDialog]}` : ""}
+              Change password{pwDialog ? ` · ${label(pwDialog)}` : ""}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
@@ -266,6 +348,97 @@ function VendorManagement() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={labelDialog !== null} onOpenChange={(o) => !o && setLabelDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename staff account</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="lbl">Display name</Label>
+            <Input
+              id="lbl"
+              type="text"
+              value={newLabel}
+              onChange={(e) => setNewLabel(e.target.value)}
+              placeholder="e.g. Service Staff — Kitchen"
+            />
+            <p className="text-xs text-muted-foreground">
+              This name is shown on the staff dashboard instead of "Vendor".
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLabelDialog(null)}>
+              Cancel
+            </Button>
+            <Button onClick={saveLabel}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={addOpen} onOpenChange={(o) => !o && setAddOpen(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add staff account</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label>Section</Label>
+              <div className="flex flex-wrap gap-2">
+                {VENDOR_TYPES.map((vt) => (
+                  <Button
+                    key={vt}
+                    size="sm"
+                    variant={addType === vt ? "default" : "outline"}
+                    onClick={() => setAddType(vt)}
+                  >
+                    {VENDOR_TYPE_LABELS[vt]}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-label">Display name</Label>
+              <Input
+                id="add-label"
+                value={addLabel}
+                onChange={(e) => setAddLabel(e.target.value)}
+                placeholder="e.g. Service Staff — Drinks 2"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-username">Username</Label>
+              <Input
+                id="add-username"
+                value={addUsername}
+                onChange={(e) => setAddUsername(e.target.value)}
+                placeholder="e.g. drinks2"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-email">Login email</Label>
+              <Input
+                id="add-email"
+                type="email"
+                value={addEmail}
+                onChange={(e) => setAddEmail(e.target.value)}
+                placeholder="e.g. drinks2@cgcc.local"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              A temporary password is generated when the account is created — share it with the staff member.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void submitAdd()} disabled={busy}>
+              {busy ? "Creating…" : "Create Account"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog
         open={tempPwDialog !== null}
         onOpenChange={(o) => !o && setTempPwDialog(null)}
@@ -275,8 +448,7 @@ function VendorManagement() {
             <DialogTitle>Temporary password · {tempPwDialog?.vendor}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Share this password with the vendor and ask them to change it via
-            Vendor Management after they sign in.
+            Share this password with the staff member. It is shown only once.
           </p>
           <div className="rounded-lg border border-border bg-muted p-4 font-mono text-lg">
             {tempPwDialog?.password}
