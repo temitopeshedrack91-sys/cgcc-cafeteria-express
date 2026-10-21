@@ -29,6 +29,13 @@
       "when": 1792578945130,
       "tag": "0003_granular_vendor_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792579125707,
+      "tag": "0004_trusted_payment_finalization_only",
+      "breakpoints": true
     }
   ]
 }
