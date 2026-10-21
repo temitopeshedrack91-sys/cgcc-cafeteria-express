@@ -44,7 +44,7 @@ async function findVendor(supabaseAdmin: any, vendorId: string) {
     .select("id, user_id, vendor_type, username")
     .eq("id", vendorId)
     .maybeSingle();
-  if (error || !v) throw new Error("Staff account not found");
+  if (error || !v) throw new Error("Vendor account not found");
   return v;
 }
 
@@ -55,7 +55,7 @@ export const listVendors = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("vendors")
-      .select("id, user_id, vendor_type, username, display_label, can_manage_stock, active, last_login, created_at")
+      .select("id, user_id, vendor_type, username, display_label, can_manage_stock, can_increase_stock, can_reduce_stock, can_reallocate_stock, can_update_preparation, active, last_login, created_at")
       .order("vendor_type")
       .order("created_at");
     if (error) throw error;
@@ -137,21 +137,17 @@ export const createVendorAccount = createServerFn({ method: "POST" })
       email_confirm: true,
       user_metadata: { vendor_type: data.vendorType, username: data.username },
     });
-    let userId = createRes.data?.user?.id ?? null;
-    if (!userId) {
-      const list = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-      const found = list.data?.users?.find((u: any) => u.email === email);
-      if (found) {
-        userId = found.id;
-        await supabaseAdmin.auth.admin.updateUserById(userId, { password: temp });
-      }
-    }
-    if (!userId) throw new Error("Could not create the login account");
+    const userId = createRes.data?.user?.id;
+    if (createRes.error || !userId) throw new Error("Could not create this login. Use an unused email address.");
 
     const roleName = `${data.vendorType}_vendor` as const;
-    await supabaseAdmin
+    const { error: roleError } = await supabaseAdmin
       .from("user_roles")
       .upsert({ user_id: userId, role: roleName as any }, { onConflict: "user_id,role" });
+    if (roleError) {
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      throw new Error("Could not assign vendor access. No account was added.");
+    }
 
     const { error } = await supabaseAdmin.from("vendors").insert({
       user_id: userId,
@@ -160,7 +156,10 @@ export const createVendorAccount = createServerFn({ method: "POST" })
       display_label: data.label.trim(),
       active: true,
     });
-    if (error) throw error;
+    if (error) {
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      throw new Error("Could not save the vendor account. Check that the username is unused.");
+    }
     return { ok: true, temporaryPassword: temp, email };
   });
 
@@ -256,5 +255,16 @@ export const touchVendorLogin = createServerFn({ method: "POST" })
       .from("vendors")
       .update({ last_login: new Date().toISOString() })
       .eq("user_id", context.userId);
+    return { ok: true };
+  });
+
+export const setVendorPermission = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ vendorId: z.string().uuid(), permission: z.enum(['can_increase_stock', 'can_reduce_stock', 'can_reallocate_stock', 'can_update_preparation']), enabled: z.boolean() }).parse(d))
+  .handler(async ({ context, data }) => {
+    await assertAdmin(context);
+    const update = { [data.permission]: data.enabled, ...(data.permission !== 'can_update_preparation' && data.enabled ? { can_manage_stock: true } : {}) };
+    const { error } = await context.supabase.from('vendors').update(update).eq('id', data.vendorId);
+    if (error) throw error;
     return { ok: true };
   });

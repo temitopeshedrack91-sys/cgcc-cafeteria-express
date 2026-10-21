@@ -25,6 +25,11 @@ export const Route = createFileRoute("/vendor/")({
   head: () => ({
     meta: [
       { title: "Vendor Dashboard · CGCC Cafeteria" },
+      { name: 'description', content: 'CGCC vendor orders and authorised inventory controls.' },
+      { property: 'og:title', content: 'Vendor Dashboard · CGCC Cafeteria' },
+      { property: 'og:description', content: 'CGCC vendor orders and authorised inventory controls.' },
+      { property: 'og:type', content: 'website' },
+      { name: 'twitter:card', content: 'summary' },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -105,6 +110,7 @@ function formatDayLine(iso: string) {
 function VendorDashboard() {
   const navigate = useNavigate();
   const [vendorType, setVendorType] = useState<string | null>(null);
+  const [permissions, setPermissions] = useState({ increase: false, reduce: false, reallocate: false, preparation: false });
   const [orders, setOrders] = useState<VendorOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -196,7 +202,7 @@ function VendorDashboard() {
       }
       const { data: v } = await supabase
         .from("vendors")
-        .select("vendor_type, active")
+        .select("vendor_type, active, can_manage_stock, can_increase_stock, can_reduce_stock, can_reallocate_stock, can_update_preparation")
         .eq("user_id", user.id)
         .maybeSingle();
       if (!v || !v.active) {
@@ -206,6 +212,7 @@ function VendorDashboard() {
       }
       if (cancelled) return;
       setVendorType(v.vendor_type);
+      setPermissions({ increase: v.can_manage_stock && v.can_increase_stock, reduce: v.can_manage_stock && v.can_reduce_stock, reallocate: v.can_manage_stock && v.can_reallocate_stock, preparation: v.can_update_preparation });
       await load();
     })();
     return () => {
@@ -284,6 +291,7 @@ function VendorDashboard() {
   );
 
   async function updateItem(itemId: string, status: PrepStatus) {
+    if (!permissions.preparation) return;
     const prev = orders;
     setOrders((os) =>
       os.map((o) => ({
@@ -409,7 +417,7 @@ function VendorDashboard() {
         </div>
 
         {tab === "inventory" ? (
-          <InventoryPanel scope={vendorType} title="Inventory Management" />
+          <InventoryPanel scope={vendorType} title="Inventory Management" stockPermissions={permissions} />
         ) : (
         <>
         <h1 className="font-display text-3xl font-bold">My Orders</h1>
@@ -531,7 +539,7 @@ function VendorDashboard() {
                           >
                             {it.preparation_status}
                           </span>
-                          {next && (
+                          {next && permissions.preparation && (
                             <Button
                               size="sm"
                               variant="outline"
