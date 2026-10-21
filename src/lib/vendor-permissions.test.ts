@@ -1,5 +1,7 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, it as test } from 'node:test';
+import { strict as assert } from 'node:assert';
 import { canChangeStock } from './vendor-permissions';
+const expect = (value: boolean) => ({ toBe: (expected: boolean) => assert.equal(value, expected) });
 
 describe('individual vendor stock permissions', () => {
   const previous = { online: 10, walkin: 5 };
