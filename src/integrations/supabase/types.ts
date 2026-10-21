@@ -718,7 +718,11 @@ export type Database = {
       vendors: {
         Row: {
           active: boolean
+          can_increase_stock: boolean
           can_manage_stock: boolean
+          can_reallocate_stock: boolean
+          can_reduce_stock: boolean
+          can_update_preparation: boolean
           created_at: string
           display_label: string | null
           id: string
@@ -730,7 +734,11 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          can_increase_stock?: boolean
           can_manage_stock?: boolean
+          can_reallocate_stock?: boolean
+          can_reduce_stock?: boolean
+          can_update_preparation?: boolean
           created_at?: string
           display_label?: string | null
           id?: string
@@ -742,7 +750,11 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          can_increase_stock?: boolean
           can_manage_stock?: boolean
+          can_reallocate_stock?: boolean
+          can_reduce_stock?: boolean
+          can_update_preparation?: boolean
           created_at?: string
           display_label?: string | null
           id?: string
@@ -929,6 +941,10 @@ export type Database = {
         Returns: Json
       }
       vendor_can_manage_stock: { Args: { _user_id: string }; Returns: boolean }
+      vendor_has_permission: {
+        Args: { _permission: string; _user_id: string }
+        Returns: boolean
+      }
       vendor_set_item_availability: {
         Args: { _available: boolean; _id: string }
         Returns: Json
