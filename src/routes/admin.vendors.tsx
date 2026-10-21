@@ -21,7 +21,7 @@ import {
   setVendorActive,
   setVendorLabel,
   setVendorPassword,
-  setVendorStockPermission,
+  setVendorPermission,
   VENDOR_TYPES,
   VENDOR_TYPE_LABELS,
   type VendorType,
@@ -31,8 +31,13 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/admin/vendors")({
   head: () => ({
     meta: [
-      { title: "Service Staff Management · CGCC Admin" },
+      { title: "Vendor Management · CGCC Admin" },
       { name: "robots", content: "noindex" },
+      { name: "description", content: "Manage CGCC vendor accounts, passwords and permissions." },
+      { property: "og:title", content: "Vendor Management · CGCC Admin" },
+      { property: "og:description", content: "Manage CGCC vendor accounts, passwords and permissions." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: () => (
@@ -50,6 +55,10 @@ type VendorRow = {
   username: string;
   display_label: string | null;
   can_manage_stock: boolean;
+  can_increase_stock: boolean;
+  can_reduce_stock: boolean;
+  can_reallocate_stock: boolean;
+  can_update_preparation: boolean;
   active: boolean;
   last_login: string | null;
   created_at: string;
@@ -83,7 +92,7 @@ function VendorManagement() {
       const data = await listVendors();
       setRows(data as VendorRow[]);
     } catch (e: any) {
-      toast.error(e.message ?? "Failed to load staff accounts");
+      toast.error(e.message ?? "Failed to load vendor accounts");
     } finally {
       setLoading(false);
     }
@@ -98,9 +107,9 @@ function VendorManagement() {
     try {
       const res = await initVendors();
       if (res.created.length) {
-        toast.success(`Created ${res.created.length} staff account(s)`);
+        toast.success(`Created ${res.created.length} vendor account(s)`);
       } else {
-        toast.info("All default staff accounts already exist");
+        toast.info("All default vendor accounts already exist");
       }
       await load();
     } catch (e: any) {
@@ -120,13 +129,13 @@ function VendorManagement() {
     }
   }
 
-  async function toggleStock(v: VendorRow, next: boolean) {
+  async function togglePermission(v: VendorRow, permission: 'can_increase_stock' | 'can_reduce_stock' | 'can_reallocate_stock' | 'can_update_preparation', next: boolean) {
     try {
-      await setVendorStockPermission({ data: { vendorId: v.id, canManageStock: next } });
-      toast.success(next ? "Stock management allowed" : "Stock management blocked");
-      setRows((rs) => rs.map((r) => (r.id === v.id ? { ...r, can_manage_stock: next } : r)));
+      await setVendorPermission({ data: { vendorId: v.id, permission, enabled: next } });
+      toast.success("Permission updated");
+      await load();
     } catch (e: any) {
-      toast.error(e.message ?? "Failed");
+      toast.error(e.message ?? "Could not update permission");
     }
   }
 
@@ -207,10 +216,8 @@ function VendorManagement() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl font-bold">Service Staff Management</h1>
-          <p className="text-sm text-muted-foreground">
-            Rename staff accounts, change or reset passwords, control stock access, and add new staff.
-          </p>
+          <h1 className="font-display text-3xl font-bold">Vendor Management</h1>
+
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
@@ -218,7 +225,7 @@ function VendorManagement() {
             Refresh
           </Button>
           <Button size="sm" onClick={() => setAddOpen(true)}>
-            <UserPlus className="mr-1 h-4 w-4" /> Add Staff Account
+            <UserPlus className="mr-1 h-4 w-4" /> Add Vendor Account
           </Button>
           {missing.length > 0 && (
             <Button size="sm" variant="outline" onClick={runInit} disabled={busy}>
@@ -231,12 +238,12 @@ function VendorManagement() {
 
       {loading ? (
         <p className="rounded-2xl border border-border bg-card p-6 text-center text-sm text-muted-foreground shadow-soft">
-          Loading staff accounts…
+          Loading vendor accounts…
         </p>
       ) : rows.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-6 text-center shadow-soft">
           <p className="text-sm text-muted-foreground">
-            No staff accounts yet. Use "Add Staff Account" above.
+            No vendor accounts yet. Use "Add Vendor Account" above.
           </p>
         </div>
       ) : (
@@ -279,19 +286,21 @@ function VendorManagement() {
                     {v.last_login ? new Date(v.last_login).toLocaleString() : "Never"}
                   </dd>
                 </div>
-                <div className="col-span-2 flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2">
-                  <div>
-                    <dt className="uppercase">Stock management</dt>
-                    <dd className="text-foreground">
-                      {v.can_manage_stock ? "Can add and remove stock" : "Blocked from changing stock"}
-                    </dd>
+                {([
+                  ['can_increase_stock', 'Increase stock'],
+                  ['can_reduce_stock', 'Reduce stock'],
+                  ['can_reallocate_stock', 'Reallocate stock'],
+                  ['can_update_preparation', 'Update preparation status'],
+                ] as const).map(([permission, title]) => (
+                  <div key={permission} className="col-span-2 flex items-center justify-between gap-3 border-t border-border py-2">
+                    <dt className="text-foreground">{title}</dt>
+                    <Switch
+                      checked={v[permission] && (permission === 'can_update_preparation' || v.can_manage_stock)}
+                      onCheckedChange={(next) => void togglePermission(v, permission, Boolean(next))}
+                      aria-label={`${title} for ${label(v)}`}
+                    />
                   </div>
-                  <Switch
-                    checked={v.can_manage_stock}
-                    onCheckedChange={(next) => void toggleStock(v, Boolean(next))}
-                    aria-label={`Stock management for ${label(v)}`}
-                  />
-                </div>
+                ))}
               </dl>
 
               <div className="mt-4 flex flex-wrap gap-2">
@@ -333,7 +342,8 @@ function VendorManagement() {
             <Label htmlFor="pw">New password (min 8 chars)</Label>
             <Input
               id="pw"
-              type="text"
+              type="password"
+              autoComplete="new-password"
               value={newPw}
               onChange={(e) => setNewPw(e.target.value)}
               placeholder="Enter new password"
@@ -351,7 +361,7 @@ function VendorManagement() {
       <Dialog open={labelDialog !== null} onOpenChange={(o) => !o && setLabelDialog(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Rename staff account</DialogTitle>
+            <DialogTitle>Rename vendor account</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="lbl">Display name</Label>
@@ -360,11 +370,9 @@ function VendorManagement() {
               type="text"
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
-              placeholder="e.g. Service Staff — Kitchen"
+              placeholder="e.g. Food Vendor"
             />
-            <p className="text-xs text-muted-foreground">
-              This name is shown on the staff dashboard instead of "Vendor".
-            </p>
+
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setLabelDialog(null)}>
@@ -378,7 +386,7 @@ function VendorManagement() {
       <Dialog open={addOpen} onOpenChange={(o) => !o && setAddOpen(false)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add staff account</DialogTitle>
+            <DialogTitle>Add vendor account</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-2">
@@ -402,7 +410,7 @@ function VendorManagement() {
                 id="add-label"
                 value={addLabel}
                 onChange={(e) => setAddLabel(e.target.value)}
-                placeholder="e.g. Service Staff — Drinks 2"
+                placeholder="e.g. Drinks Vendor 2"
               />
             </div>
             <div className="space-y-2">
@@ -425,7 +433,7 @@ function VendorManagement() {
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              A temporary password is generated when the account is created — share it with the staff member.
+              A temporary password is generated when the account is created — share it with the vendor.
             </p>
           </div>
           <DialogFooter>
@@ -448,7 +456,7 @@ function VendorManagement() {
             <DialogTitle>Temporary password · {tempPwDialog?.vendor}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Share this password with the staff member. It is shown only once.
+            Share this password with the vendor. It is shown only once.
           </p>
           <div className="rounded-lg border border-border bg-muted p-4 font-mono text-lg">
             {tempPwDialog?.password}

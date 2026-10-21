@@ -8,3 +8,7 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Enforce vendor stock actions at the menu stock-write boundary as well as RPC entry points, so every allocation path respects per-account permissions.
+- Use `src/lib/vendor-permissions.ts` for the matching interface checks; database rules remain authoritative.
+- Vendor creation must never adopt or reset an existing auth account; roll back a newly created login if role or vendor creation fails.

@@ -22,8 +22,9 @@ import {
 } from "@/lib/inventory";
 import { formatNaira } from "@/lib/store";
 import { toast } from "sonner";
+import { canChangeStock, FULL_STOCK_PERMISSIONS, type StockPermissions } from '@/lib/vendor-permissions';
 
-type Props = { scope?: string | null; allowThreshold?: boolean; title?: string };
+type Props = { scope?: string | null; allowThreshold?: boolean; title?: string; stockPermissions?: StockPermissions };
 
 /**
  * Whole-number quantity field vendors can type into directly (e.g. 150)
@@ -33,10 +34,12 @@ function QtyField({
   value,
   onCommit,
   ariaLabel,
+  disabled = false,
 }: {
   value: number;
   onCommit: (next: number) => void;
   ariaLabel: string;
+  disabled?: boolean;
 }) {
   const [draft, setDraft] = useState(String(value));
   const [editing, setEditing] = useState(false);
@@ -63,6 +66,7 @@ function QtyField({
   return (
     <Input
       aria-label={ariaLabel}
+      disabled={disabled}
       className="mx-auto h-8 w-16 text-center font-semibold tabular-nums"
       type="number"
       min={0}
@@ -87,7 +91,7 @@ function QtyField({
   );
 }
 
-export function InventoryPanel({ scope, allowThreshold = false, title = "Inventory Management" }: Props) {
+export function InventoryPanel({ scope, allowThreshold = false, title = "Inventory Management", stockPermissions = FULL_STOCK_PERMISSIONS }: Props) {
   const [rows, setRows] = useState<InventoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -133,6 +137,10 @@ export function InventoryPanel({ scope, allowThreshold = false, title = "Invento
   const soldOutCount = useMemo(() => rows.filter((r) => !r.available || r.stock_qty === 0).length, [rows]);
 
   async function commitSplit(item: InventoryRow, online: number, walkin: number) {
+    if (!canChangeStock({ online: item.stock_online, walkin: item.stock_walkin }, { online, walkin }, stockPermissions)) {
+      toast.error('You do not have permission for this stock change');
+      return;
+    }
     const prev = rows;
     setRows((rs) =>
       rs.map((r) =>
@@ -181,7 +189,7 @@ export function InventoryPanel({ scope, allowThreshold = false, title = "Invento
   }
 
   async function submitMove() {
-    if (!moveFor) return;
+    if (!moveFor || !stockPermissions.reallocate) return;
     const n = parseInt(moveQty, 10);
     if (!Number.isFinite(n) || n <= 0) {
       toast.error("Enter a positive number");
@@ -254,9 +262,6 @@ export function InventoryPanel({ scope, allowThreshold = false, title = "Invento
           <p className="text-xs text-muted-foreground">
             {rows.length} products · {lowCount} low stock · {soldOutCount} sold out
           </p>
-          <p className="text-[11px] text-muted-foreground">
-            Type a Total (e.g. 150) — new stock goes to Online first. Use Move or the Walk-in field to split.
-          </p>
 
         </div>
         <div className="flex items-center gap-2">
@@ -300,6 +305,7 @@ export function InventoryPanel({ scope, allowThreshold = false, title = "Invento
                   <td className="px-3 py-2">
                     <QtyField
                       value={r.stock_qty}
+                      disabled={!stockPermissions.increase && !stockPermissions.reduce}
                       ariaLabel={`Total quantity for ${r.name}`}
                       onCommit={(total) => {
                         // Online-first: extra stock goes to Online; reductions come off Online first.
@@ -312,30 +318,32 @@ export function InventoryPanel({ scope, allowThreshold = false, title = "Invento
 
                   <td className="px-3 py-2">
                     <div className="flex items-center justify-center gap-1">
-                      <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => void bumpOnline(r, -1)}>
+                      <Button size="icon" variant="outline" disabled={!stockPermissions.reduce || r.stock_online === 0} aria-label={`Reduce online stock for ${r.name}`} className="h-7 w-7" onClick={() => void bumpOnline(r, -1)}>
                         <Minus className="h-3 w-3" />
                       </Button>
                       <QtyField
                         value={r.stock_online}
+                        disabled={!stockPermissions.increase && !stockPermissions.reduce}
                         ariaLabel={`Online quantity for ${r.name}`}
                         onCommit={(v) => void commitSplit(r, v, r.stock_walkin)}
                       />
-                      <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => void bumpOnline(r, 1)}>
+                      <Button size="icon" variant="outline" disabled={!stockPermissions.increase} aria-label={`Increase online stock for ${r.name}`} className="h-7 w-7" onClick={() => void bumpOnline(r, 1)}>
                         <Plus className="h-3 w-3" />
                       </Button>
                     </div>
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center justify-center gap-1">
-                      <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => void bumpWalkin(r, -1)}>
+                      <Button size="icon" variant="outline" disabled={!stockPermissions.reduce || r.stock_walkin === 0} aria-label={`Reduce walk-in stock for ${r.name}`} className="h-7 w-7" onClick={() => void bumpWalkin(r, -1)}>
                         <Minus className="h-3 w-3" />
                       </Button>
                       <QtyField
                         value={r.stock_walkin}
+                        disabled={!stockPermissions.increase && !stockPermissions.reduce}
                         ariaLabel={`Walk-in quantity for ${r.name}`}
                         onCommit={(v) => void commitSplit(r, r.stock_online, v)}
                       />
-                      <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => void bumpWalkin(r, 1)}>
+                      <Button size="icon" variant="outline" disabled={!stockPermissions.increase} aria-label={`Increase walk-in stock for ${r.name}`} className="h-7 w-7" onClick={() => void bumpWalkin(r, 1)}>
                         <Plus className="h-3 w-3" />
                       </Button>
                     </div>
@@ -345,6 +353,7 @@ export function InventoryPanel({ scope, allowThreshold = false, title = "Invento
                     <Button
                       size="sm"
                       variant="outline"
+                      disabled={!stockPermissions.reallocate}
                       className="h-7 gap-1 px-2 text-[11px]"
                       onClick={() => {
                         setMoveFor(r);
