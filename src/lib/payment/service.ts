@@ -42,7 +42,9 @@ export async function simulatePayment(
   outcome: SimulatedOutcome,
 ): Promise<PaymentResult> {
   const cfg = await loadPaymentConfig();
+  if (cfg.mode !== 'test') throw new Error('Payment simulation is available only in test mode');
   const result = simulatedResult(outcome, reference, amount, cfg.provider);
-  await finalizePayment(orderCode, result);
+  // A browser-selected simulation is not trusted payment verification.
+  // Leave the real order pending regardless of the simulated outcome.
   return result;
 }

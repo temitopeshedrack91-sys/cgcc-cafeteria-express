@@ -65,7 +65,12 @@ export const Route = createFileRoute("/api/public/opay/webhook")({
         const cfg = (settings?.payment_config ?? {}) as {
           mode?: "test" | "live";
           provider?: string;
+          enabled?: boolean;
         };
+
+        // This legacy endpoint has not passed provider-specific integration tests.
+        // It must not settle real orders until a verified integration replaces it.
+        return new Response("Payment integration is not activated", { status: 503 });
 
         // Secrets live in the locked payment_secrets vault (service role only).
         const { data: secRow } = await supabaseAdmin

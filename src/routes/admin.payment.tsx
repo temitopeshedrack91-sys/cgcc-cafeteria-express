@@ -81,12 +81,8 @@ function GatewayPage() {
 
   function switchMode(next: "test" | "live") {
     if (next === "live") {
-      const check = validateGateway({ ...cfg, mode: "live" });
-      if (!check.ok) {
-        setIssues(check.issues);
-        toast.error("Complete the credentials before enabling Live Mode.");
-        return;
-      }
+      toast.error('Live payments require verified provider integration and end-to-end tests before activation.');
+      return;
     }
     setIssues(null);
     setCfg((c) => ({ ...c, mode: next }));
@@ -196,7 +192,7 @@ function GatewayPage() {
           onClick={() => switchMode("live")}
           icon={Radio}
           title="Live Mode"
-          subtitle={liveReady ? "Ready to accept real payments" : "Fill in all credentials first"}
+          subtitle="Not activated — integration tests required"
           tint="emerald"
         />
       </div>
@@ -275,7 +271,7 @@ function GatewayPage() {
             {cfg.mode === "live" ? "Live Mode enabled" : "Test Mode enabled"}
             {liveReady && (
               <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-                <CheckCircle2 className="h-3 w-3" /> Live-ready
+                <CheckCircle2 className="h-3 w-3" /> Credentials configured
               </span>
             )}
           </span>
@@ -293,9 +289,7 @@ function GatewayPage() {
       </div>
 
       <p className="mt-6 text-xs text-muted-foreground">
-        Webhook signature verification, reference deduplication, amount verification
-        and order-ownership checks are already enforced server-side. Pasting live
-        credentials above and switching to Live Mode needs no code changes.
+        Live payments are not activated. Saved credentials alone do not verify an integration.
       </p>
     </div>
   );
