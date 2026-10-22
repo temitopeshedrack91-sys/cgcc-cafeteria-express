@@ -14,6 +14,7 @@ import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { CATEGORIES } from "@/lib/menu-data";
 import { useStore } from "@/lib/store";
+import { CUSTOMER_CATEGORIES } from '@/lib/customer-categories';
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -76,6 +77,8 @@ const FEATURES = [
 function LandingPage() {
   const settings = useSystemSettings();
   const orderingOpen = useStore((s) => s.orderingOpen);
+  const menu = useStore((s) => s.menu);
+  const categories = Array.from(new Set([...CUSTOMER_CATEGORIES, ...menu.map((m) => m.category)]));
 
   return (
     <div>
@@ -249,7 +252,7 @@ function LandingPage() {
           </Link>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {CATEGORIES.map((c) => (
+          {categories.map((c) => (
             <Link
               key={c}
               to="/menu"
@@ -257,7 +260,7 @@ function LandingPage() {
               className="group flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-soft transition hover:-translate-y-0.5 hover:border-brand hover:shadow-elegant"
             >
               <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-brand/10 text-2xl transition group-hover:scale-110">
-                {CATEGORY_EMOJI[c]}
+                {CATEGORY_EMOJI[c] ?? '🍽️'}
               </div>
               <div className="min-w-0">
                 <div className="truncate font-display text-sm font-semibold">

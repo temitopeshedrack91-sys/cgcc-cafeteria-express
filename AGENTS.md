@@ -12,3 +12,5 @@
 - Enforce vendor stock actions at the menu stock-write boundary as well as RPC entry points, so every allocation path respects per-account permissions.
 - Use `src/lib/vendor-permissions.ts` for the matching interface checks; database rules remain authoritative.
 - Vendor creation must never adopt or reset an existing auth account; roll back a newly created login if role or vendor creation fails.
+- Customer menu, cart and checkout use database-fed store products; legacy category grouping is presentation-only and never changes vendor ownership.
+- Browser payment simulations never settle orders; provider callbacks remain disabled until a verified provider integration replaces them.

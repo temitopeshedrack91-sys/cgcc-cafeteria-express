@@ -1,4 +1,5 @@
-export type MenuCategory =
+export type MenuCategory = string;
+type LegacyMenuCategory =
   | "Meals"
   | "Proteins"
   | "Soups & Sides"

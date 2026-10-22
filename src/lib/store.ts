@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import { DEFAULT_MENU, type MenuItem } from "./menu-data";
 import { supabase } from "@/integrations/supabase/client";
 import { rememberOrder } from "./history";
+import { customerCategory } from './customer-categories';
 
 // ============ Types ============
 export type CartItem = { itemId: string; qty: number };
@@ -243,21 +244,20 @@ export async function fetchOrderByCode(
 }
 
 async function fetchMenu() {
-  const { data, error } = await supabase
-    .from("menu_items")
-    .select("id, available, stock_online, stock_walkin, stock_qty");
+  const [{ data, error }, categories] = await Promise.all([
+    supabase.from('menu_items').select('id, name, price, image_url, category_id, archived_at, available, stock_online, stock_walkin, stock_qty').is('archived_at', null).order('sort_order'),
+    supabase.from('categories').select('id, name, archived_at'),
+  ]);
   if (error) {
     console.error("[store] fetchMenu failed", error);
     return;
   }
-  const menuState: MenuState = { ...state.menuState };
-  for (const row of data as {
-    id: string;
-    available: boolean;
-    stock_online: number | null;
-    stock_walkin: number | null;
-    stock_qty: number | null;
-  }[]) {
+  if (categories.error) { console.error('[store] category load failed', categories.error); return; }
+  const categoryNames = new Map((categories.data ?? []).filter((c) => !c.archived_at).map((c) => [c.id, customerCategory(c.name)]));
+  const visible = (data ?? []).filter((row) => categoryNames.has(row.category_id));
+  const menu: MenuItem[] = visible.map((row) => ({ id: row.id, name: row.name, price: row.price, image: row.image_url ?? '', category: categoryNames.get(row.category_id) ?? 'Food' }));
+  const menuState: MenuState = {};
+  for (const row of visible) {
     menuState[row.id] = {
       available: row.available,
       stockOnline: row.stock_online ?? 0,
@@ -265,7 +265,7 @@ async function fetchMenu() {
       stockQty: row.stock_qty ?? 0,
     };
   }
-  set({ menuState });
+  set({ menu, menuState });
 }
 
 async function fetchSettings() {
