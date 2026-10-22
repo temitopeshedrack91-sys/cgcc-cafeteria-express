@@ -24,6 +24,9 @@ export const Route = createFileRoute("/")({
         content:
           "Pre-order your meals before arriving at the CGCC Cafeteria. Make payment, receive your order code and pick up without waiting in line.",
       },
+      { property: 'og:title', content: 'CGCC Cafeteria Express — Skip the Queue. Enjoy More Time.' },
+      { property: 'og:description', content: 'Pre-order meals at CGCC Cafeteria and collect with your order code.' },
+      { property: 'og:type', content: 'website' }, { name: 'twitter:card', content: 'summary' },
     ],
   }),
   component: LandingPage,

@@ -16,7 +16,13 @@ import { toast } from "sonner";
 type Search = { code?: string; reference?: string; status?: string };
 
 export const Route = createFileRoute("/payment/opay/return")({
-  head: () => ({ meta: [{ title: "Confirming payment · CGCC Cafeteria Express" }] }),
+  head: () => ({ meta: [
+    { title: 'Payment result · CGCC Cafeteria Express' },
+    { name: 'description', content: 'Check the saved payment status of your CGCC order.' },
+    { property: 'og:title', content: 'Payment result · CGCC Cafeteria Express' },
+    { property: 'og:description', content: 'Check the saved payment status of your CGCC order.' },
+    { property: 'og:type', content: 'website' }, { name: 'twitter:card', content: 'summary' },
+  ] }),
   validateSearch: (s: Record<string, unknown>): Search => ({
     code: typeof s.code === "string" ? s.code : undefined,
     reference: typeof s.reference === "string" ? s.reference : undefined,

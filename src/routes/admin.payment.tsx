@@ -36,6 +36,9 @@ export const Route = createFileRoute("/admin/payment")({
         name: "description",
         content: "Configure the online payment gateway provider, mode and credentials.",
       },
+      { property: 'og:title', content: 'Online Payment Gateway · CGCC Admin' },
+      { property: 'og:description', content: 'Manage CGCC payment methods and gateway configuration.' },
+      { property: 'og:type', content: 'website' }, { name: 'twitter:card', content: 'summary' },
     ],
   }),
   component: () => (
@@ -133,6 +136,13 @@ function GatewayPage() {
 
       <div className="mb-6">
         <PaymentStatusCard />
+      </div>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+        <Label htmlFor="preferred-payment">Preferred payment method</Label>
+        <select id="preferred-payment" className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground" value={cfg.preferredMethod ?? 'online'} onChange={(e) => setCfg((c) => ({ ...c, preferredMethod: e.target.value === 'transfer' ? 'transfer' : 'online' }))}>
+          <option value="online">Pay Online</option>
+          <option value="transfer">Bank Transfer</option>
+        </select>
       </div>
 
       <div className="mb-6 rounded-2xl border border-border bg-card p-5 shadow-soft">
