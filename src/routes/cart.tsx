@@ -12,11 +12,12 @@ export const Route = createFileRoute("/cart")({
 
 function CartPage() {
   const cart = useStore((s) => s.cart);
+  const menu = useStore((s) => s.menu);
   const menuState = useStore((s) => s.menuState);
-  const total = cartTotal(cart, DEFAULT_MENU);
+  const total = cartTotal(cart, menu);
   const hasStockIssue = cart.some((c) => {
     const info = menuState[c.itemId];
-    if (!info) return false;
+    if (!info) return true;
     return !info.available || info.stockOnline < c.qty;
   });
 
@@ -40,7 +41,7 @@ function CartPage() {
 
       <div className="mt-6 space-y-3">
         {cart.map((c) => {
-          const item = DEFAULT_MENU.find((m) => m.id === c.itemId);
+          const item = menu.find((m) => m.id === c.itemId);
           if (!item) return null;
           const info = menuState[c.itemId];
           const stockOnline = info?.stockOnline ?? 0;
@@ -55,12 +56,12 @@ function CartPage() {
                 (overStock ? "border-destructive/60" : "border-border")
               }
             >
-              <img
+              {item.image && <img
                 src={item.image}
                 alt={item.name}
                 loading="lazy"
                 className="h-16 w-16 rounded-xl object-cover"
-              />
+              />}
               <div className="flex-1">
                 <p className="font-semibold">{item.name}</p>
                 <p className="text-sm text-muted-foreground">{formatNaira(item.price)}</p>

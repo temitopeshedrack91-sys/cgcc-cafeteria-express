@@ -46,7 +46,8 @@ function CheckoutPage() {
   useSystemSettings();
   const navigate = useNavigate();
   const cart = useStore((s) => s.cart);
-  const total = cartTotal(cart, DEFAULT_MENU);
+  const menu = useStore((s) => s.menu);
+  const total = cartTotal(cart, menu);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");

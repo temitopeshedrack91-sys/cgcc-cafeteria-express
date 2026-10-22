@@ -36,7 +36,8 @@ type Method = "online" | "transfer";
 function PaymentPage() {
   const navigate = useNavigate();
   const cart = useStore((s) => s.cart);
-  const total = cartTotal(cart, DEFAULT_MENU);
+  const menu = useStore((s) => s.menu);
+  const total = cartTotal(cart, menu);
 
   const [method, setMethod] = useState<Method>("online");
   const [showTransfer, setShowTransfer] = useState(false);
@@ -131,7 +132,7 @@ function PaymentPage() {
     }
     const items = cart
       .map((c) => {
-        const item = DEFAULT_MENU.find((m) => m.id === c.itemId);
+        const item = menu.find((m) => m.id === c.itemId);
         if (!item) return null;
         return { id: item.id, name: item.name, price: item.price, qty: c.qty };
       })
@@ -252,7 +253,7 @@ function PaymentPage() {
         <p className="text-xs uppercase tracking-wider text-muted-foreground">Order summary</p>
         <ul className="mt-3 space-y-2 text-sm">
           {cart.map((c) => {
-            const item = DEFAULT_MENU.find((m) => m.id === c.itemId);
+            const item = menu.find((m) => m.id === c.itemId);
             if (!item) return null;
             return (
               <li key={c.itemId} className="flex items-center justify-between gap-3">
