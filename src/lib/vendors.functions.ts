@@ -68,7 +68,8 @@ export const initVendors = createServerFn({ method: "POST" })
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const { data: existing } = await supabaseAdmin.from("vendors").select("vendor_type");
+    const { data: existing, error: existingError } = await supabaseAdmin.from("vendors").select("vendor_type");
+    if (existingError) throw existingError;
     const have = new Set((existing ?? []).map((v: any) => v.vendor_type));
 
     const created: VendorType[] = [];
@@ -76,36 +77,35 @@ export const initVendors = createServerFn({ method: "POST" })
       if (have.has(vt)) continue;
       const { email, username } = DEFAULTS[vt];
 
-      let userId: string | null = null;
       const createRes = await supabaseAdmin.auth.admin.createUser({
         email,
         password: randomPassword(),
         email_confirm: true,
         user_metadata: { vendor_type: vt, username },
       });
-      if (createRes.data?.user) {
-        userId = createRes.data.user.id;
-      } else {
-        // Look up if user already exists
-        const list = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-        const found = list.data?.users?.find((u: any) => u.email === email);
-        if (found) userId = found.id;
-      }
-      if (!userId) continue;
+      const userId = createRes.data?.user?.id;
+      if (createRes.error || !userId) throw new Error(`Could not create the ${VENDOR_TYPE_LABELS[vt]} login. Existing logins are never reused.`);
 
       // Grant vendor role
       const roleName = `${vt}_vendor` as const;
-      await supabaseAdmin
+      const { error: roleError } = await supabaseAdmin
         .from("user_roles")
         .upsert({ user_id: userId, role: roleName as any }, { onConflict: "user_id,role" });
-
-      await supabaseAdmin.from("vendors").insert({
+      if (roleError) {
+        await supabaseAdmin.auth.admin.deleteUser(userId);
+        throw new Error('Could not assign vendor access. The new login was rolled back.');
+      }
+      const { error: vendorError } = await supabaseAdmin.from("vendors").insert({
         user_id: userId,
         vendor_type: vt,
         username,
         display_label: `${VENDOR_TYPE_LABELS[vt]} Vendor`,
         active: true,
       });
+      if (vendorError) {
+        await supabaseAdmin.auth.admin.deleteUser(userId);
+        throw new Error('Could not save the vendor account. The new login was rolled back.');
+      }
       created.push(vt);
     }
     return { created };
