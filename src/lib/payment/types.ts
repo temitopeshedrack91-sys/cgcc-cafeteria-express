@@ -100,12 +100,15 @@ export const GATEWAY_PROVIDERS: ProviderMeta[] = [
 ];
 
 export function providerMeta(id: string): ProviderMeta {
-  return GATEWAY_PROVIDERS.find((p) => p.id === id) ?? GATEWAY_PROVIDERS[0]!;
+  const fallback = GATEWAY_PROVIDERS[0];
+  if (!fallback) throw new Error('No payment provider is configured');
+  return GATEWAY_PROVIDERS.find((p) => p.id === id) ?? fallback;
 }
 
 export type PaymentConfig = {
   mode: PaymentMode;
   enabled: boolean;
+  preferredMethod?: 'online' | 'transfer';
   provider: GatewayProviderId;
   currency: string; // e.g. NGN
   /** Per-provider credentials, so switching provider keeps saved keys. */

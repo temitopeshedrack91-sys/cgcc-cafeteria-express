@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Loader2, XCircle, Clock, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatNaira, useStore, fetchOrderByCode } from "@/lib/store";
-import { simulatePayment, finalizePayment } from "@/lib/payment/service";
+import { simulatePayment } from "@/lib/payment/service";
 import { loadPaymentConfig } from "@/lib/payment/config";
 import type { GatewayProviderId, SimulatedOutcome } from "@/lib/payment/types";
 import { toast } from "sonner";
@@ -16,7 +16,13 @@ import { toast } from "sonner";
 type Search = { code?: string; reference?: string; status?: string };
 
 export const Route = createFileRoute("/payment/opay/return")({
-  head: () => ({ meta: [{ title: "Confirming payment · CGCC Cafeteria Express" }] }),
+  head: () => ({ meta: [
+    { title: 'Payment result · CGCC Cafeteria Express' },
+    { name: 'description', content: 'Check the saved payment status of your CGCC order.' },
+    { property: 'og:title', content: 'Payment result · CGCC Cafeteria Express' },
+    { property: 'og:description', content: 'Check the saved payment status of your CGCC order.' },
+    { property: 'og:type', content: 'website' }, { name: 'twitter:card', content: 'summary' },
+  ] }),
   validateSearch: (s: Record<string, unknown>): Search => ({
     code: typeof s.code === "string" ? s.code : undefined,
     reference: typeof s.reference === "string" ? s.reference : undefined,
@@ -44,15 +50,12 @@ function OpayReturnPage() {
     void fetchOrderByCode(code).then((o) => { if (o) setAmount(o.total); }).catch(() => {});
   }, [code, cachedOrder]);
 
-  // If the provider redirected with a status query (live flow), finalize immediately.
+  // A redirect query is untrusted. Only read the saved status; never settle here.
   useEffect(() => {
-    if (mode !== "live" || !code || !reference || !status) return;
-    const s = status === "success" ? "paid" : status === "cancelled" ? "cancelled" : "failed";
-    void finalizePayment(code, {
-      reference, provider, amount, status: s as never,
-    }).then(() => navigate({ to: "/receipt/$code", params: { code } }))
-      .catch((e) => toast.error(e instanceof Error ? e.message : "Payment update failed"));
-  }, [mode, code, reference, status, amount, provider, navigate]);
+    if (mode !== 'live' || !code) return;
+    void fetchOrderByCode(code).then(() => navigate({ to: '/receipt/$code', params: { code } }))
+      .catch(() => toast.error('Could not check payment. Please try again.'));
+  }, [mode, code, navigate]);
 
   const outcomes = useMemo(() => ([
     { key: "success" as const, label: "Payment Successful", icon: CheckCircle2, cls: "bg-emerald-600 hover:bg-emerald-700" },
@@ -67,10 +70,10 @@ function OpayReturnPage() {
     try {
       const result = await simulatePayment(code, reference, amount, outcome);
       if (result.status === "paid") {
-        toast.success("Payment successful!");
+        toast.info("Simulation completed. No payment was collected; your order remains pending verification.");
         navigate({ to: "/receipt/$code", params: { code } });
       } else {
-        toast.error(`Payment ${result.status}. You can try again.`);
+        toast.info(`Simulated ${result.status}. Your saved order has not changed.`);
         setBusy(null);
       }
     } catch (e) {
@@ -132,9 +135,7 @@ function OpayReturnPage() {
       </div>
 
       <p className="mt-6 text-center text-xs text-muted-foreground">
-        This screen only appears in Test Mode. Once live credentials are saved
-        and Live Mode is switched on, customers are redirected straight to the
-        secure checkout page.
+        Test results do not confirm real payments. Payment remains pending until verified.
       </p>
     </div>
   );

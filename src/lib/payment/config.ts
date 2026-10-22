@@ -103,9 +103,10 @@ export async function loadPaymentConfig(force = false): Promise<PaymentConfig> {
 }
 
 export async function savePaymentConfig(next: PaymentConfig): Promise<void> {
+  if (next.mode === 'live') throw new Error('Live payments are not activated. Provider verification and end-to-end tests are required first.');
   // Split: credentials go to the locked vault, everything else stays in
   // the publicly readable app_settings row.
-  const { credentials, ...publicPart } = next;
+  const { credentials, secretKey, webhookSecret, merchantId, publicKey, ...publicPart } = next;
   const { error: secErr } = await supabase.rpc("save_payment_secrets", {
     _data: { credentials: credentials ?? {} } as unknown as never,
   });

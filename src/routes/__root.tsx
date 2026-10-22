@@ -91,8 +91,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "CGCC Cafeteria Express — Skip the Queue. Enjoy More Time." },
       { name: "twitter:description", content: "Pre-order your meals before arriving at the CGCC Cafeteria. Make payment, receive your order code and pick up without waiting in line." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/2e6cf2f2-7622-462c-8fc6-5c49b7a49f55" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/2e6cf2f2-7622-462c-8fc6-5c49b7a49f55" },
     ],
     links: [
       {

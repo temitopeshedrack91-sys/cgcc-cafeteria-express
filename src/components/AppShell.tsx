@@ -6,7 +6,7 @@ import { useStore } from "@/lib/store";
 export function AppHeader() {
   const cartCount = useStore((s) => s.cart.reduce((n, c) => n + c.qty, 0));
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const onAdmin = pathname.startsWith("/admin");
+  const onAdmin = /^\/(admin|vendor|cashier)(\/|$)/.test(pathname);
   if (onAdmin) return null;
 
   return (
@@ -34,7 +34,7 @@ export function AppHeader() {
 
 export function AppFooter() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  if (pathname.startsWith("/admin")) return null;
+  if (/^\/(admin|vendor|cashier)(\/|$)/.test(pathname)) return null;
   return (
     <footer className="mt-16 border-t border-border/60 bg-primary text-primary-foreground/80">
       <div className="mx-auto max-w-5xl px-4 py-8 text-center text-sm">

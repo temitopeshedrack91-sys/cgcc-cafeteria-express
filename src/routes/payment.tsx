@@ -16,10 +16,17 @@ import {
   type TransferSettings,
 } from "@/lib/transfer-settings";
 import { loadPaymentConfig } from "@/lib/payment/config";
+import { choosePaymentMethod } from '@/lib/payment/methods';
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/payment")({
-  head: () => ({ meta: [{ title: "Payment · CGCC Cafeteria Express" }] }),
+  head: () => ({ meta: [
+    { title: 'Payment · CGCC Cafeteria Express' },
+    { name: 'description', content: 'Choose bank transfer or online payment for your CGCC pre-order.' },
+    { property: 'og:title', content: 'Payment · CGCC Cafeteria Express' },
+    { property: 'og:description', content: 'Choose bank transfer or online payment for your CGCC pre-order.' },
+    { property: 'og:type', content: 'website' }, { name: 'twitter:card', content: 'summary' },
+  ] }),
   component: PaymentPage,
 });
 
@@ -40,6 +47,8 @@ function PaymentPage() {
   const [bankId, setBankId] = useState<string | null>(null);
   const [transferCfg, setTransferCfg] = useState<TransferSettings>(DEFAULT_TRANSFER_SETTINGS);
   const [gatewayEnabled, setGatewayEnabled] = useState(true);
+  const [paymentLoading, setPaymentLoading] = useState(true);
+  const [preferredMethod, setPreferredMethod] = useState<Method>('online');
   const [reference, setReference] = useState("");
   const [proof, setProof] = useState<File | null>(null);
   const [createdOrder, setCreatedOrder] = useState<Awaited<ReturnType<typeof actions.createOrder>> | null>(null);
@@ -55,10 +64,11 @@ function PaymentPage() {
       setBankId(list[0]?.id ?? null);
       setTransferCfg(cfg);
       setGatewayEnabled(pay.enabled);
-      if (!pay.enabled && cfg.enabled) {
-        setMethod("transfer");
-        setShowTransfer(true);
-      }
+      const selected = choosePaymentMethod(pay.enabled, cfg.enabled, pay.preferredMethod);
+      setPreferredMethod(pay.preferredMethod ?? 'online');
+      if (selected) setMethod(selected);
+      setShowTransfer(selected === 'transfer');
+      setPaymentLoading(false);
     })();
   }, []);
 
@@ -147,7 +157,7 @@ function PaymentPage() {
   }
 
   async function payOnline() {
-    if (submitting) return;
+    if (submitting || !gatewayEnabled || paymentLoading) return;
     setSubmitting(true);
     try {
       const order = await createOrderRecord();
@@ -184,7 +194,7 @@ function PaymentPage() {
   }
 
   async function payWithTransfer() {
-    if (submitting) return;
+    if (submitting || !transferCfg.enabled || !bank || paymentLoading) return;
     if (!confirmed) {
       toast.error("Please tick the box to confirm you have completed the transfer.");
       return;
@@ -232,8 +242,10 @@ function PaymentPage() {
     <div className="mx-auto max-w-2xl px-4 py-6 pb-24">
       <h1 className="font-display text-3xl font-bold">Payment</h1>
       <p className="text-sm text-muted-foreground">
-        Pay online in seconds — no receipt upload, no queue.
+        Choose your payment method.
       </p>
+      {paymentLoading && <p role="status" className="mt-4 text-sm text-muted-foreground">Loading payment options…</p>}
+      {!paymentLoading && !gatewayEnabled && !transferCfg.enabled && <p role="alert" className="mt-4 text-sm text-destructive">Payments are currently unavailable. Please try again later.</p>}
 
       {/* Order summary */}
       <div className="mt-6 rounded-2xl border border-border bg-card p-5 shadow-soft">
@@ -261,7 +273,7 @@ function PaymentPage() {
       </div>
 
       {/* PRIMARY: Online gateway */}
-      {gatewayEnabled && (
+      {!paymentLoading && gatewayEnabled && (
       <button
         type="button"
         onClick={() => setMethod("online")}
@@ -272,8 +284,7 @@ function PaymentPage() {
         }`}
       >
         <div className="flex items-center justify-between bg-emerald-600 px-4 py-2 text-xs font-bold uppercase tracking-widest text-white">
-          <span className="inline-flex items-center gap-1"><Sparkles className="h-3.5 w-3.5" /> Recommended</span>
-          <span>Fastest</span>
+          <span className="inline-flex items-center gap-1"><Sparkles className="h-3.5 w-3.5" /> {preferredMethod === 'online' ? 'Preferred payment' : 'Online payment'}</span>
         </div>
         <div className="flex items-center justify-between gap-4 bg-card p-5">
           <div className="flex items-center gap-3">
@@ -292,7 +303,7 @@ function PaymentPage() {
       </button>
       )}
 
-      {gatewayEnabled && method === "online" && (
+      {!paymentLoading && gatewayEnabled && method === "online" && (
         <Button
           size="lg"
           className="mt-4 h-14 w-full rounded-full bg-emerald-600 shadow-elegant hover:bg-emerald-700"
@@ -305,7 +316,7 @@ function PaymentPage() {
       )}
 
       {/* Secondary: Manual bank transfer — independent of the gateway */}
-      {transferCfg.enabled && (
+      {!paymentLoading && transferCfg.enabled && (
       <button
         type="button"
         onClick={() => { setShowTransfer((v) => !v); setMethod("transfer"); }}
@@ -328,7 +339,7 @@ function PaymentPage() {
           <div className="bg-primary p-5 text-primary-foreground">
             <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-brand">
               <ShieldCheck className="h-4 w-4" />
-              Bank transfer (backup)
+              Bank transfer{preferredMethod === 'transfer' ? ' · Preferred' : ''}
             </div>
             <p className="mt-2 text-3xl font-bold">{formatNaira(total)}</p>
             <p className="text-sm text-primary-foreground/70">Amount to transfer</p>

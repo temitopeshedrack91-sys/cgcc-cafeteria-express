@@ -36,6 +36,9 @@ export const Route = createFileRoute("/admin/payment")({
         name: "description",
         content: "Configure the online payment gateway provider, mode and credentials.",
       },
+      { property: 'og:title', content: 'Online Payment Gateway · CGCC Admin' },
+      { property: 'og:description', content: 'Manage CGCC payment methods and gateway configuration.' },
+      { property: 'og:type', content: 'website' }, { name: 'twitter:card', content: 'summary' },
     ],
   }),
   component: () => (
@@ -81,12 +84,8 @@ function GatewayPage() {
 
   function switchMode(next: "test" | "live") {
     if (next === "live") {
-      const check = validateGateway({ ...cfg, mode: "live" });
-      if (!check.ok) {
-        setIssues(check.issues);
-        toast.error("Complete the credentials before enabling Live Mode.");
-        return;
-      }
+      toast.error('Live payments require verified provider integration and end-to-end tests before activation.');
+      return;
     }
     setIssues(null);
     setCfg((c) => ({ ...c, mode: next }));
@@ -137,6 +136,13 @@ function GatewayPage() {
 
       <div className="mb-6">
         <PaymentStatusCard />
+      </div>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+        <Label htmlFor="preferred-payment">Preferred payment method</Label>
+        <select id="preferred-payment" className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground" value={cfg.preferredMethod ?? 'online'} onChange={(e) => setCfg((c) => ({ ...c, preferredMethod: e.target.value === 'transfer' ? 'transfer' : 'online' }))}>
+          <option value="online">Pay Online</option>
+          <option value="transfer">Bank Transfer</option>
+        </select>
       </div>
 
       <div className="mb-6 rounded-2xl border border-border bg-card p-5 shadow-soft">
@@ -196,7 +202,7 @@ function GatewayPage() {
           onClick={() => switchMode("live")}
           icon={Radio}
           title="Live Mode"
-          subtitle={liveReady ? "Ready to accept real payments" : "Fill in all credentials first"}
+          subtitle="Not activated — integration tests required"
           tint="emerald"
         />
       </div>
@@ -275,7 +281,7 @@ function GatewayPage() {
             {cfg.mode === "live" ? "Live Mode enabled" : "Test Mode enabled"}
             {liveReady && (
               <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-                <CheckCircle2 className="h-3 w-3" /> Live-ready
+                <CheckCircle2 className="h-3 w-3" /> Credentials configured
               </span>
             )}
           </span>
@@ -293,9 +299,7 @@ function GatewayPage() {
       </div>
 
       <p className="mt-6 text-xs text-muted-foreground">
-        Webhook signature verification, reference deduplication, amount verification
-        and order-ownership checks are already enforced server-side. Pasting live
-        credentials above and switching to Live Mode needs no code changes.
+        Live payments are not activated. Saved credentials alone do not verify an integration.
       </p>
     </div>
   );
