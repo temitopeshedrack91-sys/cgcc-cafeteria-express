@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download, FileDown, Minus, Plus, Printer, RefreshCw, ShoppingCart, Trash2 } from "lucide-react";
@@ -33,12 +34,7 @@ import { isBusinessDayClosed } from "@/lib/admin-ops";
 import { Lock } from "lucide-react";
 
 export const Route = createFileRoute("/cashier/")({
-  head: () => ({
-    meta: [
-      { title: "Cashier Sales · CGCC Cafeteria" },
-      { name: "robots", content: "noindex" },
-    ],
-  }),
+  head: () => ({ meta: [...pageMeta("Cashier Sales · CGCC Cafeteria", "Record CGCC cafeteria counter sales."), { name: "robots", content: "noindex" }] }),
   component: () => (
     <CashierShell>
       <CashierSales />

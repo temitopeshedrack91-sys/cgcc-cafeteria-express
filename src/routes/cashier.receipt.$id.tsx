@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Download, Printer } from "lucide-react";
@@ -9,12 +10,7 @@ import { downloadCashierReceiptPdf } from "@/lib/cashier-receipt-pdf";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/cashier/receipt/$id")({
-  head: () => ({
-    meta: [
-      { title: "Cashier Receipt · CGCC Cafeteria" },
-      { name: "robots", content: "noindex" },
-    ],
-  }),
+  head: () => ({ meta: [...pageMeta("Cashier Receipt · CGCC Cafeteria", "View a CGCC cafeteria counter-sale receipt."), { name: "robots", content: "noindex" }] }),
   component: () => (
     <CashierShell>
       <ReceiptView />

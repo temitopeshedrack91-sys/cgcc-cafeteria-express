@@ -48,6 +48,7 @@ function PaymentPage() {
   const [bankId, setBankId] = useState<string | null>(null);
   const [transferCfg, setTransferCfg] = useState<TransferSettings>(DEFAULT_TRANSFER_SETTINGS);
   const [gatewayEnabled, setGatewayEnabled] = useState(true);
+  const [gatewayMode, setGatewayMode] = useState<'test' | 'live'>('test');
   const [paymentLoading, setPaymentLoading] = useState(true);
   const [preferredMethod, setPreferredMethod] = useState<Method>('online');
   const [reference, setReference] = useState("");
@@ -65,6 +66,7 @@ function PaymentPage() {
       setBankId(list[0]?.id ?? null);
       setTransferCfg(cfg);
       setGatewayEnabled(pay.enabled);
+      setGatewayMode(pay.mode);
       const selected = choosePaymentMethod(pay.enabled, cfg.enabled, pay.preferredMethod);
       setPreferredMethod(pay.preferredMethod ?? 'online');
       if (selected) setMethod(selected);
@@ -295,7 +297,7 @@ function PaymentPage() {
             <div>
               <p className="text-lg font-bold">Pay Online</p>
               <p className="text-xs text-muted-foreground">
-                Instant confirmation · No proof upload needed
+                {gatewayMode === 'test' ? 'Test mode · No money collected or payment confirmed' : 'Payment confirmed only after verification'}
               </p>
             </div>
           </div>

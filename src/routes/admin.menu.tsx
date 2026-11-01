@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { AdminGuard, AdminShell } from "@/components/AdminShell";
@@ -8,9 +9,7 @@ import { CATEGORIES, DEFAULT_MENU } from "@/lib/menu-data";
 import { actions, formatNaira, useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/admin/menu")({
-  head: () => ({
-    meta: [{ title: "Menu Management · CGCC Admin" }, { name: "robots", content: "noindex" }],
-  }),
+  head: () => ({ meta: [...pageMeta("Menu Management · CGCC Admin", "Manage CGCC menu availability and ordering."), { name: "robots", content: "noindex" }] }),
   component: () => (
     <AdminGuard>
       <AdminShell>

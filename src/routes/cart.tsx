@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,7 @@ import { DEFAULT_MENU } from "@/lib/menu-data";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/cart")({
-  head: () => ({ meta: [{ title: "Your Cart · CGCC Cafeteria Express" }] }),
+  head: () => ({ meta: [...pageMeta("Your Cart · CGCC Cafeteria Express", "Review your CGCC cafeteria items before checkout.")] }),
   component: CartPage,
 });
 

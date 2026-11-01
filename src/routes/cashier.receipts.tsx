@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download, ExternalLink, Search } from "lucide-react";
@@ -13,9 +14,7 @@ import { BusinessDayFilter } from "@/components/BusinessDayFilter";
 import { defaultFilter, matchesFilter, type BusinessDayFilter as Filter } from "@/lib/business-day";
 
 export const Route = createFileRoute("/cashier/receipts")({
-  head: () => ({
-    meta: [{ title: "Cashier Receipts · CGCC Cafeteria" }, { name: "robots", content: "noindex" }],
-  }),
+  head: () => ({ meta: [...pageMeta("Cashier Receipts · CGCC Cafeteria", "Review CGCC cafeteria counter-sale receipts."), { name: "robots", content: "noindex" }] }),
   component: () => (
     <CashierShell>
       <CashierReceipts />

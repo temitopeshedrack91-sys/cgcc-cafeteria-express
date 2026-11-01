@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -44,12 +45,7 @@ import {
 
 
 export const Route = createFileRoute("/admin/finance")({
-  head: () => ({
-    meta: [
-      { title: "Finance & Payment · CGCC Admin" },
-      { name: "robots", content: "noindex" },
-    ],
-  }),
+  head: () => ({ meta: [...pageMeta("Finance & Payment · CGCC Admin", "Manage CGCC finance and payment verification."), { name: "robots", content: "noindex" }] }),
   component: () => (
     <AdminGuard>
       <AdminShell>

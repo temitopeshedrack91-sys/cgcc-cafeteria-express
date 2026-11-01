@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -42,16 +43,7 @@ import {
 import { uploadLogoImage, validateLogoFile, logAudit } from "@/lib/admin-ops";
 
 export const Route = createFileRoute("/admin/transfer")({
-  head: () => ({
-    meta: [
-      { title: "Manual Bank Transfer · CGCC Admin" },
-      { name: "robots", content: "noindex" },
-      {
-        name: "description",
-        content: "Manage bank accounts, transfer instructions and payment verification.",
-      },
-    ],
-  }),
+  head: () => ({ meta: [...pageMeta("Manual Bank Transfer · CGCC Admin", "Manage bank accounts, transfer instructions and payment verification."), { name: "robots", content: "noindex" }] }),
   component: () => (
     <AdminGuard>
       <AdminShell>

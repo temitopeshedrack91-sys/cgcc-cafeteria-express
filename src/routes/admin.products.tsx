@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -47,13 +48,7 @@ import { formatNaira } from "@/lib/store";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/products")({
-  head: () => ({
-    meta: [
-      { title: "Product Management · CGCC Admin" },
-      { name: "description", content: "Manage cafeteria products, categories, pricing and images." },
-      { name: "robots", content: "noindex" },
-    ],
-  }),
+  head: () => ({ meta: [...pageMeta("Product Management · CGCC Admin", "Manage cafeteria products, categories, pricing and images."), { name: "robots", content: "noindex" }] }),
   component: () => (
     <AdminGuard>
       <AdminShell>

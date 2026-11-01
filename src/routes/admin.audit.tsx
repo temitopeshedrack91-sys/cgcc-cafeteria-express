@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
@@ -8,9 +9,7 @@ import { listAuditLog, type AuditEntry } from "@/lib/admin-ops";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/audit")({
-  head: () => ({
-    meta: [{ title: "Audit Log · CGCC Admin" }, { name: "robots", content: "noindex" }],
-  }),
+  head: () => ({ meta: [...pageMeta("Audit Log · CGCC Admin", "Review CGCC administrative activity and audit records."), { name: "robots", content: "noindex" }] }),
   component: () => (
     <AdminGuard>
       <AdminShell>
