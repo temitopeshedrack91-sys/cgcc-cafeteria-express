@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { FileDown, Lock, Power, Search } from "lucide-react";
@@ -20,9 +21,7 @@ import {
 } from "@/lib/business-day";
 
 export const Route = createFileRoute("/admin/")({
-  head: () => ({
-    meta: [{ title: "Dashboard · CGCC Admin" }, { name: "robots", content: "noindex" }],
-  }),
+  head: () => ({ meta: [...pageMeta("Dashboard · CGCC Admin", "Review CGCC cafeteria orders and operations."), { name: "robots", content: "noindex" }] }),
   component: () => (
     <AdminGuard>
       <AdminShell>

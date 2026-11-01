@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, Loader2, Search, ArrowLeft, Inbox, Phone, KeyRound, X } from "lucide-react";
@@ -11,15 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/history")({
-  head: () => ({
-    meta: [
-      { title: "My Orders · CGCC Cafeteria Express" },
-      {
-        name: "description",
-        content: "See your recent CGCC Cafeteria orders on this device, or recover past receipts with your phone number.",
-      },
-    ],
-  }),
+  head: () => ({ meta: [...pageMeta("My Orders · CGCC Cafeteria Express", "See your recent CGCC Cafeteria orders on this device, or recover past receipts with your phone number.")] }),
   component: HistoryPage,
 });
 

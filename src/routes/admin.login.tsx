@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Lock } from "lucide-react";
@@ -9,12 +10,7 @@ import { actions, useStore } from "@/lib/store";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/login")({
-  head: () => ({
-    meta: [
-      { title: "Admin Login · CGCC Cafeteria" },
-      { name: "robots", content: "noindex" },
-    ],
-  }),
+  head: () => ({ meta: [...pageMeta("Admin Login · CGCC Cafeteria", "Sign in to CGCC cafeteria administration."), { name: "robots", content: "noindex" }] }),
   component: AdminLogin,
 });
 

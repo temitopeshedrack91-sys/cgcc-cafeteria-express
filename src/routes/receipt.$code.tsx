@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { useSystemSettings } from "@/lib/settings";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
@@ -21,7 +22,7 @@ const WHATSAPP_NUMBER = "09134749319";
 const REFRESH_INTERVAL_MS = 8000;
 
 export const Route = createFileRoute("/receipt/$code")({
-  head: ({ params }) => ({ meta: [{ title: `Receipt ${params.code} · CGCC Cafeteria Express` }] }),
+  head: ({ params }) => ({ meta: [...pageMeta(`Receipt ${params.code} · CGCC Cafeteria Express`, "View your CGCC order receipt and saved payment status.")] }),
   component: ReceiptPage,
 });
 

@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Lock } from "lucide-react";
@@ -10,12 +11,7 @@ import { toast } from "sonner";
 import { getCashierLoginEmail } from "@/lib/cashiers.functions";
 
 export const Route = createFileRoute("/cashier/login")({
-  head: () => ({
-    meta: [
-      { title: "Cashier Login · CGCC Cafeteria" },
-      { name: "robots", content: "noindex" },
-    ],
-  }),
+  head: () => ({ meta: [...pageMeta("Cashier Login · CGCC Cafeteria", "Sign in to the CGCC cashier workspace."), { name: "robots", content: "noindex" }] }),
   component: CashierLogin,
 });
 

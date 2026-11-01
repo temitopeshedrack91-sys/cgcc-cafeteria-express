@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Lock } from "lucide-react";
@@ -10,12 +11,7 @@ import { touchVendorLogin } from "@/lib/vendors.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/vendor/login")({
-  head: () => ({
-    meta: [
-      { title: "Vendor Login · CGCC Cafeteria" },
-      { name: "robots", content: "noindex" },
-    ],
-  }),
+  head: () => ({ meta: [...pageMeta("Vendor Login · CGCC Cafeteria", "Sign in to your CGCC Vendor workspace."), { name: "robots", content: "noindex" }] }),
   component: VendorLogin,
 });
 

@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Save, Building2, ShieldCheck, Upload, Trash2, Image as ImageIcon } from "lucide-react";
@@ -17,12 +18,7 @@ import { uploadLogoImage, validateLogoFile } from "@/lib/admin-ops";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/settings")({
-  head: () => ({
-    meta: [
-      { title: "System Settings · CGCC Admin" },
-      { name: "robots", content: "noindex" },
-    ],
-  }),
+  head: () => ({ meta: [...pageMeta("System Settings · CGCC Admin", "Manage CGCC cafeteria system settings."), { name: "robots", content: "noindex" }] }),
   component: () => (
     <AdminGuard>
       <AdminShell>

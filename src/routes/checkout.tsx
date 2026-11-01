@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/page-meta";
 import { useSystemSettings } from "@/lib/settings";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
@@ -25,7 +26,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 export const Route = createFileRoute("/checkout")({
-  head: () => ({ meta: [{ title: "Checkout · CGCC Cafeteria Express" }] }),
+  head: () => ({ meta: [...pageMeta("Checkout · CGCC Cafeteria Express", "Enter your CGCC order details and pickup time.")] }),
   component: CheckoutPage,
 });
 
