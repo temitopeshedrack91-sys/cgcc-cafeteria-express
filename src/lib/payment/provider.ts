@@ -53,9 +53,7 @@ export const gatewayDriver: PaymentProviderDriver = {
     };
   },
   verifyWebhookSignature(cfg, _rawBody, _signature) {
-    if (cfg.mode === "test") return true;
-    // Live: HMAC of rawBody with the provider webhook secret, timing-safe compare.
-    // Implemented inside the server route to keep node:crypto off the client.
+    // Neither mode has a verified signature implementation. Fail closed.
     return false;
   },
 };
