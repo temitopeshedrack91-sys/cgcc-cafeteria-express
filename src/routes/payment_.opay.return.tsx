@@ -15,7 +15,7 @@ import { toast } from "sonner";
 
 type Search = { code?: string; reference?: string; status?: string };
 
-export const Route = createFileRoute("/payment/opay/return")({
+export const Route = createFileRoute("/payment_/opay/return")({
   head: () => ({ meta: [
     { title: 'Payment result · CGCC Cafeteria Express' },
     { name: 'description', content: 'Check the saved payment status of your CGCC order.' },
