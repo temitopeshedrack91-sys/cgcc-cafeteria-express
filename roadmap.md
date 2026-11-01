@@ -12,5 +12,6 @@
 ## Verification and remaining scope
 - Bank-transfer test order CG-044 saved pending/manual_transfer; receipt reload and same-device history passed. No money transferred.
 - Seven existing permission/payment-selection tests passed. Customer menu/cart/checkout now use current database products and customer category grouping.
+- All 11 permission, category, payment-choice and unsigned-callback tests passed. Payment return routing corrected; browser simulated success for CG-044 leaves its saved payment pending.
 - Online payment remains test-only; provider integration and trusted live verification are blocked pending supported documentation, credentials and end-to-end tests.
 - Account creation/password/reset end-to-end, cancellation, Finance secret-save persistence, future vendor entities, pricing snapshots, exports/import and installation remain unverified or unfinished; do not claim safe-launch completion.
