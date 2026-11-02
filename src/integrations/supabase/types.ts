@@ -470,6 +470,7 @@ export type Database = {
           archived_at: string | null
           available: boolean
           category_id: string
+          cost_price: number
           created_at: string
           description: string | null
           id: string
@@ -487,6 +488,7 @@ export type Database = {
           archived_at?: string | null
           available?: boolean
           category_id: string
+          cost_price?: number
           created_at?: string
           description?: string | null
           id: string
@@ -504,6 +506,7 @@ export type Database = {
           archived_at?: string | null
           available?: boolean
           category_id?: string
+          cost_price?: number
           created_at?: string
           description?: string | null
           id?: string
@@ -673,6 +676,51 @@ export type Database = {
           id?: string
           secrets?: Json
           updated_at?: string
+        }
+        Relationships: []
+      }
+      payout_snapshots: {
+        Row: {
+          business_day: string
+          commission_percent: number
+          cost_total: number
+          created_at: string
+          created_by: string | null
+          gross_revenue: number
+          id: string
+          items_count: number
+          orders_count: number
+          payout_amount: number
+          updated_at: string
+          vendor_type: string
+        }
+        Insert: {
+          business_day: string
+          commission_percent?: number
+          cost_total?: number
+          created_at?: string
+          created_by?: string | null
+          gross_revenue?: number
+          id?: string
+          items_count?: number
+          orders_count?: number
+          payout_amount?: number
+          updated_at?: string
+          vendor_type: string
+        }
+        Update: {
+          business_day?: string
+          commission_percent?: number
+          cost_total?: number
+          created_at?: string
+          created_by?: string | null
+          gross_revenue?: number
+          id?: string
+          items_count?: number
+          orders_count?: number
+          payout_amount?: number
+          updated_at?: string
+          vendor_type?: string
         }
         Relationships: []
       }
@@ -921,8 +969,25 @@ export type Database = {
       restore_category: { Args: { _id: string }; Returns: Json }
       restore_menu_item: { Args: { _id: string }; Returns: Json }
       save_payment_secrets: { Args: { _data: Json }; Returns: Json }
+      save_payout_snapshot: {
+        Args: {
+          _business_day: string
+          _commission_percent: number
+          _cost_total: number
+          _gross_revenue: number
+          _items_count: number
+          _orders_count: number
+          _payout_amount: number
+          _vendor_type: string
+        }
+        Returns: Json
+      }
       save_system_settings: { Args: { _data: Json }; Returns: Json }
       save_transfer_config: { Args: { _data: Json }; Returns: Json }
+      set_product_cost: {
+        Args: { _cost_price: number; _id: string }
+        Returns: Json
+      }
       upsert_category: {
         Args: { _id: string; _name: string; _sort_order?: number }
         Returns: Json
@@ -931,6 +996,7 @@ export type Database = {
         Args: {
           _available?: boolean
           _category_id: string
+          _cost_price?: number
           _description?: string
           _id: string
           _image_url?: string

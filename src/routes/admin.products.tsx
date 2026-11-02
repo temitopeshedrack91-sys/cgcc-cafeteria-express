@@ -6,12 +6,14 @@ import {
   ArrowDown,
   ArrowUp,
   Copy,
+  Download,
   Pencil,
   Plus,
   RotateCcw,
   Trash2,
   Upload,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import { AdminGuard, AdminShell } from "@/components/AdminShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,6 +68,7 @@ type FormState = {
   name: string;
   category_id: string;
   price: string;
+  cost_price: string;
   vendor_type: string;
   description: string;
   image_url: string;
@@ -76,6 +79,7 @@ const empty: FormState = {
   name: "",
   category_id: "",
   price: "",
+  cost_price: "",
   vendor_type: "food",
   description: "",
   image_url: "",
@@ -160,6 +164,10 @@ function ProductsTab({
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [importPreview, setImportPreview] = useState<ImportRow[] | null>(null);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
   const [confirmDelete, setConfirmDelete] = useState<ProductRow | null>(null);
   const [bulkPrice, setBulkPrice] = useState("");
   const [bulkPercent, setBulkPercent] = useState("");
@@ -216,6 +224,7 @@ function ProductsTab({
       name: p.name,
       category_id: p.category_id ?? activeCats[0]?.id ?? "",
       price: String(p.price),
+      cost_price: String(p.cost_price ?? 0),
       vendor_type: p.vendor_type ?? "food",
       description: p.description ?? "",
       image_url: p.image_url ?? "",
@@ -245,8 +254,9 @@ function ProductsTab({
 
   async function save() {
     const price = parseInt(form.price, 10);
-    if (!form.name.trim() || !Number.isFinite(price) || price < 0) {
-      toast.error("Name and valid price required");
+    const costPrice = form.cost_price.trim() === "" ? 0 : parseInt(form.cost_price, 10);
+    if (!form.name.trim() || !Number.isFinite(price) || price < 0 || !Number.isFinite(costPrice) || costPrice < 0) {
+      toast.error("Name and valid prices required");
       return;
     }
     setSaving(true);
@@ -256,6 +266,7 @@ function ProductsTab({
         name: form.name.trim(),
         category_id: form.category_id || null,
         price,
+        cost_price: costPrice,
         vendor_type: form.vendor_type,
         description: form.description || null,
         image_url: form.image_url || null,
@@ -307,6 +318,126 @@ function ProductsTab({
     } catch (e: any) {
       toast.error(e.message ?? "Move failed");
     }
+  }
+
+  /* ------------------------------ Import ------------------------------ */
+
+  type ImportRow = {
+    name: string;
+    price: number;
+    cost_price: number;
+    category_id: string | null;
+    vendor_type: string;
+    description: string;
+    available: boolean;
+  };
+
+  function pick(row: Record<string, any>, ...keys: string[]): string {
+    for (const k of keys) {
+      const v = row[k] ?? row[k.replace(/_/g, " ")] ?? row[k.replace(/_/g, "")];
+      if (v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim();
+    }
+    return "";
+  }
+
+  function parseImportRows(sheetRows: Record<string, any>[]): { rows: ImportRow[]; errors: string[] } {
+    const catByName = new Map(cats.filter((c) => !c.archived_at).map((c) => [c.name.toLowerCase(), c.id]));
+    const errors: string[] = [];
+    const rows: ImportRow[] = [];
+    sheetRows.forEach((raw, i) => {
+      const line = i + 2; // +1 header row, +1 for humans
+      const name = pick(raw, "Product Name", "Name", "name");
+      if (!name) {
+        errors.push(`Row ${line}: product name is missing`);
+        return;
+      }
+      const price = parseInt(pick(raw, "Selling Price", "Price", "price").replace(/[^0-9]/g, ""), 10);
+      if (!Number.isFinite(price) || price < 0) {
+        errors.push(`Row ${line}: ${name} — selling price is missing or invalid`);
+        return;
+      }
+      const costRaw = pick(raw, "Cost Price", "Cost", "cost_price").replace(/[^0-9]/g, "");
+      const costPrice = costRaw === "" ? 0 : parseInt(costRaw, 10);
+      const vendorRaw = pick(raw, "Vendor", "vendor_type", "vendor").toLowerCase();
+      const vendorType = (["food", "snacks", "coffee", "drinks"] as const).find((v) => v === vendorRaw) ?? "food";
+      const catRaw = pick(raw, "Category", "category").toLowerCase();
+      const categoryId = catRaw ? catByName.get(catRaw) ?? null : null;
+      if (catRaw && !categoryId) errors.push(`Row ${line}: ${name} — category "${pick(raw, "Category", "category")}" not found (will be left uncategorised)`);
+      rows.push({
+        name,
+        price,
+        cost_price: Number.isFinite(costPrice) && costPrice >= 0 ? costPrice : 0,
+        category_id: categoryId,
+        vendor_type: vendorType,
+        description: pick(raw, "Description", "description"),
+        available: pick(raw, "Available", "available") !== "no",
+      });
+    });
+    return { rows, errors };
+  }
+
+  async function onPickImport(file: File | undefined) {
+    if (!file) return;
+    setImporting(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { cellDates: false });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const parsed = parseImportRows(XLSX.utils.sheet_to_json(ws, { defval: "" }));
+      if (parsed.rows.length === 0) {
+        toast.error("No importable rows found. Use the Template file for the expected columns.");
+        return;
+      }
+      setImportPreview(parsed.rows);
+      setImportErrors(parsed.errors);
+    } catch (e: any) {
+      toast.error(e.message ?? "Could not read the file");
+    } finally {
+      setImporting(false);
+      if (importFileRef.current) importFileRef.current.value = "";
+    }
+  }
+
+  async function confirmImport() {
+    const rows = importPreview;
+    if (!rows) return;
+    setImporting(true);
+    let ok = 0;
+    try {
+      for (const r of rows) {
+        await upsertProduct({
+          name: r.name,
+          category_id: r.category_id,
+          price: r.price,
+          cost_price: r.cost_price,
+          vendor_type: r.vendor_type,
+          description: r.description || null,
+          available: r.available,
+        });
+        ok += 1;
+      }
+      toast.success(`Imported ${ok} product(s)`);
+      setImportPreview(null);
+      setImportErrors([]);
+      await reload();
+    } catch (e: any) {
+      toast.error(e.message ?? `Import stopped after ${ok} product(s)`);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  function downloadImportTemplate() {
+    const wb = XLSX.utils.book_new();
+    const header = ["Product Name", "Selling Price", "Cost Price", "Category", "Vendor", "Description", "Available"];
+    const sample = [
+      ["Jollof Rice", 600, 250, "Meals", "food", "Party-style jollof rice", "yes"],
+      ["Grilled Chicken", 1500, 900, "Proteins", "snacks", "", "yes"],
+    ];
+    const sheet = XLSX.utils.aoa_to_sheet([header, ...sample]);
+    sheet["!cols"] = header.map((h) => ({ wch: Math.max(12, h.length + 4) }));
+    XLSX.utils.book_append_sheet(wb, sheet, "Products");
+    XLSX.writeFile(wb, "CGCC-product-import-template.xlsx");
   }
 
   return (
@@ -367,7 +498,20 @@ function ProductsTab({
         <Button size="sm" variant="outline" onClick={() => setSortAsc((v) => !v)}>
           {sortAsc ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
         </Button>
-        <div className="ml-auto">
+        <div className="ml-auto flex gap-2">
+          <input
+            ref={importFileRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={(e) => void onPickImport(e.target.files?.[0])}
+          />
+          <Button variant="outline" onClick={() => importFileRef.current?.click()} disabled={importing}>
+            <Upload className="mr-1 h-4 w-4" /> {importing ? "Importing…" : "Import"}
+          </Button>
+          <Button variant="outline" onClick={downloadImportTemplate}>
+            <Download className="mr-1 h-4 w-4" /> Template
+          </Button>
           <Button onClick={openCreate}>
             <Plus className="mr-1 h-4 w-4" /> Add Product
           </Button>
@@ -444,7 +588,7 @@ function ProductsTab({
       ) : null}
 
       <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-soft">
-        <table className="w-full min-w-[820px] text-sm">
+        <table className="w-full min-w-[900px] text-sm">
           <thead className="bg-muted/60 text-xs uppercase text-muted-foreground">
             <tr>
               <th className="px-3 py-2">
@@ -453,6 +597,7 @@ function ProductsTab({
               <th className="px-3 py-2 text-left">Product</th>
               <th className="px-3 py-2 text-left">Vendor</th>
               <th className="px-3 py-2 text-right">Price</th>
+              <th className="px-3 py-2 text-right">Cost</th>
               <th className="px-3 py-2 text-center">Stock</th>
               <th className="px-3 py-2 text-center">Status</th>
               <th className="px-3 py-2 text-right">Actions</th>
@@ -461,13 +606,13 @@ function ProductsTab({
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                <td colSpan={8} className="p-6 text-center text-muted-foreground">
                   Loading…
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                <td colSpan={8} className="p-6 text-center text-muted-foreground">
                   No products found.
                 </td>
               </tr>
@@ -495,6 +640,7 @@ function ProductsTab({
                   </td>
                   <td className="px-3 py-2 text-xs uppercase">{p.vendor_type}</td>
                   <td className="px-3 py-2 text-right font-semibold">{formatNaira(p.price)}</td>
+                  <td className="px-3 py-2 text-right text-muted-foreground">{formatNaira(p.cost_price ?? 0)}</td>
                   <td className="px-3 py-2 text-center">
                     <div>{p.stock_qty}</div>
                     <div className="text-[10px] text-muted-foreground">
@@ -576,7 +722,7 @@ function ProductsTab({
               <Label>Product Name</Label>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label>Selling Price (₦)</Label>
                 <Input
@@ -584,6 +730,16 @@ function ProductsTab({
                   min={0}
                   value={form.price}
                   onChange={(e) => setForm({ ...form, price: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Cost Price (₦)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.cost_price}
+                  onChange={(e) => setForm({ ...form, cost_price: e.target.value })}
+                  placeholder="0"
                 />
               </div>
               <div>
@@ -664,6 +820,56 @@ function ProductsTab({
             </Button>
             <Button onClick={() => void save()} disabled={saving}>
               {saving ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!importPreview} onOpenChange={(o) => { if (!o) { setImportPreview(null); setImportErrors([]); } }}>
+        <DialogContent className="max-h-[85vh] max-w-xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Import {importPreview?.length ?? 0} product(s)?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Products are created or updated by name. Existing products keep their current stock and image.
+          </p>
+          {importErrors.length > 0 ? (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+              {importErrors.map((e, i) => (
+                <div key={i}>{e}</div>
+              ))}
+            </div>
+          ) : null}
+          <div className="max-h-52 overflow-auto rounded-md border border-border">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-muted text-left">
+                <tr>
+                  <th className="p-2">Name</th>
+                  <th className="p-2 text-right">Selling</th>
+                  <th className="p-2 text-right">Cost</th>
+                  <th className="p-2">Vendor</th>
+                  <th className="p-2">Category</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(importPreview ?? []).map((r, i) => (
+                  <tr key={i} className="border-t border-border">
+                    <td className="p-2">{r.name}</td>
+                    <td className="p-2 text-right">{formatNaira(r.price)}</td>
+                    <td className="p-2 text-right">{formatNaira(r.cost_price)}</td>
+                    <td className="p-2">{r.vendor_type}</td>
+                    <td className="p-2">{catName(r.category_id)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setImportPreview(null); setImportErrors([]); }}>
+              Cancel
+            </Button>
+            <Button onClick={() => void confirmImport()} disabled={importing}>
+              {importing ? "Importing…" : `Import ${importPreview?.length ?? 0}`}
             </Button>
           </DialogFooter>
         </DialogContent>

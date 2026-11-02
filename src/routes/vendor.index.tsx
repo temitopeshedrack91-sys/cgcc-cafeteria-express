@@ -280,6 +280,7 @@ function VendorDashboard() {
         paymentStatus: o.payment_status,
         pickupStatus: o.pickup_status,
         items: o.items.map((it) => ({
+          productId: it.menu_item_id ?? null,
           name: it.name,
           qty: it.qty,
           price: it.price,

@@ -1,8 +1,20 @@
 import * as XLSX from "xlsx";
+import { supabase } from "@/integrations/supabase/client";
 import type { Report } from "./reports";
 import { VENDOR_LABELS, formatDateTime } from "./reports";
 
-export function downloadReportXlsx(report: Report) {
+/** Cost prices keyed by product id. Export shows 0 for unknown products. */
+async function loadCostPrices(): Promise<Map<string, number>> {
+  try {
+    const { data, error } = await supabase.from("menu_items").select("id, cost_price");
+    if (error) throw error;
+    return new Map((data ?? []).map((r: any) => [r.id as string, Number(r.cost_price) || 0]));
+  } catch {
+    return new Map();
+  }
+}
+
+export async function downloadReportXlsx(report: Report) {
   const wb = XLSX.utils.book_new();
 
   const summary = [
@@ -64,6 +76,50 @@ export function downloadReportXlsx(report: Report) {
   const productSheet = XLSX.utils.aoa_to_sheet([productHeader, ...productRows]);
   productSheet["!cols"] = [{ wch: 32 }, { wch: 16 }, { wch: 16 }];
   XLSX.utils.book_append_sheet(wb, productSheet, "Product Summary");
+
+  // Itemised sales sheet — one row per product sold, matching the purchased
+  // workbook format. Cancelled orders are excluded.
+  const costByProduct = await loadCostPrices();
+  const itemisedHeader = [
+    "ID",
+    "Date",
+    "Customer Name",
+    "Product Code",
+    "Product Name",
+    "Cost Price",
+    "Selling Price",
+    "Quantity",
+    "Cost Sub Total",
+    "Selling Sub Total",
+  ];
+  let id = 0;
+  const itemisedRows: (string | number)[][] = [];
+  for (const o of [...report.orders].sort((a, b) => a.createdAt - b.createdAt)) {
+    if (o.pickupStatus === "cancelled") continue;
+    for (const it of o.items) {
+      id += 1;
+      const code = it.productId ?? "";
+      const cost = costByProduct.get(code) ?? 0;
+      itemisedRows.push([
+        id,
+        formatDateTime(o.createdAt),
+        o.customerName,
+        code,
+        it.name,
+        cost,
+        it.price,
+        it.qty,
+        cost * it.qty,
+        it.price * it.qty,
+      ]);
+    }
+  }
+  const itemisedSheet = XLSX.utils.aoa_to_sheet([itemisedHeader, ...itemisedRows]);
+  itemisedSheet["!cols"] = [
+    { wch: 6 }, { wch: 22 }, { wch: 24 }, { wch: 12 }, { wch: 26 },
+    { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 14 }, { wch: 16 },
+  ];
+  XLSX.utils.book_append_sheet(wb, itemisedSheet, "Itemised Sales");
 
   const stamp = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(wb, `CGCC-report-${report.scope}-${stamp}.xlsx`);

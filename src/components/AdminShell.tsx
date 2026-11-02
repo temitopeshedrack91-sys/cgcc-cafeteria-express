@@ -1,6 +1,6 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-import { Boxes, ClipboardList, LayoutDashboard, LogOut, Package, Settings, ShoppingCart, UtensilsCrossed, Users } from "lucide-react";
+import { Boxes, ClipboardList, HandCoins, LayoutDashboard, LogOut, Package, Settings, ShoppingCart, UtensilsCrossed, Users } from "lucide-react";
 import { ShieldCheck } from "lucide-react";
 import { Logo } from "./Logo";
 import { actions, useStore } from "@/lib/store";
@@ -27,6 +27,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     { to: "/admin/inventory", label: "Inventory", icon: Boxes },
     { to: "/admin/vendors", label: "Vendors", icon: Users },
     { to: "/admin/cashiers", label: "Cashiers", icon: ShoppingCart },
+    { to: "/admin/payouts", label: "Payouts", icon: HandCoins },
     { to: "/admin/audit", label: "Audit", icon: ClipboardList },
     { to: "/admin/finance", label: "Finance", icon: ShieldCheck },
     { to: "/admin/settings", label: "System Settings", icon: Settings },

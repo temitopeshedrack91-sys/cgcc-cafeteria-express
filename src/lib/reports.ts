@@ -12,6 +12,7 @@ export const VENDOR_LABELS: Record<ReportScope, string> = {
 };
 
 export type ReportItem = {
+  productId?: string | null;
   name: string;
   qty: number;
   price: number;
