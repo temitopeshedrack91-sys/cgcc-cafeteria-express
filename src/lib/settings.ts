@@ -21,6 +21,7 @@ export type SystemSettings = {
   welcomeMessage: string;
   maintenanceMessage: string;
   announcement: string;
+  payoutPercents: { food: number; snacks: number; coffee: number; drinks: number };
 };
 
 export const DEFAULT_SETTINGS: SystemSettings = {
@@ -40,6 +41,7 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   welcomeMessage: "🎉 Welcome to CGCC Cafeteria Express",
   maintenanceMessage: "",
   announcement: "",
+  payoutPercents: { food: 100, snacks: 100, coffee: 100, drinks: 100 },
 };
 
 export const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
