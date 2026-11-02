@@ -164,6 +164,10 @@ function ProductsTab({
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [importPreview, setImportPreview] = useState<ImportRow[] | null>(null);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
   const [confirmDelete, setConfirmDelete] = useState<ProductRow | null>(null);
   const [bulkPrice, setBulkPrice] = useState("");
   const [bulkPercent, setBulkPercent] = useState("");
