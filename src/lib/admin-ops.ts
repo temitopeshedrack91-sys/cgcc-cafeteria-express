@@ -5,6 +5,7 @@ export type ProductRow = {
   name: string;
   category_id: string | null;
   price: number;
+  cost_price: number;
   vendor_type: string | null;
   description: string | null;
   image_url: string | null;
@@ -19,7 +20,7 @@ export async function listProducts(includeArchived = true): Promise<ProductRow[]
   let q = supabase
     .from("menu_items")
     .select(
-      "id, name, category_id, price, vendor_type, description, image_url, available, archived_at, stock_qty, stock_online, stock_walkin",
+      "id, name, category_id, price, cost_price, vendor_type, description, image_url, available, archived_at, stock_qty, stock_online, stock_walkin",
     )
     .order("vendor_type")
     .order("name");
@@ -34,6 +35,7 @@ export async function upsertProduct(input: {
   name: string;
   category_id?: string | null;
   price: number;
+  cost_price?: number;
   vendor_type: string;
   description?: string | null;
   image_url?: string | null;
@@ -48,9 +50,33 @@ export async function upsertProduct(input: {
     _description: (input.description ?? undefined) as any,
     _image_url: (input.image_url ?? undefined) as any,
     _available: input.available ?? true,
+    _cost_price: (input.cost_price ?? undefined) as any,
   });
   if (error) throw error;
   return data as any;
+}
+
+export async function setProductCost(id: string, costPrice: number) {
+  const { data, error } = await supabase.rpc("set_product_cost", {
+    _id: id,
+    _cost_price: costPrice,
+  });
+  if (error) throw error;
+  return data as any;
+}
+
+/** Fetch product cost prices keyed by product id (for itemised exports/payouts). */
+export async function fetchCostPrices(): Promise<Map<string, number>> {
+  const { data, error } = await supabase.from("menu_items").select("id, cost_price");
+  if (error) throw error;
+  return new Map((data ?? []).map((r: any) => [r.id as string, Number(r.cost_price) || 0]));
+}
+
+/** Fetch product names keyed by product id (for itemised exports). */
+export async function fetchProductNames(): Promise<Map<string, string>> {
+  const { data, error } = await supabase.from("menu_items").select("id, name");
+  if (error) throw error;
+  return new Map((data ?? []).map((r: any) => [r.id as string, r.name as string]));
 }
 
 export async function archiveProduct(id: string) {
