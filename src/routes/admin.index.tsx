@@ -64,6 +64,7 @@ function Dashboard() {
         paymentStatus: o.paymentStatus,
         pickupStatus: o.pickupStatus,
         items: o.items.map((it) => ({
+          productId: it.id,
           name: it.name,
           qty: it.qty,
           price: it.price,
