@@ -66,6 +66,7 @@ type FormState = {
   name: string;
   category_id: string;
   price: string;
+  cost_price: string;
   vendor_type: string;
   description: string;
   image_url: string;
@@ -76,6 +77,7 @@ const empty: FormState = {
   name: "",
   category_id: "",
   price: "",
+  cost_price: "",
   vendor_type: "food",
   description: "",
   image_url: "",
@@ -216,6 +218,7 @@ function ProductsTab({
       name: p.name,
       category_id: p.category_id ?? activeCats[0]?.id ?? "",
       price: String(p.price),
+      cost_price: String(p.cost_price ?? 0),
       vendor_type: p.vendor_type ?? "food",
       description: p.description ?? "",
       image_url: p.image_url ?? "",
@@ -245,8 +248,9 @@ function ProductsTab({
 
   async function save() {
     const price = parseInt(form.price, 10);
-    if (!form.name.trim() || !Number.isFinite(price) || price < 0) {
-      toast.error("Name and valid price required");
+    const costPrice = form.cost_price.trim() === "" ? 0 : parseInt(form.cost_price, 10);
+    if (!form.name.trim() || !Number.isFinite(price) || price < 0 || !Number.isFinite(costPrice) || costPrice < 0) {
+      toast.error("Name and valid prices required");
       return;
     }
     setSaving(true);
@@ -256,6 +260,7 @@ function ProductsTab({
         name: form.name.trim(),
         category_id: form.category_id || null,
         price,
+        cost_price: costPrice,
         vendor_type: form.vendor_type,
         description: form.description || null,
         image_url: form.image_url || null,
