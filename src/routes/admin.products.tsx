@@ -372,7 +372,20 @@ function ProductsTab({
         <Button size="sm" variant="outline" onClick={() => setSortAsc((v) => !v)}>
           {sortAsc ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
         </Button>
-        <div className="ml-auto">
+        <div className="ml-auto flex gap-2">
+          <input
+            ref={importFileRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={(e) => void onPickImport(e.target.files?.[0])}
+          />
+          <Button variant="outline" onClick={() => importFileRef.current?.click()} disabled={importing}>
+            <Upload className="mr-1 h-4 w-4" /> {importing ? "Importing…" : "Import"}
+          </Button>
+          <Button variant="outline" onClick={downloadImportTemplate}>
+            <Download className="mr-1 h-4 w-4" /> Template
+          </Button>
           <Button onClick={openCreate}>
             <Plus className="mr-1 h-4 w-4" /> Add Product
           </Button>
@@ -449,7 +462,7 @@ function ProductsTab({
       ) : null}
 
       <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-soft">
-        <table className="w-full min-w-[820px] text-sm">
+        <table className="w-full min-w-[900px] text-sm">
           <thead className="bg-muted/60 text-xs uppercase text-muted-foreground">
             <tr>
               <th className="px-3 py-2">
@@ -467,13 +480,13 @@ function ProductsTab({
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                <td colSpan={8} className="p-6 text-center text-muted-foreground">
                   Loading…
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                <td colSpan={8} className="p-6 text-center text-muted-foreground">
                   No products found.
                 </td>
               </tr>
