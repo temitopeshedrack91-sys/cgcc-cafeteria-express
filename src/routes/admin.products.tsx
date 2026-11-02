@@ -6,12 +6,14 @@ import {
   ArrowDown,
   ArrowUp,
   Copy,
+  Download,
   Pencil,
   Plus,
   RotateCcw,
   Trash2,
   Upload,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import { AdminGuard, AdminShell } from "@/components/AdminShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -312,6 +314,126 @@ function ProductsTab({
     } catch (e: any) {
       toast.error(e.message ?? "Move failed");
     }
+  }
+
+  /* ------------------------------ Import ------------------------------ */
+
+  type ImportRow = {
+    name: string;
+    price: number;
+    cost_price: number;
+    category_id: string | null;
+    vendor_type: string;
+    description: string;
+    available: boolean;
+  };
+
+  function pick(row: Record<string, any>, ...keys: string[]): string {
+    for (const k of keys) {
+      const v = row[k] ?? row[k.replace(/_/g, " ")] ?? row[k.replace(/_/g, "")];
+      if (v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim();
+    }
+    return "";
+  }
+
+  function parseImportRows(sheetRows: Record<string, any>[]): { rows: ImportRow[]; errors: string[] } {
+    const catByName = new Map(cats.filter((c) => !c.archived_at).map((c) => [c.name.toLowerCase(), c.id]));
+    const errors: string[] = [];
+    const rows: ImportRow[] = [];
+    sheetRows.forEach((raw, i) => {
+      const line = i + 2; // +1 header row, +1 for humans
+      const name = pick(raw, "Product Name", "Name", "name");
+      if (!name) {
+        errors.push(`Row ${line}: product name is missing`);
+        return;
+      }
+      const price = parseInt(pick(raw, "Selling Price", "Price", "price").replace(/[^0-9]/g, ""), 10);
+      if (!Number.isFinite(price) || price < 0) {
+        errors.push(`Row ${line}: ${name} — selling price is missing or invalid`);
+        return;
+      }
+      const costRaw = pick(raw, "Cost Price", "Cost", "cost_price").replace(/[^0-9]/g, "");
+      const costPrice = costRaw === "" ? 0 : parseInt(costRaw, 10);
+      const vendorRaw = pick(raw, "Vendor", "vendor_type", "vendor").toLowerCase();
+      const vendorType = (["food", "snacks", "coffee", "drinks"] as const).find((v) => v === vendorRaw) ?? "food";
+      const catRaw = pick(raw, "Category", "category").toLowerCase();
+      const categoryId = catRaw ? catByName.get(catRaw) ?? null : null;
+      if (catRaw && !categoryId) errors.push(`Row ${line}: ${name} — category "${pick(raw, "Category", "category")}" not found (will be left uncategorised)`);
+      rows.push({
+        name,
+        price,
+        cost_price: Number.isFinite(costPrice) && costPrice >= 0 ? costPrice : 0,
+        category_id: categoryId,
+        vendor_type: vendorType,
+        description: pick(raw, "Description", "description"),
+        available: pick(raw, "Available", "available") !== "no",
+      });
+    });
+    return { rows, errors };
+  }
+
+  async function onPickImport(file: File | undefined) {
+    if (!file) return;
+    setImporting(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { cellDates: false });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const parsed = parseImportRows(XLSX.utils.sheet_to_json(ws, { defval: "" }));
+      if (parsed.rows.length === 0) {
+        toast.error("No importable rows found. Use the Template file for the expected columns.");
+        return;
+      }
+      setImportPreview(parsed.rows);
+      setImportErrors(parsed.errors);
+    } catch (e: any) {
+      toast.error(e.message ?? "Could not read the file");
+    } finally {
+      setImporting(false);
+      if (importFileRef.current) importFileRef.current.value = "";
+    }
+  }
+
+  async function confirmImport() {
+    const rows = importPreview;
+    if (!rows) return;
+    setImporting(true);
+    let ok = 0;
+    try {
+      for (const r of rows) {
+        await upsertProduct({
+          name: r.name,
+          category_id: r.category_id,
+          price: r.price,
+          cost_price: r.cost_price,
+          vendor_type: r.vendor_type,
+          description: r.description || null,
+          available: r.available,
+        });
+        ok += 1;
+      }
+      toast.success(`Imported ${ok} product(s)`);
+      setImportPreview(null);
+      setImportErrors([]);
+      await reload();
+    } catch (e: any) {
+      toast.error(e.message ?? `Import stopped after ${ok} product(s)`);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  function downloadImportTemplate() {
+    const wb = XLSX.utils.book_new();
+    const header = ["Product Name", "Selling Price", "Cost Price", "Category", "Vendor", "Description", "Available"];
+    const sample = [
+      ["Jollof Rice", 600, 250, "Meals", "food", "Party-style jollof rice", "yes"],
+      ["Grilled Chicken", 1500, 900, "Proteins", "snacks", "", "yes"],
+    ];
+    const sheet = XLSX.utils.aoa_to_sheet([header, ...sample]);
+    sheet["!cols"] = header.map((h) => ({ wch: Math.max(12, h.length + 4) }));
+    XLSX.utils.book_append_sheet(wb, sheet, "Products");
+    XLSX.writeFile(wb, "CGCC-product-import-template.xlsx");
   }
 
   return (
