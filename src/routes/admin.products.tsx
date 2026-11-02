@@ -825,6 +825,56 @@ function ProductsTab({
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!importPreview} onOpenChange={(o) => { if (!o) { setImportPreview(null); setImportErrors([]); } }}>
+        <DialogContent className="max-h-[85vh] max-w-xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Import {importPreview?.length ?? 0} product(s)?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Products are created or updated by name. Existing products keep their current stock and image.
+          </p>
+          {importErrors.length > 0 ? (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+              {importErrors.map((e, i) => (
+                <div key={i}>{e}</div>
+              ))}
+            </div>
+          ) : null}
+          <div className="max-h-52 overflow-auto rounded-md border border-border">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-muted text-left">
+                <tr>
+                  <th className="p-2">Name</th>
+                  <th className="p-2 text-right">Selling</th>
+                  <th className="p-2 text-right">Cost</th>
+                  <th className="p-2">Vendor</th>
+                  <th className="p-2">Category</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(importPreview ?? []).map((r, i) => (
+                  <tr key={i} className="border-t border-border">
+                    <td className="p-2">{r.name}</td>
+                    <td className="p-2 text-right">{formatNaira(r.price)}</td>
+                    <td className="p-2 text-right">{formatNaira(r.cost_price)}</td>
+                    <td className="p-2">{r.vendor_type}</td>
+                    <td className="p-2">{catName(r.category_id)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setImportPreview(null); setImportErrors([]); }}>
+              Cancel
+            </Button>
+            <Button onClick={() => void confirmImport()} disabled={importing}>
+              {importing ? "Importing…" : `Import ${importPreview?.length ?? 0}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
         <DialogContent>
           <DialogHeader>
