@@ -458,6 +458,7 @@ function ProductsTab({
               <th className="px-3 py-2 text-left">Product</th>
               <th className="px-3 py-2 text-left">Vendor</th>
               <th className="px-3 py-2 text-right">Price</th>
+              <th className="px-3 py-2 text-right">Cost</th>
               <th className="px-3 py-2 text-center">Stock</th>
               <th className="px-3 py-2 text-center">Status</th>
               <th className="px-3 py-2 text-right">Actions</th>
@@ -500,6 +501,7 @@ function ProductsTab({
                   </td>
                   <td className="px-3 py-2 text-xs uppercase">{p.vendor_type}</td>
                   <td className="px-3 py-2 text-right font-semibold">{formatNaira(p.price)}</td>
+                  <td className="px-3 py-2 text-right text-muted-foreground">{formatNaira(p.cost_price ?? 0)}</td>
                   <td className="px-3 py-2 text-center">
                     <div>{p.stock_qty}</div>
                     <div className="text-[10px] text-muted-foreground">
@@ -581,7 +583,7 @@ function ProductsTab({
               <Label>Product Name</Label>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label>Selling Price (₦)</Label>
                 <Input
@@ -589,6 +591,16 @@ function ProductsTab({
                   min={0}
                   value={form.price}
                   onChange={(e) => setForm({ ...form, price: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Cost Price (₦)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.cost_price}
+                  onChange={(e) => setForm({ ...form, cost_price: e.target.value })}
+                  placeholder="0"
                 />
               </div>
               <div>
