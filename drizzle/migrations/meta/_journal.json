@@ -36,6 +36,13 @@
       "when": 1792579125707,
       "tag": "0004_trusted_payment_finalization_only",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793589095670,
+      "tag": "0005_cost_price_and_payouts",
+      "breakpoints": true
     }
   ]
 }
