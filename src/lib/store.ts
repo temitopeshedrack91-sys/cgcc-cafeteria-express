@@ -12,7 +12,8 @@ export type OrderStatus =
   | "confirmed"
   | "preparing"
   | "ready"
-  | "collected";
+  | "collected"
+  | "cancelled";
 
 export type OrderItem = {
   id: string;

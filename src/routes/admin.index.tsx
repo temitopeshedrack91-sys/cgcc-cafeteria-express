@@ -288,6 +288,20 @@ function Dashboard() {
                   >
                     Collected
                   </Button>
+                  {o.pickupStatus !== "cancelled" && o.pickupStatus !== "collected" ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-destructive"
+                      onClick={() => {
+                        if (window.confirm(`Cancel order ${o.code}? This cannot be undone.`)) {
+                          void actions.updateOrderStatus(o.code, "cancelled");
+                        }
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  ) : null}
                 </div>
               </div>
             ))}
