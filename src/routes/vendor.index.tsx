@@ -41,6 +41,7 @@ type PrepStatus = "pending" | "preparing" | "ready" | "collected";
 type VendorOrderItem = {
   id: string;
   order_id: string;
+  menu_item_id?: string | null;
   name: string;
   qty: number;
   price: number;
