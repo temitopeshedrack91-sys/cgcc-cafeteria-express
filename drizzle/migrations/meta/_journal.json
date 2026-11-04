@@ -50,6 +50,13 @@
       "when": 1793783118994,
       "tag": "0006_allow_multiple_vendor_accounts_per_section",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793783193042,
+      "tag": "0007_vendor_login_email",
+      "breakpoints": true
     }
   ]
 }
