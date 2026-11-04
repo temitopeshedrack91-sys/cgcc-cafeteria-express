@@ -41,12 +41,22 @@ function VendorLogin() {
     setSubmitting(true);
     try {
       const uname = username.trim().toLowerCase();
-      const known = new Set(["food", "snacks", "coffee", "drinks"]);
-      if (!known.has(uname)) {
+      // Resolve the login email from the vendor record so newly added
+      // vendors (not just the four legacy usernames) can sign in.
+      const { data: row, error: lookupError } = await supabase
+        .from("vendors")
+        .select("active, login_email")
+        .eq("username", uname)
+        .maybeSingle();
+      if (lookupError || !row) {
         toast.error("Unknown vendor username");
         return;
       }
-      const email = `${uname}@vendor.cgcc.local`;
+      if (!row.login_email) {
+        toast.error("This vendor account has no login email set. Contact the administrator.");
+        return;
+      }
+      const email = row.login_email;
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error || !data.user) {
         toast.error(error?.message ?? "Sign in failed");

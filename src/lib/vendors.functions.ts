@@ -154,6 +154,7 @@ export const createVendorAccount = createServerFn({ method: "POST" })
       vendor_type: data.vendorType,
       username: data.username.trim(),
       display_label: data.label.trim(),
+      login_email: email,
       active: true,
     });
     if (error) {
