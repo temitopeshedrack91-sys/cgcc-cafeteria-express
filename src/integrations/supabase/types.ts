@@ -775,6 +775,7 @@ export type Database = {
           display_label: string | null
           id: string
           last_login: string | null
+          login_email: string | null
           updated_at: string
           user_id: string
           username: string
@@ -791,6 +792,7 @@ export type Database = {
           display_label?: string | null
           id?: string
           last_login?: string | null
+          login_email?: string | null
           updated_at?: string
           user_id: string
           username: string
@@ -807,6 +809,7 @@ export type Database = {
           display_label?: string | null
           id?: string
           last_login?: string | null
+          login_email?: string | null
           updated_at?: string
           user_id?: string
           username?: string

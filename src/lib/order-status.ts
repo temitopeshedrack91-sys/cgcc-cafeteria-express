@@ -30,6 +30,8 @@ export function pickupLabel(status: OrderStatus): string {
       return "Ready for Pickup";
     case "collected":
       return "Collected";
+    case "cancelled":
+      return "Cancelled";
   }
 }
 
@@ -62,6 +64,7 @@ export function buildTimeline(order: Order): TimelineStep[] {
     preparing: 2,
     ready: 3,
     collected: 4,
+    cancelled: -1,
   };
   const r = rank[s];
   const steps = [

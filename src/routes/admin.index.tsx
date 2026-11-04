@@ -38,6 +38,7 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
   preparing: "bg-blue-100 text-blue-900 border-blue-300",
   ready: "bg-emerald-100 text-emerald-900 border-emerald-300",
   collected: "bg-muted text-muted-foreground border-border",
+  cancelled: "bg-red-100 text-red-900 border-red-300",
 };
 
 function Dashboard() {
