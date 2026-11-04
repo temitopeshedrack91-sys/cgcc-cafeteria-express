@@ -100,6 +100,7 @@ export const initVendors = createServerFn({ method: "POST" })
         vendor_type: vt,
         username,
         display_label: `${VENDOR_TYPE_LABELS[vt]} Vendor`,
+        login_email: `${username}@vendor.cgcc.local`,
         active: true,
       });
       if (vendorError) {
