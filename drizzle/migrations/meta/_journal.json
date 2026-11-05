@@ -57,6 +57,13 @@
       "when": 1793783193042,
       "tag": "0007_vendor_login_email",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793838422135,
+      "tag": "0008_allow_cancelled_pickup_status",
+      "breakpoints": true
     }
   ]
 }
