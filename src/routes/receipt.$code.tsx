@@ -27,7 +27,7 @@ export const Route = createFileRoute("/receipt/$code")({
 });
 
 function ReceiptPage() {
-  useSystemSettings();
+  const settings = useSystemSettings();
   const { code } = Route.useParams();
   const cached = useStore((s) => s.orders.find((o) => o.code === code));
   const [order, setOrder] = useState<Order | null>(cached ?? null);
@@ -370,6 +370,13 @@ function ReceiptPage() {
               </p>
             </div>
           </div>
+
+          {settings.refundPolicy.trim() && (
+            <div className="rounded-lg border border-border bg-muted/30 p-3 text-[11px] text-muted-foreground">
+              <p className="font-semibold text-foreground">Return &amp; Refund Policy</p>
+              <p className="mt-0.5 leading-relaxed">{settings.refundPolicy}</p>
+            </div>
+          )}
         </div>
       </div>
 

@@ -1,10 +1,25 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Copy, Check, ShieldCheck, Loader2, ChevronDown, Landmark, Sparkles, Upload } from "lucide-react";
+import {
+  AlertTriangle,
+  Copy,
+  Check,
+  ShieldCheck,
+  Loader2,
+  ChevronDown,
+  Landmark,
+  Sparkles,
+  Upload,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { actions, cartTotal, formatNaira, useStore } from "@/lib/store";
-import { DEFAULT_MENU } from "@/lib/menu-data";
+import { useSystemSettings } from "@/lib/settings";
+import {
+  findCartStockIssues,
+  formatStockIssueMessage,
+  verifyLiveStockForCart,
+} from "@/lib/stock-guard";
 import { initPayment } from "@/lib/payment/service";
 import { listPayableBankAccounts, type BankAccount } from "@/lib/bank-accounts";
 import { Input } from "@/components/ui/input";
@@ -35,9 +50,19 @@ type Method = "online" | "transfer";
 
 function PaymentPage() {
   const navigate = useNavigate();
+  const settings = useSystemSettings();
   const cart = useStore((s) => s.cart);
   const menu = useStore((s) => s.menu);
+  const menuState = useStore((s) => s.menuState);
+  const loaded = useStore((s) => s.loaded);
   const total = cartTotal(cart, menu);
+  const [liveStockError, setLiveStockError] = useState<string | null>(null);
+
+  const realtimeIssues = useMemo(
+    () => (loaded ? findCartStockIssues(cart, menu, menuState) : []),
+    [loaded, cart, menu, menuState],
+  );
+  const hasStockIssue = realtimeIssues.length > 0 || Boolean(liveStockError);
 
   const [method, setMethod] = useState<Method>("online");
   const [showTransfer, setShowTransfer] = useState(false);
@@ -146,6 +171,15 @@ function PaymentPage() {
       return null;
     }
 
+    const liveIssues = await verifyLiveStockForCart(cart, menu);
+    if (liveIssues.length > 0) {
+      const msg = formatStockIssueMessage(liveIssues);
+      setLiveStockError(msg);
+      void actions.refreshMenu();
+      toast.error(msg);
+      return null;
+    }
+
     const order = await actions.createOrder({
       customerName: draft.name,
       phone: draft.phone,
@@ -160,7 +194,8 @@ function PaymentPage() {
   }
 
   async function payOnline() {
-    if (submitting || !gatewayEnabled || paymentLoading) return;
+    if (submitting || !gatewayEnabled || paymentLoading || hasStockIssue) return;
+    setLiveStockError(null);
     setSubmitting(true);
     try {
       const order = await createOrderRecord();
@@ -191,13 +226,18 @@ function PaymentPage() {
       });
     } catch (e) {
       console.error(e);
-      toast.error(friendlyError(e));
+      const msg = friendlyError(e);
+      if (msg.toLowerCase().includes("sold out") || msg.toLowerCase().includes("available")) {
+        setLiveStockError(msg);
+        void actions.refreshMenu();
+      }
+      toast.error(msg);
       setSubmitting(false);
     }
   }
 
   async function payWithTransfer() {
-    if (submitting || !transferCfg.enabled || !bank || paymentLoading) return;
+    if (submitting || !transferCfg.enabled || !bank || paymentLoading || hasStockIssue) return;
     if (!confirmed) {
       toast.error("Please tick the box to confirm you have completed the transfer.");
       return;
@@ -206,6 +246,7 @@ function PaymentPage() {
       toast.error("Please enter the transfer reference from your bank.");
       return;
     }
+    setLiveStockError(null);
     setSubmitting(true);
     try {
       // 1. Save the order FIRST — manual transfer never depends on the gateway.
@@ -235,7 +276,12 @@ function PaymentPage() {
       navigate({ to: "/receipt/$code", params: { code: order.code } });
     } catch (e) {
       console.error(e);
-      toast.error(friendlyError(e));
+      const msg = friendlyError(e);
+      if (msg.toLowerCase().includes("sold out") || msg.toLowerCase().includes("available")) {
+        setLiveStockError(msg);
+        void actions.refreshMenu();
+      }
+      toast.error(msg);
       setSubmitting(false);
     }
   }
@@ -249,6 +295,24 @@ function PaymentPage() {
       </p>
       {paymentLoading && <p role="status" className="mt-4 text-sm text-muted-foreground">Loading payment options…</p>}
       {!paymentLoading && !gatewayEnabled && !transferCfg.enabled && <p role="alert" className="mt-4 text-sm text-destructive">Payments are currently unavailable. Please try again later.</p>}
+
+      {hasStockIssue && !createdOrder && (
+        <div
+          role="alert"
+          className="mt-4 rounded-2xl border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive space-y-2"
+        >
+          <p className="font-semibold flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            Order stopped — item just sold out
+          </p>
+          <p>{liveStockError || formatStockIssueMessage(realtimeIssues)}</p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button asChild size="sm" variant="outline" className="rounded-full bg-white">
+              <Link to="/cart">Return to Cart</Link>
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Order summary */}
       <div className="mt-6 rounded-2xl border border-border bg-card p-5 shadow-soft">
@@ -274,6 +338,16 @@ function PaymentPage() {
           <span className="text-lg font-bold text-primary">{formatNaira(total)}</span>
         </div>
       </div>
+
+      {settings.refundPolicy.trim() && (
+        <div className="mt-4 rounded-xl border border-border bg-muted/40 p-4 text-xs text-muted-foreground space-y-1">
+          <p className="font-semibold text-foreground flex items-center gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+            Return &amp; Refund Policy
+          </p>
+          <p className="leading-relaxed">{settings.refundPolicy}</p>
+        </div>
+      )}
 
       {/* PRIMARY: Online gateway */}
       {!paymentLoading && gatewayEnabled && (
@@ -311,7 +385,7 @@ function PaymentPage() {
           size="lg"
           className="mt-4 h-14 w-full rounded-full bg-emerald-600 shadow-elegant hover:bg-emerald-700"
           onClick={payOnline}
-          disabled={submitting}
+          disabled={submitting || (hasStockIssue && !createdOrder)}
         >
           {submitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
           Pay {formatNaira(total)} Online
@@ -463,7 +537,7 @@ function PaymentPage() {
               className="mt-4 h-14 w-full rounded-full"
               variant="secondary"
               onClick={payWithTransfer}
-              disabled={submitting || !confirmed || !bank}
+              disabled={submitting || !confirmed || !bank || (hasStockIssue && !createdOrder)}
             >
               Continue with transfer
             </Button>

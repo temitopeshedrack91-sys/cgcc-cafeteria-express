@@ -3009,14 +3009,11 @@ BEGIN
     IF it_name IS NULL THEN
       RAISE EXCEPTION 'Unknown menu item';
     END IF;
-    IF NOT it_available THEN
-      RAISE EXCEPTION '% is not available for online ordering.', it_name;
-    END IF;
-    IF COALESCE(avail_online, 0) <= 0 THEN
-      RAISE EXCEPTION '% is sold out online.', it_name;
+    IF NOT it_available OR COALESCE(avail_online, 0) <= 0 THEN
+      RAISE EXCEPTION '% has just been sold out and is no longer available online.', it_name;
     END IF;
     IF agg_qty > avail_online THEN
-      RAISE EXCEPTION 'Only % % currently available for online ordering.', avail_online, it_name;
+      RAISE EXCEPTION 'Only % unit(s) of % remain available online.', avail_online, it_name;
     END IF;
   END LOOP;
 
@@ -3749,6 +3746,92 @@ UPDATE public.menu_items SET category_id = 'cat_snacks', vendor_type = 'snacks' 
 UPDATE public.menu_items SET cost_price = ROUND(price * 0.85, 2) WHERE cost_price = 0 OR cost_price = ROUND(price * 0.60, 0);
 DELETE FROM public.categories WHERE id IN ('cat_meals', 'cat_proteins', 'cat_soups', 'cat_sandwiches', 'cat_chops', 'cat_desserts', 'cat_water', 'cat_extras')
   AND NOT EXISTS (SELECT 1 FROM public.menu_items m WHERE m.category_id = categories.id);
+
+-- ---------------------------------------------------------------------
+-- Migration 38: Restore online stock automatically when an order is
+-- cancelled or its payment fails/cancels (idempotent via stock_restored_at)
+-- ---------------------------------------------------------------------
+ALTER TABLE public.orders
+  ADD COLUMN IF NOT EXISTS stock_restored_at timestamptz;
+
+CREATE OR REPLACE FUNCTION public.restore_stock_on_order_cancel()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  rec RECORD;
+  prev_online INTEGER;
+  prev_walkin INTEGER;
+  prev_total INTEGER;
+  next_online INTEGER;
+  next_total INTEGER;
+BEGIN
+  IF NOT (NEW.pickup_status = 'cancelled' OR NEW.payment_status IN ('failed', 'cancelled')) THEN
+    RETURN NEW;
+  END IF;
+  IF (OLD.pickup_status = 'cancelled' OR OLD.payment_status IN ('failed', 'cancelled')) THEN
+    RETURN NEW;
+  END IF;
+
+  UPDATE public.orders
+     SET stock_restored_at = now()
+   WHERE id = NEW.id AND stock_restored_at IS NULL;
+  IF NOT FOUND THEN
+    RETURN NEW;
+  END IF;
+
+  FOR rec IN
+    SELECT oi.menu_item_id, oi.name, oi.vendor_type, SUM(oi.qty)::INTEGER AS qty
+      FROM public.order_items oi
+     WHERE oi.order_id = NEW.id
+       AND oi.menu_item_id IS NOT NULL
+     GROUP BY oi.menu_item_id, oi.name, oi.vendor_type
+     ORDER BY oi.menu_item_id
+  LOOP
+    SELECT stock_online, stock_walkin, stock_qty
+      INTO prev_online, prev_walkin, prev_total
+      FROM public.menu_items
+     WHERE id = rec.menu_item_id
+     FOR UPDATE;
+
+    IF FOUND THEN
+      next_online := COALESCE(prev_online, 0) + COALESCE(rec.qty, 0);
+      next_total := next_online + COALESCE(prev_walkin, 0);
+      UPDATE public.menu_items
+         SET stock_online = next_online,
+             available = CASE WHEN next_total > 0 THEN true ELSE available END
+       WHERE id = rec.menu_item_id;
+
+      INSERT INTO public.inventory_history
+        (menu_item_id, item_name, vendor_type, previous_qty, new_qty, delta, reason, source, changed_by, changed_by_label)
+      VALUES
+        (
+          rec.menu_item_id,
+          rec.name,
+          rec.vendor_type,
+          prev_total,
+          next_total,
+          next_total - prev_total,
+          CASE
+            WHEN NEW.pickup_status = 'cancelled' THEN 'Order cancelled (' || NEW.code || ')'
+            ELSE 'Payment ' || NEW.payment_status || ' (' || NEW.code || ')'
+          END,
+          'online_restore',
+          auth.uid(),
+          NULL
+        );
+    END IF;
+  END LOOP;
+
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS orders_restore_stock_on_cancel ON public.orders;
+CREATE TRIGGER orders_restore_stock_on_cancel
+  AFTER UPDATE OF payment_status, pickup_status ON public.orders
+  FOR EACH ROW EXECUTE FUNCTION public.restore_stock_on_order_cancel();
 
 -- Refresh PostgREST schema cache so new/updated RPCs are immediately callable
 NOTIFY pgrst, 'reload schema';

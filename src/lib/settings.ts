@@ -18,6 +18,7 @@ export type SystemSettings = {
   pickupIntervalMinutes: number;
   maxPickupMinutes: number;
   receiptFooterText: string;
+  refundPolicy: string;
   welcomeMessage: string;
   maintenanceMessage: string;
   announcement: string;
@@ -39,6 +40,8 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   pickupIntervalMinutes: 15,
   maxPickupMinutes: 480,
   receiptFooterText: "Thank you and God bless.",
+  refundPolicy:
+    "Pre-ordered items are prepared fresh for your selected pickup time. Orders cannot be refunded after preparation begins, except when an item is unavailable or a duplicate charge occurred — present your receipt code at the cafeteria counter for resolution.",
   welcomeMessage: "🎉 Welcome to CGCC Cafeteria Express",
   maintenanceMessage: "",
   announcement: "",

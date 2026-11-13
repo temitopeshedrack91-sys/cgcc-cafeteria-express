@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import type { Report } from "./reports";
-import { VENDOR_LABELS, formatDateTime } from "./reports";
+import { formatDateTime, getReportScopeLabel } from "./reports";
 import { formatNaira } from "./store";
 
 export function generateReportPdf(report: Report): jsPDF {
@@ -23,7 +23,7 @@ export function generateReportPdf(report: Report): jsPDF {
   doc.text("CGCC Cafeteria Express", M, 40);
   doc.setTextColor(...brandGold);
   doc.setFontSize(12);
-  doc.text("Sales Report", M, 60);
+  doc.text("Paid Sales Report", M, 60);
   doc.setTextColor(230, 230, 230);
   doc.setFontSize(9);
   doc.text(`Generated ${new Date().toLocaleString()}`, pageW - M, 40, { align: "right" });
@@ -34,7 +34,7 @@ export function generateReportPdf(report: Report): jsPDF {
   doc.setTextColor(...brandNavy);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
-  doc.text(VENDOR_LABELS[report.scope], M, y);
+  doc.text(getReportScopeLabel(report.scope, undefined, report.scopeLabel), M, y);
   y += 18;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);

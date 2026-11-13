@@ -1,6 +1,6 @@
 import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FileDown, Lock, Power, Search } from "lucide-react";
 import { toast } from "sonner";
 import { AdminGuard, AdminShell } from "@/components/AdminShell";
@@ -9,8 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { actions, formatNaira, useStore, type Order, type OrderStatus } from "@/lib/store";
 import { ReportDialog } from "@/components/ReportDialog";
-import type { ReportOrder, ReportScope } from "@/lib/reports";
-import { VENDOR_LABELS } from "@/lib/reports";
+import {
+  VENDOR_LABELS,
+  getReportScopeLabel,
+  type ReportOrder,
+  type ReportScope,
+  type ReportVendor,
+} from "@/lib/reports";
+import { listCategories, type CategoryRow } from "@/lib/admin-ops";
+import { supabase } from "@/integrations/supabase/client";
 import { BusinessDayFilter } from "@/components/BusinessDayFilter";
 import {
   closeBusinessDay,
@@ -48,6 +55,30 @@ function Dashboard() {
   const [filter, setFilter] = useState<Filter>(defaultFilter());
   const [closing, setClosing] = useState(false);
   const [reportScope, setReportScope] = useState<ReportScope | null>(null);
+  const [categories, setCategories] = useState<CategoryRow[]>([]);
+  const [productCatMap, setProductCatMap] = useState<Map<string, string | null>>(new Map());
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const [cats, itemsRes] = await Promise.all([
+          listCategories(false),
+          supabase.from("menu_items").select("id, category_id"),
+        ]);
+        setCategories(cats);
+        setProductCatMap(
+          new Map(
+            (itemsRes.data ?? []).map((r: { id: string; category_id: string | null }) => [
+              r.id,
+              r.category_id,
+            ]),
+          ),
+        );
+      } catch (e) {
+        console.warn("[admin] failed to load categories for reports", e);
+      }
+    })();
+  }, []);
 
   const scoped = useMemo(
     () => orders.filter((o) => matchesFilter(o, filter)),
@@ -58,6 +89,7 @@ function Dashboard() {
     () =>
       scoped.map((o: Order) => ({
         code: o.code,
+        receiptNo: o.receiptNo,
         customerName: o.customerName,
         phone: o.phone,
         createdAt: o.createdAt,
@@ -70,10 +102,11 @@ function Dashboard() {
           qty: it.qty,
           price: it.price,
           vendorType: it.vendorType,
+          categoryId: productCatMap.get(it.id) ?? null,
           preparationStatus: it.preparationStatus,
         })),
       })),
-    [scoped],
+    [scoped, productCatMap],
   );
 
   const counts = {
@@ -162,28 +195,56 @@ function Dashboard() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
-        <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-soft space-y-3">
+        <div className="flex items-center justify-between gap-2">
           <div>
-            <h2 className="font-display text-lg font-bold">Vendor Reports</h2>
+            <h2 className="font-display text-lg font-bold">Vendor &amp; Category Reports</h2>
             <p className="text-xs text-muted-foreground">
-              Download sales reports as PDF or Excel. Live totals.
+              Download paid sales reports as Excel or PDF per vendor or category. Newly created categories appear automatically.
             </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {(["food", "snacks", "coffee", "drinks", "all"] as ReportScope[]).map((s) => (
+          {(["food", "snacks", "coffee", "drinks"] as ReportVendor[]).map((s) => (
             <Button
               key={s}
               size="sm"
-              variant={s === "all" ? "default" : "outline"}
+              variant="outline"
               onClick={() => setReportScope(s)}
             >
               <FileDown className="mr-1 h-3 w-3" />
-              {s === "all" ? "Overall Report" : VENDOR_LABELS[s]}
+              {VENDOR_LABELS[s]}
             </Button>
           ))}
+          <Button
+            size="sm"
+            variant="default"
+            onClick={() => setReportScope("all")}
+          >
+            <FileDown className="mr-1 h-3 w-3" />
+            Overall Report
+          </Button>
         </div>
+        {categories.length > 0 && (
+          <div className="border-t border-border pt-3">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              By Category
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {categories.map((cat) => (
+                <Button
+                  key={cat.id}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setReportScope(`cat:${cat.id}`)}
+                >
+                  <FileDown className="mr-1 h-3 w-3" />
+                  {cat.name}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
@@ -314,6 +375,11 @@ function Dashboard() {
         open={reportScope !== null}
         onOpenChange={(v) => !v && setReportScope(null)}
         scope={reportScope ?? "all"}
+        scopeLabel={
+          reportScope
+            ? getReportScopeLabel(reportScope, categories)
+            : undefined
+        }
         orders={reportOrders}
       />
     </div>

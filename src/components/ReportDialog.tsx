@@ -12,8 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatNaira } from "@/lib/store";
 import {
-  VENDOR_LABELS,
   computeReport,
+  getReportScopeLabel,
   rangeFor,
   type DateRangeKey,
   type ReportOrder,
@@ -26,6 +26,7 @@ type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   scope: ReportScope;
+  scopeLabel?: string;
   orders: ReportOrder[];
 };
 
@@ -36,7 +37,7 @@ const RANGE_OPTIONS: { key: DateRangeKey; label: string }[] = [
   { key: "custom", label: "Custom" },
 ];
 
-export function ReportDialog({ open, onOpenChange, scope, orders }: Props) {
+export function ReportDialog({ open, onOpenChange, scope, scopeLabel, orders }: Props) {
   const [rangeKey, setRangeKey] = useState<DateRangeKey>("today");
   const today = new Date().toISOString().slice(0, 10);
   const [from, setFrom] = useState(today);
@@ -54,19 +55,22 @@ export function ReportDialog({ open, onOpenChange, scope, orders }: Props) {
     return computeReport({
       orders,
       scope,
+      scopeLabel,
       from: r.from,
       to: r.to,
       rangeLabel: r.label,
     });
-  }, [orders, scope, rangeKey, from, to]);
+  }, [orders, scope, scopeLabel, rangeKey, from, to]);
+
+  const titleLabel = getReportScopeLabel(scope, undefined, scopeLabel);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>End of Day Report — {VENDOR_LABELS[scope]}</DialogTitle>
+          <DialogTitle>End of Day Report — {titleLabel}</DialogTitle>
           <DialogDescription>
-            Live totals. Updates automatically as new orders arrive.
+            Paid, confirmed sales only. Unpaid &amp; cancelled orders are excluded.
           </DialogDescription>
         </DialogHeader>
 

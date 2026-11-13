@@ -397,6 +397,10 @@ export const actions = {
     }
   },
 
+  async refreshMenu() {
+    await fetchMenu();
+  },
+
   async setOrderingOpen(open: boolean) {
     const prev = state.orderingOpen;
     set({ orderingOpen: open });

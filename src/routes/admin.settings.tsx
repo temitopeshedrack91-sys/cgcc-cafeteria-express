@@ -341,7 +341,7 @@ function GeneralSettings() {
         </Field>
       </Section>
 
-      <Section title="Messages">
+      <Section title="Messages & Return Policy">
         <Field label="Welcome Message" full>
           <Textarea rows={2} {...bind("welcomeMessage")} />
         </Field>
@@ -354,6 +354,13 @@ function GeneralSettings() {
           full
         >
           <Textarea rows={2} {...bind("maintenanceMessage")} />
+        </Field>
+        <Field
+          label="Return & Refund Policy"
+          hint="Displayed to customers on Checkout, Payment, and Receipt pages. Leave blank to hide."
+          full
+        >
+          <Textarea rows={3} {...bind("refundPolicy")} />
         </Field>
         <Field label="Receipt Footer Text" full>
           <Input {...bind("receiptFooterText")} />

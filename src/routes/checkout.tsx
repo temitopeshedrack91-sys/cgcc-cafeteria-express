@@ -1,8 +1,8 @@
 import { pageMeta } from "@/lib/page-meta";
 import { useSystemSettings } from "@/lib/settings";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Clock, Zap } from "lucide-react";
+import { AlertTriangle, Clock, ShieldCheck, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,8 +15,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cartTotal, formatNaira, useStore } from "@/lib/store";
-import { DEFAULT_MENU } from "@/lib/menu-data";
+import { actions, cartTotal, formatNaira, useStore } from "@/lib/store";
+import {
+  findCartStockIssues,
+  formatStockIssueMessage,
+  verifyLiveStockForCart,
+} from "@/lib/stock-guard";
 import {
   PICKUP_CLOSING_HOUR,
   PICKUP_INTERVAL_MINUTES,
@@ -57,7 +61,14 @@ function CheckoutPage() {
   const navigate = useNavigate();
   const cart = useStore((s) => s.cart);
   const menu = useStore((s) => s.menu);
+  const menuState = useStore((s) => s.menuState);
+  const loaded = useStore((s) => s.loaded);
   const total = cartTotal(cart, menu);
+  const stockIssues = useMemo(
+    () => (loaded ? findCartStockIssues(cart, menu, menuState) : []),
+    [loaded, cart, menu, menuState],
+  );
+  const hasStockIssue = stockIssues.length > 0;
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -65,6 +76,7 @@ function CheckoutPage() {
   const [orderType, setOrderType] = useState<"dine-in" | "takeaway">("dine-in");
   const [pickupTime, setPickupTime] = useState<string>("");
   const [suggest, setSuggest] = useState(false);
+  const [checkingStock, setCheckingStock] = useState(false);
 
   const slots = useMemo(
     () => buildPickupSlots(new Date(), settings),
@@ -82,7 +94,12 @@ function CheckoutPage() {
     if (p.phone) setPhone(p.phone);
   }, []);
 
-  function proceed() {
+  async function proceed() {
+    if (checkingStock) return;
+    if (hasStockIssue) {
+      toast.error(formatStockIssueMessage(stockIssues));
+      return;
+    }
     const parsed = schema.safeParse({ name, phone, note, orderType, pickupTime });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0]?.message ?? "Invalid form");
@@ -91,6 +108,17 @@ function CheckoutPage() {
     if (!isPickupSlotValid(pickupTime, new Date(), settings)) {
       toast.error("That pickup time is no longer available. Please pick another.");
       return;
+    }
+    setCheckingStock(true);
+    try {
+      const liveIssues = await verifyLiveStockForCart(cart, menu);
+      if (liveIssues.length > 0) {
+        void actions.refreshMenu();
+        toast.error(formatStockIssueMessage(liveIssues));
+        return;
+      }
+    } finally {
+      setCheckingStock(false);
     }
     if (
       orderType === "takeaway" &&
@@ -127,6 +155,24 @@ function CheckoutPage() {
     <div className="mx-auto max-w-2xl px-4 py-6 pb-24">
       <h1 className="font-display text-3xl font-bold">Checkout</h1>
       <p className="text-sm text-muted-foreground">A few details before payment.</p>
+
+      {hasStockIssue && (
+        <div
+          role="alert"
+          className="mt-4 rounded-2xl border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive space-y-2"
+        >
+          <p className="font-semibold flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            Stock updated while you were checking out
+          </p>
+          <p>{formatStockIssueMessage(stockIssues)}</p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button asChild size="sm" variant="outline" className="rounded-full bg-white">
+              <Link to="/cart">Update Cart</Link>
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="mt-6 space-y-5 rounded-2xl border border-border bg-card p-5 shadow-soft">
         <div>
@@ -294,8 +340,23 @@ function CheckoutPage() {
         <span className="text-xl font-bold text-primary">{formatNaira(total)}</span>
       </div>
 
-      <Button size="lg" className="mt-6 h-14 w-full rounded-full shadow-elegant" onClick={proceed}>
-        Continue to payment
+      {settings.refundPolicy.trim() && (
+        <div className="mt-4 rounded-xl border border-border bg-muted/40 p-4 text-xs text-muted-foreground space-y-1">
+          <p className="font-semibold text-foreground flex items-center gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+            Return &amp; Refund Policy
+          </p>
+          <p className="leading-relaxed">{settings.refundPolicy}</p>
+        </div>
+      )}
+
+      <Button
+        size="lg"
+        className="mt-6 h-14 w-full rounded-full shadow-elegant"
+        onClick={() => void proceed()}
+        disabled={hasStockIssue || checkingStock}
+      >
+        {checkingStock ? "Checking availability…" : "Continue to payment"}
       </Button>
     </div>
   );

@@ -15,12 +15,15 @@ function CartPage() {
   const cart = useStore((s) => s.cart);
   const menu = useStore((s) => s.menu);
   const menuState = useStore((s) => s.menuState);
+  const loaded = useStore((s) => s.loaded);
   const total = cartTotal(cart, menu);
-  const hasStockIssue = cart.some((c) => {
-    const info = menuState[c.itemId];
-    if (!info) return true;
-    return !info.available || info.stockOnline < c.qty;
-  });
+  const hasStockIssue =
+    loaded &&
+    cart.some((c) => {
+      const info = menuState[c.itemId];
+      if (!info) return true;
+      return !info.available || info.stockOnline < c.qty;
+    });
 
   if (cart.length === 0) {
     return (
@@ -47,7 +50,7 @@ function CartPage() {
           const info = menuState[c.itemId];
           const stockOnline = info?.stockOnline ?? 0;
           const available = info?.available ?? true;
-          const overStock = !available || c.qty > stockOnline;
+          const overStock = loaded && (!available || c.qty > stockOnline);
           const atMax = c.qty >= stockOnline;
           return (
             <div
@@ -68,7 +71,9 @@ function CartPage() {
                 <p className="text-sm text-muted-foreground">{formatNaira(item.price)}</p>
                 {overStock && (
                   <p className="mt-1 text-xs font-semibold text-destructive">
-                    Only {stockOnline} available online — reduce to continue.
+                    {!available || stockOnline <= 0
+                      ? "Sold out online — another customer just paid for the last unit. Remove to continue."
+                      : `Only ${stockOnline} available online — reduce to continue.`}
                   </p>
                 )}
               </div>
@@ -123,14 +128,20 @@ function CartPage() {
 
       {hasStockIssue && (
         <p className="mt-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">
-          Some items exceed available online stock. Adjust the quantities above to continue.
+          Some items are sold out or exceed available online stock. Adjust or remove them above to continue.
         </p>
       )}
 
       <div className="fixed inset-x-0 bottom-4 z-40 mx-auto max-w-md px-4">
-        <Button asChild size="lg" className="h-14 w-full rounded-full shadow-elegant" disabled={hasStockIssue}>
-          <Link to={hasStockIssue ? "/cart" : "/checkout"}>Proceed to checkout</Link>
-        </Button>
+        {hasStockIssue ? (
+          <Button size="lg" className="h-14 w-full rounded-full shadow-elegant" disabled>
+            Resolve stock issues to continue
+          </Button>
+        ) : (
+          <Button asChild size="lg" className="h-14 w-full rounded-full shadow-elegant">
+            <Link to="/checkout">Proceed to checkout</Link>
+          </Button>
+        )}
       </div>
     </div>
   );

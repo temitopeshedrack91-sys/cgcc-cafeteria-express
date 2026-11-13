@@ -131,7 +131,7 @@ function VendorDashboard() {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, code, customer_name, phone, note, order_type, pickup_time, payment_status, pickup_status, created_at, business_day, archived_at, order_items ( id, order_id, name, qty, price, preparation_status, vendor_type )",
+          "id, code, customer_name, phone, note, order_type, pickup_time, payment_status, pickup_status, created_at, business_day, archived_at, order_items ( id, order_id, menu_item_id, name, qty, price, preparation_status, vendor_type )",
         )
         .order("created_at", { ascending: false })
         .limit(200);
