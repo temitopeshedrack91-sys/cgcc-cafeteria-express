@@ -55,7 +55,7 @@ export const listVendors = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("vendors")
-      .select("id, user_id, vendor_type, username, display_label, can_manage_stock, can_increase_stock, can_reduce_stock, can_reallocate_stock, can_update_preparation, active, last_login, created_at")
+      .select("id, user_id, vendor_type, username, display_label, login_email, can_manage_stock, can_increase_stock, can_reduce_stock, can_reallocate_stock, can_update_preparation, active, last_login, created_at")
       .order("vendor_type")
       .order("created_at");
     if (error) throw error;
@@ -183,6 +183,7 @@ export const setVendorPassword = createServerFn({ method: "POST" })
       password: data.password,
     });
     if (error) throw error;
+    await supabaseAdmin.auth.admin.signOut(v.user_id, "global").catch(() => undefined);
     return { ok: true };
   });
 
@@ -198,7 +199,20 @@ export const resetVendorPassword = createServerFn({ method: "POST" })
       password: temp,
     });
     if (error) throw error;
+    await supabaseAdmin.auth.admin.signOut(v.user_id, "global").catch(() => undefined);
     return { ok: true, temporaryPassword: temp };
+  });
+
+export const signOutVendorSessions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ vendorId: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const v = await findVendor(supabaseAdmin, data.vendorId);
+    const { error } = await supabaseAdmin.auth.admin.signOut(v.user_id, "global");
+    if (error) throw error;
+    return { ok: true };
   });
 
 export const setVendorActive = createServerFn({ method: "POST" })

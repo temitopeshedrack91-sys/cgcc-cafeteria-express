@@ -42,6 +42,7 @@ import {
   type PaymentStatusSnapshot,
   type Health,
 } from "@/lib/payment/health";
+import { getFinanceEmailStatus, sendFinanceTestEmail } from "@/lib/finance.functions";
 
 
 export const Route = createFileRoute("/admin/finance")({
@@ -235,18 +236,25 @@ function UnlockPanel({ status, onUnlocked }: { status: FinanceStatus; onUnlocked
   const [busy, setBusy] = useState(false);
   const [otpStage, setOtpStage] = useState(false);
   const [code, setCode] = useState("");
-  const [issuedCode, setIssuedCode] = useState<string | null>(null);
+  const [sentToEmail, setSentToEmail] = useState<string | null>(null);
+  const [emailConfigError, setEmailConfigError] = useState<string | null>(null);
   const sessionRef = useRef<string | null>(null);
   const [lockedUntil, setLockedUntil] = useState<string | null>(status.locked_until);
 
   async function submitPin() {
     setBusy(true);
+    setEmailConfigError(null);
     try {
       const res = await financeUnlock(pin);
       if (!res.ok) {
         if (res.locked_until) {
           setLockedUntil(res.locked_until);
           toast.error("Too many attempts. Finance is locked for 15 minutes.");
+        } else if (res.email_not_configured || res.error) {
+          setEmailConfigError(
+            res.error ?? "Email delivery is not configured on the server yet.",
+          );
+          toast.error(res.error ?? "Could not send verification email.");
         } else {
           toast.error(`Incorrect PIN. ${res.attempts_left ?? 0} attempt(s) left.`);
         }
@@ -254,9 +262,9 @@ function UnlockPanel({ status, onUnlocked }: { status: FinanceStatus; onUnlocked
       }
       sessionRef.current = res.session_id ?? null;
       if (res.needs_otp) {
-        setIssuedCode(res.otp_code ?? null);
+        setSentToEmail(res.recovery_email ?? status.recovery_email ?? "your recovery email");
         setOtpStage(true);
-        toast.info(`One-time password issued for ${res.recovery_email ?? "your finance email"}.`);
+        toast.info(`Verification code sent to ${res.recovery_email ?? "your recovery email"}.`);
       } else if (res.session_id) {
         storeFinanceSession(res.session_id);
         onUnlocked();
@@ -299,7 +307,7 @@ function UnlockPanel({ status, onUnlocked }: { status: FinanceStatus; onUnlocked
           <div>
             <h1 className="font-display text-xl font-bold">Finance & Payment</h1>
             <p className="text-xs text-muted-foreground">
-              {otpStage ? "Enter the one-time password" : "Enter Finance Security PIN"}
+              {otpStage ? "Enter the 6-digit code sent to your email" : "Enter Finance Security PIN"}
             </p>
           </div>
         </div>
@@ -311,17 +319,22 @@ function UnlockPanel({ status, onUnlocked }: { status: FinanceStatus; onUnlocked
           </p>
         ) : otpStage ? (
           <div className="space-y-4">
-            {issuedCode && (
-              <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
-                Email delivery is not configured for this project yet, so the code is shown here to
-                the signed-in admin: <span className="font-mono font-bold">{issuedCode}</span>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
+              <p className="font-semibold">Check your email inbox</p>
+              <p className="mt-1">
+                We sent a 6-digit verification code to{" "}
+                <span className="font-mono font-semibold">{sentToEmail}</span>. Check your inbox
+                or spam/junk folder and enter it below.
               </p>
-            )}
+            </div>
             <Input
               inputMode="numeric"
               placeholder="6-digit code"
               value={code}
               onChange={(e) => setCode(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && code.length >= 6) void submitOtp();
+              }}
             />
             <Button
               className="w-full rounded-full"
@@ -330,9 +343,35 @@ function UnlockPanel({ status, onUnlocked }: { status: FinanceStatus; onUnlocked
             >
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Verify code
             </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-full rounded-full text-xs text-muted-foreground"
+              onClick={() => {
+                sessionRef.current = null;
+                setCode("");
+                setOtpStage(false);
+              }}
+            >
+              Back to PIN / Request new code
+            </Button>
           </div>
         ) : (
           <div className="space-y-4">
+            {emailConfigError && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                <p className="font-semibold">Email OTP setup required</p>
+                <p className="mt-1">{emailConfigError}</p>
+                <Link
+                  to="/admin/settings"
+                  search={{ tab: "accounts" }}
+                  className="mt-2 inline-block font-semibold underline"
+                >
+                  Open System Settings → Accounts &amp; Email Setup
+                </Link>
+              </div>
+            )}
             <Input
               type="password"
               inputMode="numeric"
@@ -593,13 +632,24 @@ function SecuritySettings({
   const [otp, setOtp] = useState(status.otp_enabled);
   const [timeoutMinutes, setTimeoutMinutes] = useState(status.timeout_minutes);
   const [busy, setBusy] = useState(false);
+  const [testingEmail, setTestingEmail] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<{
+    configured: boolean;
+    provider: "smtp" | "resend" | null;
+    fromLabel: string | null;
+  } | null>(null);
   const [events, setEvents] = useState<FinanceEvent[]>([]);
   const [sessions, setSessions] = useState<FinanceSession[]>([]);
 
   const reload = useCallback(async () => {
-    const [e, s] = await Promise.all([listFinanceEvents(50), listActiveFinanceSessions()]);
+    const [e, s, es] = await Promise.all([
+      listFinanceEvents(50),
+      listActiveFinanceSessions(),
+      getFinanceEmailStatus().catch(() => null),
+    ]);
     setEvents(e);
     setSessions(s);
+    setEmailStatus(es);
   }, []);
   useEffect(() => {
     void reload();
@@ -616,6 +666,20 @@ function SecuritySettings({
       toast.error(e instanceof Error ? e.message : "Action failed.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleTestEmail() {
+    setTestingEmail(true);
+    try {
+      const res = await sendFinanceTestEmail({
+        data: { toEmail: email.trim() || undefined },
+      });
+      toast.success(`Test email sent to ${res.sentTo} (${res.provider?.toUpperCase()}).`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to send test email.");
+    } finally {
+      setTestingEmail(false);
     }
   }
 
@@ -663,7 +727,10 @@ function SecuritySettings({
       <Card>
         <h2 className="mb-3 font-display text-lg font-bold">Recovery & sessions</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Finance Recovery Email">
+          <Field
+            label="Finance Recovery Email"
+            hint="Where 2FA verification codes are emailed (can be your personal or official email)."
+          >
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
           <Field label="Automatic timeout after inactivity (minutes)">
@@ -679,8 +746,47 @@ function SecuritySettings({
         <label className="mt-4 flex items-center gap-2 text-sm font-medium">
           <Switch checked={otp} onCheckedChange={setOtp} />
           <Mail className="h-4 w-4" />
-          {otp ? "PIN + Email OTP required" : "PIN only"}
+          {otp ? "PIN + Email OTP required (Strict 2FA)" : "PIN only"}
         </label>
+        {emailStatus && (
+          <div
+            className={
+              "mt-3 rounded-xl border p-3 text-xs " +
+              (emailStatus.configured
+                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                : "border-amber-200 bg-amber-50 text-amber-900")
+            }
+          >
+            {emailStatus.configured ? (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  Email delivery active via{" "}
+                  <strong>{emailStatus.provider === "smtp" ? "Outlook / SMTP" : "Resend"}</strong> (
+                  {emailStatus.fromLabel}).
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 rounded-full bg-white text-xs"
+                  disabled={testingEmail}
+                  onClick={() => void handleTestEmail()}
+                >
+                  {testingEmail ? "Sending…" : "Send Test Email"}
+                </Button>
+              </div>
+            ) : (
+              <div>
+                <p className="font-semibold">Server email delivery is not configured yet</p>
+                <p className="mt-1">
+                  Add Outlook SMTP (<code>SMTP_HOST</code>, <code>SMTP_PORT</code>,{" "}
+                  <code>SMTP_USER</code>, <code>SMTP_PASS</code>) or <code>RESEND_API_KEY</code> in
+                  Vercel Environment Variables so OTP codes are emailed securely.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
         <div className="mt-4 flex flex-wrap justify-end gap-2">
           <Button
             variant="outline"

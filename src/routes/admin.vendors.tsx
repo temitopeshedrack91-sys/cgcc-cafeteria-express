@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import { KeyRound, Pencil, Power, RefreshCw, ShieldCheck, UserPlus } from "lucide-react";
+import { Eye, EyeOff, KeyRound, LogOut, Pencil, Power, RefreshCw, ShieldCheck, UserPlus } from "lucide-react";
 import { AdminGuard, AdminShell } from "@/components/AdminShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ import {
   setVendorLabel,
   setVendorPassword,
   setVendorPermission,
+  signOutVendorSessions,
   VENDOR_TYPES,
   VENDOR_TYPE_LABELS,
   type VendorType,
@@ -54,6 +55,7 @@ type VendorRow = {
   vendor_type: VendorType;
   username: string;
   display_label: string | null;
+  login_email: string | null;
   can_manage_stock: boolean;
   can_increase_stock: boolean;
   can_reduce_stock: boolean;
@@ -74,6 +76,8 @@ function VendorManagement() {
   const [busy, setBusy] = useState(false);
   const [pwDialog, setPwDialog] = useState<VendorRow | null>(null);
   const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [labelDialog, setLabelDialog] = useState<VendorRow | null>(null);
   const [newLabel, setNewLabel] = useState("");
   const [addOpen, setAddOpen] = useState(false);
@@ -145,11 +149,17 @@ function VendorManagement() {
       toast.error("Password must be at least 8 characters");
       return;
     }
+    if (newPw !== confirmPw) {
+      toast.error("Passwords do not match");
+      return;
+    }
     try {
       await setVendorPassword({ data: { vendorId: pwDialog.id, password: newPw } });
-      toast.success("Password updated");
+      toast.success("Vendor password updated and existing sessions signed out.");
       setPwDialog(null);
       setNewPw("");
+      setConfirmPw("");
+      setShowPw(false);
     } catch (e: any) {
       toast.error(e.message ?? "Failed");
     }
@@ -177,6 +187,15 @@ function VendorManagement() {
       setTempPwDialog({ vendor: label(v), password: res.temporaryPassword });
     } catch (e: any) {
       toast.error(e.message ?? "Failed");
+    }
+  }
+
+  async function forceSignOutVendor(v: VendorRow) {
+    try {
+      await signOutVendorSessions({ data: { vendorId: v.id } });
+      toast.success(`${label(v)} signed out across all devices.`);
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to sign out vendor");
     }
   }
 
@@ -262,6 +281,11 @@ function VendorManagement() {
                     {VENDOR_TYPE_LABELS[v.vendor_type]} section · Username:{" "}
                     <span className="font-mono">{v.username}</span>
                   </p>
+                  {v.login_email && (
+                    <p className="text-xs text-muted-foreground">
+                      Login email: <span className="font-mono">{v.login_email}</span>
+                    </p>
+                  )}
                 </div>
                 <span
                   className={
@@ -308,7 +332,16 @@ function VendorManagement() {
                 <Button size="sm" variant="outline" onClick={() => { setLabelDialog(v); setNewLabel(label(v)); }}>
                   <Pencil className="mr-1 h-3.5 w-3.5" /> Rename
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setPwDialog(v)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setPwDialog(v);
+                    setNewPw("");
+                    setConfirmPw("");
+                    setShowPw(false);
+                  }}
+                >
                   <KeyRound className="mr-1 h-3.5 w-3.5" /> Change Password
                 </Button>
                 <Button
@@ -317,6 +350,13 @@ function VendorManagement() {
                   onClick={() => void resetPassword(v)}
                 >
                   Reset Password
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void forceSignOutVendor(v)}
+                >
+                  <LogOut className="mr-1 h-3.5 w-3.5" /> Log Out
                 </Button>
                 <Button
                   size="sm"
@@ -332,29 +372,63 @@ function VendorManagement() {
         </div>
       )}
 
-      <Dialog open={pwDialog !== null} onOpenChange={(o) => !o && setPwDialog(null)}>
+      <Dialog
+        open={pwDialog !== null}
+        onOpenChange={(o) => {
+          if (!o) {
+            setPwDialog(null);
+            setNewPw("");
+            setConfirmPw("");
+            setShowPw(false);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
               Change password{pwDialog ? ` · ${label(pwDialog)}` : ""}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="pw">New password (min 8 chars)</Label>
-            <Input
-              id="pw"
-              type="password"
-              autoComplete="new-password"
-              value={newPw}
-              onChange={(e) => setNewPw(e.target.value)}
-              placeholder="Enter new password"
-            />
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="pw">New password (min 8 chars)</Label>
+              <div className="relative">
+                <Input
+                  id="pw"
+                  type={showPw ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={newPw}
+                  onChange={(e) => setNewPw(e.target.value)}
+                  placeholder="Enter new password"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw((s) => !s)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showPw ? "Hide password" : "Show password"}
+                >
+                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="pw-confirm">Confirm new password</Label>
+              <Input
+                id="pw-confirm"
+                type={showPw ? "text" : "password"}
+                autoComplete="new-password"
+                value={confirmPw}
+                onChange={(e) => setConfirmPw(e.target.value)}
+                placeholder="Re-enter new password"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPwDialog(null)}>
               Cancel
             </Button>
-            <Button onClick={savePassword}>Save</Button>
+            <Button onClick={savePassword}>Save Password</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

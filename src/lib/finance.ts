@@ -2,6 +2,8 @@
 // SECURITY DEFINER RPCs; the browser never sees the PIN hash.
 import { supabase } from "@/integrations/supabase/client";
 
+import { financeUnlockServer } from "@/lib/finance.functions";
+
 const SESSION_KEY = "cgcc-finance-session";
 
 export type FinanceStatus = {
@@ -17,7 +19,9 @@ export type UnlockResult = {
   ok: boolean;
   session_id?: string;
   needs_otp?: boolean;
-  otp_code?: string;
+  email_sent?: boolean;
+  email_not_configured?: boolean;
+  error?: string;
   recovery_email?: string;
   locked_until?: string;
   attempts_left?: number;
@@ -39,9 +43,7 @@ export async function financeSetup(pin: string, email: string, otpEnabled: boole
 }
 
 export async function financeUnlock(pin: string): Promise<UnlockResult> {
-  const { data, error } = await supabase.rpc("finance_unlock", { _pin: pin });
-  if (error) throw error;
-  return data as unknown as UnlockResult;
+  return await financeUnlockServer({ data: { pin } });
 }
 
 export async function financeVerifyOtp(sessionId: string, code: string) {
