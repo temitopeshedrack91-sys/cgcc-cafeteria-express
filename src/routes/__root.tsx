@@ -14,7 +14,6 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { AppFooter, AppHeader } from "@/components/AppShell";
-import { OfflineIndicator } from "@/components/PWAInstallBanner";
 
 function NotFoundComponent() {
   return (
@@ -157,7 +156,6 @@ function RootComponent() {
         </main>
         <AppFooter />
       </div>
-      <OfflineIndicator />
       <Toaster position="top-center" richColors />
     </QueryClientProvider>
   );

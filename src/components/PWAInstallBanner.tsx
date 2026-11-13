@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
-import { Download, MoreVertical, Share, Smartphone, WifiOff, X } from "lucide-react";
+import { useState } from "react";
+import { Download, MoreVertical, Share, Smartphone, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePWAInstall } from "@/hooks/use-pwa-install";
-import { useOnlineStatus } from "@/hooks/use-online-status";
 
 function InstallGuideModal({
   isIOS,
@@ -185,34 +184,5 @@ export function PWAInstallBanner() {
       </div>
       {showGuide && <InstallGuideModal isIOS={isIOS} onClose={() => setShowGuide(false)} />}
     </>
-  );
-}
-
-export function OfflineIndicator() {
-  const isOnline = useOnlineStatus();
-  const [dismissed, setDismissed] = useState(false);
-
-  useEffect(() => {
-    if (isOnline) setDismissed(false);
-  }, [isOnline]);
-
-  if (isOnline || dismissed) return null;
-
-  return (
-    <div
-      role="status"
-      className="fixed bottom-4 left-4 z-50 flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-950 shadow-lg"
-    >
-      <WifiOff className="h-3.5 w-3.5 shrink-0 text-amber-700" />
-      <span>You are offline — showing saved menu. Reconnect to place an order.</span>
-      <button
-        type="button"
-        onClick={() => setDismissed(true)}
-        className="ml-1 rounded p-0.5 text-amber-800 hover:bg-amber-200/60"
-        aria-label="Dismiss offline message"
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
-    </div>
   );
 }
