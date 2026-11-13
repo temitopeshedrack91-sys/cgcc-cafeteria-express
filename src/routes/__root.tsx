@@ -128,6 +128,11 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__pwaInstallPrompt=e;});window.addEventListener("appinstalled",function(){window.__pwaInstallPrompt=null;});`,
+          }}
+        />
       </head>
       <body>
         {children}

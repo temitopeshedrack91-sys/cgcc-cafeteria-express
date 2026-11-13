@@ -1,15 +1,29 @@
 import { useState } from "react";
-import { Download, MoreVertical, Share, Smartphone, X } from "lucide-react";
+import { Download, ExternalLink, Laptop, MoreVertical, Share, Smartphone, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePWAInstall } from "@/hooks/use-pwa-install";
 
 function InstallGuideModal({
   isIOS,
+  isDesktop,
+  isInIframe,
   onClose,
 }: {
   isIOS: boolean;
+  isDesktop: boolean;
+  isInIframe: boolean;
   onClose: () => void;
 }) {
+  const currentUrl = typeof window !== "undefined" ? window.location.href : "/";
+
+  const title = isInIframe
+    ? "Open Outside Preview to Install"
+    : isIOS
+      ? "Install on iPhone / iPad"
+      : isDesktop
+        ? "Install on Your Computer"
+        : "Install CGCC Cafeteria Express";
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
@@ -20,7 +34,7 @@ function InstallGuideModal({
       <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-elegant">
         <div className="flex items-start justify-between gap-2">
           <h3 id="pwa-install-guide-title" className="font-display text-lg font-bold text-foreground">
-            {isIOS ? "Install on iPhone / iPad" : "Install CGCC Cafeteria Express"}
+            {title}
           </h3>
           <Button
             type="button"
@@ -33,7 +47,27 @@ function InstallGuideModal({
             <X className="h-4 w-4" />
           </Button>
         </div>
-        {isIOS ? (
+
+        {isInIframe ? (
+          <div className="mt-3 space-y-3 text-sm text-muted-foreground">
+            <p>
+              App installation is blocked inside embedded preview windows. Open the app in a full{" "}
+              <strong className="text-foreground">Google Chrome</strong> or{" "}
+              <strong className="text-foreground">Microsoft Edge</strong> browser tab to install it
+              directly.
+            </p>
+            <a
+              href={currentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={onClose}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Open in New Tab
+            </a>
+          </div>
+        ) : isIOS ? (
           <ol className="mt-3 space-y-2.5 text-sm text-muted-foreground">
             <li className="flex items-start gap-2">
               <span className="font-bold text-primary">1.</span>
@@ -58,35 +92,71 @@ function InstallGuideModal({
               </span>
             </li>
           </ol>
-        ) : (
+        ) : isDesktop ? (
           <ol className="mt-3 space-y-2.5 text-sm text-muted-foreground">
             <li className="flex items-start gap-2">
               <span className="font-bold text-primary">1.</span>
               <span>
-                Tap the{" "}
-                <strong className="inline-flex items-center gap-0.5 text-foreground">
-                  <MoreVertical className="h-3.5 w-3.5" /> menu
-                </strong>{" "}
-                icon at the top-right corner of your browser.
+                Open this site in <strong className="text-foreground">Google Chrome</strong> or{" "}
+                <strong className="text-foreground">Microsoft Edge</strong>.
               </span>
             </li>
             <li className="flex items-start gap-2">
               <span className="font-bold text-primary">2.</span>
               <span>
-                Tap <strong className="text-foreground">Install app</strong> or{" "}
-                <strong className="text-foreground">Add to Home screen</strong>.
+                Click the <strong className="text-foreground">Install</strong> icon on the right side
+                of the address bar, or open the{" "}
+                <strong className="inline-flex items-center gap-0.5 text-foreground">
+                  <MoreVertical className="h-3.5 w-3.5" /> menu
+                </strong>{" "}
+                → <strong className="text-foreground">Install page as app</strong>.
               </span>
             </li>
             <li className="flex items-start gap-2">
               <span className="font-bold text-primary">3.</span>
               <span>
-                Tap <strong className="text-foreground">Install</strong> — the app will open full-screen from your phone menu.
+                If you already installed it on this computer, you can launch it straight from your
+                desktop or Start menu.
+              </span>
+            </li>
+          </ol>
+        ) : (
+          <ol className="mt-3 space-y-2.5 text-sm text-muted-foreground">
+            <li className="flex items-start gap-2">
+              <span className="font-bold text-primary">1.</span>
+              <span>
+                This browser (such as Phoenix or an in-app browser) does not support one-tap app
+                installation.
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="font-bold text-primary">2.</span>
+              <span>
+                For instant installation, open this link in{" "}
+                <strong className="text-foreground">Google Chrome</strong> and tap{" "}
+                <strong className="text-foreground">Install App</strong>.
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="font-bold text-primary">3.</span>
+              <span>
+                Or tap your current browser&apos;s{" "}
+                <strong className="inline-flex items-center gap-0.5 text-foreground">
+                  <MoreVertical className="h-3.5 w-3.5" /> menu
+                </strong>{" "}
+                and look for <strong className="text-foreground">Add to Home screen</strong> or{" "}
+                <strong className="text-foreground">Add shortcut</strong>.
               </span>
             </li>
           </ol>
         )}
-        <Button className="mt-5 w-full rounded-full" onClick={onClose}>
-          Got it
+
+        <Button
+          variant={isInIframe ? "outline" : "default"}
+          className="mt-4 w-full rounded-full"
+          onClick={onClose}
+        >
+          {isInIframe ? "Close" : "Got it"}
         </Button>
       </div>
     </div>
@@ -94,7 +164,7 @@ function InstallGuideModal({
 }
 
 export function PWAInstallButton({ compact = false }: { compact?: boolean }) {
-  const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
+  const { isInstallable, isInstalled, isIOS, isDesktop, isInIframe, install } = usePWAInstall();
   const [showGuide, setShowGuide] = useState(false);
 
   // Only hide when the user is already inside the installed standalone app.
@@ -121,13 +191,20 @@ export function PWAInstallButton({ compact = false }: { compact?: boolean }) {
         <Download className="h-3.5 w-3.5 sm:mr-1.5" />
         <span className={compact ? "hidden sm:inline" : ""}>Install App</span>
       </Button>
-      {showGuide && <InstallGuideModal isIOS={isIOS} onClose={() => setShowGuide(false)} />}
+      {showGuide && (
+        <InstallGuideModal
+          isIOS={isIOS}
+          isDesktop={isDesktop}
+          isInIframe={isInIframe}
+          onClose={() => setShowGuide(false)}
+        />
+      )}
     </>
   );
 }
 
 export function PWAInstallBanner() {
-  const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
+  const { isInstallable, isInstalled, isIOS, isDesktop, isInIframe, install } = usePWAInstall();
   const [dismissed, setDismissed] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
 
@@ -148,14 +225,20 @@ export function PWAInstallBanner() {
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand/40 bg-brand/10 p-3.5 shadow-soft sm:px-5">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground shadow-soft">
-              <Smartphone className="h-5 w-5 text-brand" />
+              {isDesktop ? (
+                <Laptop className="h-5 w-5 text-brand" />
+              ) : (
+                <Smartphone className="h-5 w-5 text-brand" />
+              )}
             </div>
             <div>
               <p className="font-display text-sm font-bold text-primary">
                 Install CGCC Cafeteria Express App
               </p>
               <p className="text-xs text-muted-foreground">
-                Add to your phone home screen for one-tap online pre-ordering.
+                {isDesktop
+                  ? "Install on your computer for fast, one-click online pre-ordering."
+                  : "Add to your phone home screen for one-tap online pre-ordering."}
               </p>
             </div>
           </div>
@@ -182,7 +265,14 @@ export function PWAInstallBanner() {
           </div>
         </div>
       </div>
-      {showGuide && <InstallGuideModal isIOS={isIOS} onClose={() => setShowGuide(false)} />}
+      {showGuide && (
+        <InstallGuideModal
+          isIOS={isIOS}
+          isDesktop={isDesktop}
+          isInIframe={isInIframe}
+          onClose={() => setShowGuide(false)}
+        />
+      )}
     </>
   );
 }
