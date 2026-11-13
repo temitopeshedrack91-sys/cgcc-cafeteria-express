@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { Logo } from "@/components/Logo";
+import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import { Button } from "@/components/ui/button";
 import { CATEGORIES } from "@/lib/menu-data";
 import { useStore } from "@/lib/store";
@@ -34,6 +35,9 @@ export const Route = createFileRoute("/")({
 });
 
 const CATEGORY_EMOJI: Record<string, string> = {
+  Food: "🍚",
+  Snacks: "🥟",
+  Sweets: "🍨",
   Meals: "🍚",
   Proteins: "🍗",
   "Soups & Sides": "🥘",
@@ -82,6 +86,7 @@ function LandingPage() {
 
   return (
     <div>
+      <PWAInstallBanner />
       {(settings.maintenanceMessage || settings.announcement) && (
         <section className="mx-auto max-w-5xl space-y-3 px-4 pt-6">
           {settings.maintenanceMessage && (

@@ -42,15 +42,15 @@ export async function upsertProduct(input: {
   available?: boolean;
 }) {
   const { data, error } = await supabase.rpc("upsert_menu_item", {
-    _id: (input.id ?? undefined) as any,
+    _id: (input.id ?? null) as any,
     _name: input.name,
-    _category_id: (input.category_id ?? undefined) as any,
+    _category_id: (input.category_id ?? null) as any,
     _price: input.price,
     _vendor_type: input.vendor_type,
-    _description: (input.description ?? undefined) as any,
-    _image_url: (input.image_url ?? undefined) as any,
+    _description: (input.description ?? null) as any,
+    _image_url: (input.image_url ?? null) as any,
     _available: input.available ?? true,
-    _cost_price: (input.cost_price ?? undefined) as any,
+    _cost_price: (input.cost_price ?? null) as any,
   });
   if (error) throw error;
   return data as any;
@@ -108,9 +108,11 @@ export async function bulkUpdateProducts(ids: string[], action: BulkAction, valu
 }
 
 export async function bulkMoveProducts(ids: string[], vendorType?: string, categoryId?: string) {
-  const args: any = { _ids: ids };
-  if (vendorType) args._vendor_type = vendorType;
-  if (categoryId) args._category_id = categoryId;
+  const args: any = {
+    _ids: ids,
+    _vendor_type: vendorType ?? null,
+    _category_id: categoryId ?? null,
+  };
   const { data, error } = await supabase.rpc("bulk_move_products" as any, args);
   if (error) throw error;
   return data as any;
@@ -134,9 +136,11 @@ export async function listCategories(includeArchived = true): Promise<CategoryRo
 }
 
 export async function upsertCategory(input: { id?: string; name: string; sort_order?: number }) {
-  const args: any = { _name: input.name };
-  if (input.id) args._id = input.id;
-  if (input.sort_order !== undefined) args._sort_order = input.sort_order;
+  const args: any = {
+    _id: input.id ?? null,
+    _name: input.name,
+    _sort_order: input.sort_order ?? null,
+  };
   const { data, error } = await supabase.rpc("upsert_category" as any, args);
   if (error) throw error;
   return data as any;

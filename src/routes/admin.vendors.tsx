@@ -289,7 +289,6 @@ function VendorManagement() {
                 {([
                   ['can_increase_stock', 'Increase stock'],
                   ['can_reduce_stock', 'Reduce stock'],
-                  ['can_reallocate_stock', 'Reallocate stock'],
                   ['can_update_preparation', 'Update preparation status'],
                 ] as const).map(([permission, title]) => (
                   <div key={permission} className="col-span-2 flex items-center justify-between gap-3 border-t border-border py-2">

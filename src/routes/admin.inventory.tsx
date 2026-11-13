@@ -10,7 +10,7 @@ import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/inventory")({
-  head: () => ({ meta: [...pageMeta("Inventory · CGCC Admin", "Manage CGCC online and walk-in stock allocations."), { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [...pageMeta("Inventory · CGCC Admin", "Manage CGCC online pre-order stock and low-stock thresholds."), { name: "robots", content: "noindex" }] }),
   component: () => (
     <AdminGuard>
       <AdminShell>

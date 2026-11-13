@@ -202,8 +202,27 @@ function GeneralSettings() {
         <Field label="Closing Time">
           <Input type="time" {...bind("closingTime")} />
         </Field>
-        <Field label="Pickup Time Interval (minutes)">
-          <Input type="number" min={5} step={5} {...bindNumber("pickupIntervalMinutes")} />
+        <Field
+          label="Pickup Time Interval (minutes)"
+          hint="Spacing between scheduled slots (e.g. 15 or 20 mins). Customers can also choose 'Pick up now'."
+        >
+          <div className="space-y-2">
+            <Input type="number" min={5} step={5} {...bindNumber("pickupIntervalMinutes")} />
+            <div className="flex flex-wrap gap-1.5">
+              {[10, 15, 20, 30].map((mins) => (
+                <Button
+                  key={mins}
+                  type="button"
+                  size="sm"
+                  variant={cfg.pickupIntervalMinutes === mins ? "default" : "outline"}
+                  className="h-7 rounded-full px-2.5 text-xs"
+                  onClick={() => setCfg((c) => ({ ...c, pickupIntervalMinutes: mins }))}
+                >
+                  {mins} min
+                </Button>
+              ))}
+            </div>
+          </div>
         </Field>
         <Field label="Maximum Pickup Time (minutes ahead)">
           <Input type="number" min={15} step={15} {...bindNumber("maxPickupMinutes")} />
@@ -247,9 +266,9 @@ const ROLES: { role: string; can: string[]; never: string[] }[] = [
   {
     role: "Administrator",
     can: [
-      "Manage products, categories, vendors and cashiers",
+      "Manage products, categories and vendor accounts",
       "Manage payment settings and the payment gateway",
-      "Manage users, reports and inventory",
+      "Manage users, reports and online inventory",
       "Delete, archive and restore orders",
       "Configure system settings and security",
     ],
@@ -258,7 +277,7 @@ const ROLES: { role: string; can: string[]; never: string[] }[] = [
   {
     role: "Vendor",
     can: [
-      "Manage inventory: add, reduce and move stock between Walk-in and Online",
+      "Manage online pre-order inventory: increase or reduce stock",
       "Accept orders and change status: Received → Preparing → Ready → Collected",
       "Receive new-order notifications",
       "View their own vendor reports",
@@ -273,27 +292,10 @@ const ROLES: { role: string; can: string[]; never: string[] }[] = [
     ],
   },
   {
-    role: "Cashier",
-    can: [
-      "Process walk-in sales",
-      "Print, reprint and view receipts",
-      "Close daily sales",
-      "View only their own sales",
-    ],
-    never: [
-      "Change prices",
-      "Add, edit or delete products",
-      "Modify inventory",
-      "Modify payment settings",
-      "Access system settings",
-      "Delete orders",
-    ],
-  },
-  {
     role: "Customer",
     can: [
-      "Browse the menu and place orders",
-      "Choose a pickup time",
+      "Browse the menu and place online pre-orders",
+      "Choose Pick up now or a scheduled pickup slot",
       "Make payment and track the order",
       "View order history and download receipts",
     ],

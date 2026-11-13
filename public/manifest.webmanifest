@@ -1,1 +1,32 @@
-{"name": "CGCC Cafeteria Express", "short_name": "CGCC Express", "description": "Pre-order your meals before arriving at the CGCC Cafeteria. Skip the queue. Enjoy more time.", "id": "/", "start_url": "/", "scope": "/", "display": "standalone", "orientation": "portrait", "background_color": "#211f1c", "theme_color": "#211f1c", "icons": [{"src": "/pwa-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}, {"src": "/pwa-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}]}
+{
+  "id": "/",
+  "name": "CGCC Cafeteria Express",
+  "short_name": "CGCC Express",
+  "description": "Pre-order your meals before arriving at the CGCC Cafeteria. Skip the queue. Enjoy more time.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#211f1c",
+  "theme_color": "#211f1c",
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

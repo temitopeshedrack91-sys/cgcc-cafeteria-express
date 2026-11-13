@@ -47,6 +47,7 @@ import {
   type ProductRow,
 } from "@/lib/admin-ops";
 import { formatNaira } from "@/lib/store";
+import { CUSTOMER_CATEGORIES, customerCategory } from "@/lib/customer-categories";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/products")({
@@ -185,8 +186,8 @@ function ProductsTab({
       if (tab === "archived" && !r.archived_at) return false;
       if (vendorFilter && r.vendor_type !== vendorFilter) return false;
       if (catFilter && r.category_id !== catFilter) return false;
-      if (statusFilter === "available" && !(r.available && r.stock_qty > 0)) return false;
-      if (statusFilter === "soldout" && r.available && r.stock_qty > 0) return false;
+      if (statusFilter === "available" && !(r.available && r.stock_online > 0)) return false;
+      if (statusFilter === "soldout" && r.available && r.stock_online > 0) return false;
       if (statusFilter === "disabled" && r.available) return false;
       if (s && !r.name.toLowerCase().includes(s)) return false;
       return true;
@@ -194,7 +195,7 @@ function ProductsTab({
     const dir = sortAsc ? 1 : -1;
     return out.sort((a, b) => {
       if (sortKey === "price") return (a.price - b.price) * dir;
-      if (sortKey === "stock") return (a.stock_qty - b.stock_qty) * dir;
+      if (sortKey === "stock") return (a.stock_online - b.stock_online) * dir;
       if (sortKey === "vendor") return (a.vendor_type ?? "").localeCompare(b.vendor_type ?? "") * dir;
       return a.name.localeCompare(b.name) * dir;
     });
@@ -570,14 +571,15 @@ function ProductsTab({
             ))}
           </select>
           <select
-            className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+            className="h-8 rounded-md border border-primary/40 bg-background px-2 text-xs font-medium"
+            aria-label="Move selected products to category"
             value=""
             onChange={(e) => e.target.value && void doBulkMove(undefined, e.target.value)}
           >
             <option value="">Move to category…</option>
             {activeCats.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name}
+                {c.name} (Customer: {customerCategory(c.name)})
               </option>
             ))}
           </select>
@@ -585,7 +587,11 @@ function ProductsTab({
             Clear
           </Button>
         </div>
-      ) : null}
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Tip: Filter by a category and tick product checkboxes (or the top-left checkbox to select all) to bulk-move items into another category or adjust prices.
+        </p>
+      )}
 
       <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-soft">
         <table className="w-full min-w-[900px] text-sm">
@@ -598,7 +604,7 @@ function ProductsTab({
               <th className="px-3 py-2 text-left">Vendor</th>
               <th className="px-3 py-2 text-right">Price</th>
               <th className="px-3 py-2 text-right">Cost</th>
-              <th className="px-3 py-2 text-center">Stock</th>
+              <th className="px-3 py-2 text-center">Online Stock</th>
               <th className="px-3 py-2 text-center">Status</th>
               <th className="px-3 py-2 text-right">Actions</th>
             </tr>
@@ -634,25 +640,27 @@ function ProductsTab({
                       ) : null}
                       <div>
                         <div className="font-semibold">{p.name}</div>
-                        <div className="text-[10px] uppercase text-muted-foreground">{catName(p.category_id)}</div>
+                        <div className="text-[10px] uppercase text-muted-foreground">
+                          {catName(p.category_id)}
+                          {p.category_id && customerCategory(catName(p.category_id)) !== catName(p.category_id)
+                            ? ` → Customer: ${customerCategory(catName(p.category_id))}`
+                            : ""}
+                        </div>
                       </div>
                     </div>
                   </td>
                   <td className="px-3 py-2 text-xs uppercase">{p.vendor_type}</td>
                   <td className="px-3 py-2 text-right font-semibold">{formatNaira(p.price)}</td>
                   <td className="px-3 py-2 text-right text-muted-foreground">{formatNaira(p.cost_price ?? 0)}</td>
-                  <td className="px-3 py-2 text-center">
-                    <div>{p.stock_qty}</div>
-                    <div className="text-[10px] text-muted-foreground">
-                      on {p.stock_online} · walk {p.stock_walkin}
-                    </div>
+                  <td className="px-3 py-2 text-center font-medium tabular-nums">
+                    {p.stock_online}
                   </td>
                   <td className="px-3 py-2 text-center">
                     {p.archived_at ? (
                       <span className="rounded-full border border-muted-foreground/40 bg-muted px-2 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
                         Archived
                       </span>
-                    ) : p.available && p.stock_qty > 0 ? (
+                    ) : p.available && p.stock_online > 0 ? (
                       <span className="rounded-full border border-emerald-300 bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-900">
                         Available
                       </span>
@@ -953,6 +961,14 @@ function CategoriesTab({
 
   return (
     <>
+      <div className="rounded-2xl border border-border bg-muted/40 p-3.5 text-xs text-muted-foreground">
+        <p className="font-semibold text-foreground">How Admin categories match the Customer menu</p>
+        <p className="mt-1 leading-relaxed">
+          Customers browse 5 simplified menu groups ({CUSTOMER_CATEGORIES.join(", ")}), while Admin categories below keep kitchen sub-sections organized.
+          Any <span className="font-medium text-foreground">new category</span> you create here (for example <span className="italic">Smoothies</span>) automatically appears on the customer menu once at least one active product is moved into it.
+        </p>
+      </div>
+
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-3 shadow-soft">
         <Input
           className="w-56"
@@ -974,10 +990,11 @@ function CategoriesTab({
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-soft">
-        <table className="w-full min-w-[620px] text-sm">
+        <table className="w-full min-w-[700px] text-sm">
           <thead className="bg-muted/60 text-xs uppercase text-muted-foreground">
             <tr>
-              <th className="px-3 py-2 text-left">Category</th>
+              <th className="px-3 py-2 text-left">Admin Category</th>
+              <th className="px-3 py-2 text-left">Customer View</th>
               <th className="px-3 py-2 text-center">Products</th>
               <th className="px-3 py-2 text-center">Status</th>
               <th className="px-3 py-2 text-right">Order</th>
@@ -987,13 +1004,13 @@ function CategoriesTab({
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={5} className="p-6 text-center text-muted-foreground">
+                <td colSpan={6} className="p-6 text-center text-muted-foreground">
                   Loading…
                 </td>
               </tr>
             ) : cats.length === 0 ? (
               <tr>
-                <td colSpan={5} className="p-6 text-center text-muted-foreground">
+                <td colSpan={6} className="p-6 text-center text-muted-foreground">
                   No categories yet.
                 </td>
               </tr>
@@ -1001,6 +1018,11 @@ function CategoriesTab({
               cats.map((c, i) => (
                 <tr key={c.id} className="border-t border-border">
                   <td className="px-3 py-2 font-semibold">{c.name}</td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                    <span className="rounded-md border border-border bg-muted/50 px-2 py-0.5 font-medium text-foreground">
+                      {customerCategory(c.name)}
+                    </span>
+                  </td>
                   <td className="px-3 py-2 text-center">{counts.get(c.id) ?? 0}</td>
                   <td className="px-3 py-2 text-center">
                     {c.archived_at ? (

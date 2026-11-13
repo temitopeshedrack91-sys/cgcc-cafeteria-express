@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { AppFooter, AppHeader } from "@/components/AppShell";
+import { OfflineIndicator } from "@/components/PWAInstallBanner";
 
 function NotFoundComponent() {
   return (
@@ -88,6 +89,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content: "Pre-order your meals before arriving at the CGCC Cafeteria. Make payment, receive your order code and pick up without waiting in line.",
       },
       { property: "og:type", content: "website" },
+      { name: "theme-color", content: "#211f1c" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "apple-mobile-web-app-title", content: "CGCC Express" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "CGCC Cafeteria Express — Skip the Queue. Enjoy More Time." },
       { name: "twitter:description", content: "Pre-order your meals before arriving at the CGCC Cafeteria. Make payment, receive your order code and pick up without waiting in line." },
@@ -110,7 +116,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", type: "image/png", href: "/favicon.png" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "manifest", href: "/manifest.webmanifest" },
-      { name: "theme-color", content: "#211f1c" },
     ],
   }),
   shellComponent: RootShell,
@@ -136,6 +141,13 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch((err) => {
+      console.warn("[pwa] service worker registration failed", err);
+    });
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <div className="flex min-h-screen flex-col">
@@ -145,6 +157,7 @@ function RootComponent() {
         </main>
         <AppFooter />
       </div>
+      <OfflineIndicator />
       <Toaster position="top-center" richColors />
     </QueryClientProvider>
   );

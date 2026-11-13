@@ -2,6 +2,7 @@ import { pageMeta } from "@/lib/page-meta";
 import { useSystemSettings } from "@/lib/settings";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { Clock, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +17,15 @@ import {
 } from "@/components/ui/select";
 import { cartTotal, formatNaira, useStore } from "@/lib/store";
 import { DEFAULT_MENU } from "@/lib/menu-data";
-import { buildPickupSlots, isPickupSlotValid } from "@/lib/pickup-times";
+import {
+  PICKUP_CLOSING_HOUR,
+  PICKUP_INTERVAL_MINUTES,
+  PICKUP_NOW_VALUE,
+  PICKUP_OPENING_HOUR,
+  buildPickupSlots,
+  formatClockTime,
+  isPickupSlotValid,
+} from "@/lib/pickup-times";
 import {
   clearCustomerProfile,
   loadCustomerProfile,
@@ -44,7 +53,7 @@ const schema = z.object({
 const TAKEAWAY_PACK_ID = "e1";
 
 function CheckoutPage() {
-  useSystemSettings();
+  const settings = useSystemSettings();
   const navigate = useNavigate();
   const cart = useStore((s) => s.cart);
   const menu = useStore((s) => s.menu);
@@ -57,7 +66,14 @@ function CheckoutPage() {
   const [pickupTime, setPickupTime] = useState<string>("");
   const [suggest, setSuggest] = useState(false);
 
-  const slots = useMemo(() => buildPickupSlots(), []);
+  const slots = useMemo(
+    () => buildPickupSlots(new Date(), settings),
+    [settings],
+  );
+  const intervalMins =
+    settings.pickupIntervalMinutes > 0
+      ? settings.pickupIntervalMinutes
+      : PICKUP_INTERVAL_MINUTES;
 
   // Prefill from remembered profile so returning customers don't retype.
   useEffect(() => {
@@ -72,7 +88,7 @@ function CheckoutPage() {
       toast.error(parsed.error.issues[0]?.message ?? "Invalid form");
       return;
     }
-    if (!isPickupSlotValid(pickupTime)) {
+    if (!isPickupSlotValid(pickupTime, new Date(), settings)) {
       toast.error("That pickup time is no longer available. Please pick another.");
       return;
     }
@@ -158,20 +174,57 @@ function CheckoutPage() {
           <Label htmlFor="pickupTime">
             Pickup time <span className="text-destructive">*</span>
           </Label>
-          <Select value={pickupTime} onValueChange={setPickupTime}>
-            <SelectTrigger id="pickupTime" className="mt-1.5 h-11">
-              <SelectValue placeholder="Choose when you'll collect your order" />
-            </SelectTrigger>
-            <SelectContent className="max-h-72">
-              {slots.map((s) => (
-                <SelectItem key={s.value} value={s.value}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setPickupTime(PICKUP_NOW_VALUE)}
+              className={
+                "flex items-center gap-3 rounded-xl border p-3 text-left transition " +
+                (pickupTime === PICKUP_NOW_VALUE
+                  ? "border-brand bg-brand/15 ring-1 ring-brand"
+                  : "border-border bg-background hover:border-brand/60")
+              }
+            >
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary text-brand">
+                <Zap className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold">Pick up now</p>
+                <p className="text-xs text-muted-foreground">Prepare my order right away</p>
+              </div>
+            </button>
+            <div
+              className={
+                "flex items-center gap-2 rounded-xl border p-2 " +
+                (pickupTime && pickupTime !== PICKUP_NOW_VALUE
+                  ? "border-brand bg-brand/10"
+                  : "border-border bg-background")
+              }
+            >
+              <Clock className="ml-1.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <Select
+                value={pickupTime === PICKUP_NOW_VALUE ? "" : pickupTime}
+                onValueChange={setPickupTime}
+              >
+                <SelectTrigger id="pickupTime" className="h-9 border-0 bg-transparent px-1 shadow-none focus:ring-0">
+                  <SelectValue placeholder="Schedule a time slot…" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  <SelectItem value={PICKUP_NOW_VALUE}>Pick up now (ASAP)</SelectItem>
+                  {slots.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <p className="mt-1.5 text-xs text-muted-foreground">
-            15-minute slots between 8:00 AM and 4:00 PM.
+            Choose <span className="font-medium text-foreground">Pick up now</span> or select a{" "}
+            {intervalMins}-minute slot between{" "}
+            {formatClockTime(settings.openingTime, PICKUP_OPENING_HOUR * 60)} and{" "}
+            {formatClockTime(settings.closingTime, PICKUP_CLOSING_HOUR * 60)}.
           </p>
         </div>
         <div>

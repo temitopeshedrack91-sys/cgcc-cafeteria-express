@@ -1,5 +1,5 @@
 import { pageMeta } from "@/lib/page-meta";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -79,6 +79,12 @@ function AdminLogin() {
             {submitting ? "Signing in…" : "Sign in"}
           </Button>
         </form>
+
+        <div className="mt-6 border-t border-border pt-4 text-center">
+          <Link to="/schema-setup" className="text-xs text-muted-foreground hover:text-primary underline">
+            Need to initialize your Supabase database? Click here
+          </Link>
+        </div>
       </div>
     </div>
   );

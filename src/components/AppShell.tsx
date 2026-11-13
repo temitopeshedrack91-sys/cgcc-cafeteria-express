@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ShoppingCart } from "lucide-react";
 import { Logo } from "./Logo";
+import { PWAInstallButton } from "./PWAInstallBanner";
 import { useStore } from "@/lib/store";
 
 export function AppHeader() {
@@ -15,18 +16,21 @@ export function AppHeader() {
         <Link to="/" className="flex items-center gap-2">
           <Logo className="h-9 w-auto" />
         </Link>
-        <Link
-          to="/cart"
-          className="relative inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-soft transition hover:opacity-90"
-          aria-label="Cart"
-        >
-          <ShoppingCart className="h-5 w-5" />
-          {cartCount > 0 && (
-            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold text-brand-foreground shadow">
-              {cartCount}
-            </span>
-          )}
-        </Link>
+        <div className="flex items-center gap-2">
+          <PWAInstallButton />
+          <Link
+            to="/cart"
+            className="relative inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-soft transition hover:opacity-90"
+            aria-label="Cart"
+          >
+            <ShoppingCart className="h-5 w-5" />
+            {cartCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold text-brand-foreground shadow">
+                {cartCount}
+              </span>
+            )}
+          </Link>
+        </div>
       </div>
     </header>
   );
@@ -42,6 +46,11 @@ export function AppFooter() {
         <p className="mt-1 text-primary-foreground/60">
           © {new Date().getFullYear()} The Citadel Global Community Church
         </p>
+        <div className="mt-3">
+          <Link to="/schema-setup" className="text-xs text-brand/90 hover:underline">
+            Database Setup SQL Script
+          </Link>
+        </div>
       </div>
     </footer>
   );
