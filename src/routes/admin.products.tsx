@@ -47,7 +47,8 @@ import {
   type ProductRow,
 } from "@/lib/admin-ops";
 import { formatNaira } from "@/lib/store";
-import { CUSTOMER_CATEGORIES, customerCategory } from "@/lib/customer-categories";
+import { useSystemSettings } from "@/lib/settings";
+import { customerCategory } from "@/lib/customer-categories";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/products")({
@@ -215,6 +216,13 @@ function ProductsTab({
     setSelected(allSelected ? new Set() : new Set(filtered.map((r) => r.id)));
   }
 
+  const settings = useSystemSettings();
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const vendorPayoutRate = (vt: string) => {
+    const key = vt as keyof typeof settings.payoutPercents;
+    return settings.payoutPercents[key] ?? settings.defaultVendorPayoutPercent ?? 85;
+  };
+
   function openCreate() {
     setForm({ ...empty, category_id: activeCats[0]?.id ?? "" });
     setDialogOpen(true);
@@ -255,7 +263,11 @@ function ProductsTab({
 
   async function save() {
     const price = parseInt(form.price, 10);
-    const costPrice = form.cost_price.trim() === "" ? 0 : parseInt(form.cost_price, 10);
+    const rate = vendorPayoutRate(form.vendor_type);
+    const costPrice =
+      form.cost_price.trim() === ""
+        ? round2((price * rate) / 100)
+        : round2(parseFloat(form.cost_price));
     if (!form.name.trim() || !Number.isFinite(price) || price < 0 || !Number.isFinite(costPrice) || costPrice < 0) {
       toast.error("Name and valid prices required");
       return;
@@ -357,17 +369,18 @@ function ProductsTab({
         errors.push(`Row ${line}: ${name} — selling price is missing or invalid`);
         return;
       }
-      const costRaw = pick(raw, "Cost Price", "Cost", "cost_price").replace(/[^0-9]/g, "");
-      const costPrice = costRaw === "" ? 0 : parseInt(costRaw, 10);
+      const costRaw = pick(raw, "Cost Price", "Cost", "cost_price").replace(/[^0-9.]/g, "");
       const vendorRaw = pick(raw, "Vendor", "vendor_type", "vendor").toLowerCase();
       const vendorType = (["food", "snacks", "coffee", "drinks"] as const).find((v) => v === vendorRaw) ?? "food";
+      const rate = vendorPayoutRate(vendorType);
+      const costPrice = costRaw === "" ? round2((price * rate) / 100) : round2(parseFloat(costRaw));
       const catRaw = pick(raw, "Category", "category").toLowerCase();
       const categoryId = catRaw ? catByName.get(catRaw) ?? null : null;
       if (catRaw && !categoryId) errors.push(`Row ${line}: ${name} — category "${pick(raw, "Category", "category")}" not found (will be left uncategorised)`);
       rows.push({
         name,
         price,
-        cost_price: Number.isFinite(costPrice) && costPrice >= 0 ? costPrice : 0,
+        cost_price: Number.isFinite(costPrice) && costPrice >= 0 ? costPrice : round2((price * rate) / 100),
         category_id: categoryId,
         vendor_type: vendorType,
         description: pick(raw, "Description", "description"),
@@ -432,8 +445,8 @@ function ProductsTab({
     const wb = XLSX.utils.book_new();
     const header = ["Product Name", "Selling Price", "Cost Price", "Category", "Vendor", "Description", "Available"];
     const sample = [
-      ["Jollof Rice", 600, 250, "Meals", "food", "Party-style jollof rice", "yes"],
-      ["Grilled Chicken", 1500, 900, "Proteins", "snacks", "", "yes"],
+      ["Jollof Rice", 600, 510, "Food", "food", "Party-style jollof rice", "yes"],
+      ["Tom Tom", 100, 85, "Sweets", "food", "Candy mint", "yes"],
     ];
     const sheet = XLSX.utils.aoa_to_sheet([header, ...sample]);
     sheet["!cols"] = header.map((h) => ({ wch: Math.max(12, h.length + 4) }));
@@ -579,10 +592,44 @@ function ProductsTab({
             <option value="">Move to category…</option>
             {activeCats.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name} (Customer: {customerCategory(c.name)})
+                {c.name}
               </option>
             ))}
           </select>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              const ids = [...selected];
+              if (ids.length === 0) return;
+              try {
+                for (const id of ids) {
+                  const row = rows.find((r) => r.id === id);
+                  if (!row) continue;
+                  const rate = vendorPayoutRate(row.vendor_type ?? "food");
+                  const newCost = round2((row.price * rate) / 100);
+                  await upsertProduct({
+                    id: row.id,
+                    name: row.name,
+                    category_id: row.category_id,
+                    price: row.price,
+                    cost_price: newCost,
+                    vendor_type: row.vendor_type ?? "food",
+                    description: row.description,
+                    image_url: row.image_url,
+                    available: row.available,
+                  });
+                }
+                toast.success(`Updated cost prices for ${ids.length} product(s)`);
+                setSelected(new Set());
+                await reload();
+              } catch (e: any) {
+                toast.error(e.message ?? "Could not recalculate cost prices");
+              }
+            }}
+          >
+            Auto-Calc Cost ({settings.defaultVendorPayoutPercent ?? 85}%)
+          </Button>
           <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
             Clear
           </Button>
@@ -737,17 +784,41 @@ function ProductsTab({
                   type="number"
                   min={0}
                   value={form.price}
-                  onChange={(e) => setForm({ ...form, price: e.target.value })}
+                  onChange={(e) => {
+                    const nextPrice = e.target.value;
+                    const pNum = parseFloat(nextPrice);
+                    const rate = vendorPayoutRate(form.vendor_type);
+                    setForm((f) => ({
+                      ...f,
+                      price: nextPrice,
+                      cost_price: !f.id && Number.isFinite(pNum) ? String(round2((pNum * rate) / 100)) : f.cost_price,
+                    }));
+                  }}
                 />
               </div>
               <div>
-                <Label>Cost Price (₦)</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Cost Price (₦)</Label>
+                  <button
+                    type="button"
+                    className="text-[10px] font-semibold text-primary underline"
+                    onClick={() => {
+                      const pNum = parseFloat(form.price);
+                      if (!Number.isFinite(pNum)) return;
+                      const rate = vendorPayoutRate(form.vendor_type);
+                      setForm((f) => ({ ...f, cost_price: String(round2((pNum * rate) / 100)) }));
+                    }}
+                  >
+                    Auto {vendorPayoutRate(form.vendor_type)}%
+                  </button>
+                </div>
                 <Input
                   type="number"
                   min={0}
+                  step="0.01"
                   value={form.cost_price}
                   onChange={(e) => setForm({ ...form, cost_price: e.target.value })}
-                  placeholder="0"
+                  placeholder="Auto 85%"
                 />
               </div>
               <div>
@@ -962,10 +1033,9 @@ function CategoriesTab({
   return (
     <>
       <div className="rounded-2xl border border-border bg-muted/40 p-3.5 text-xs text-muted-foreground">
-        <p className="font-semibold text-foreground">How Admin categories match the Customer menu</p>
+        <p className="font-semibold text-foreground">Categories match the Customer menu 1:1</p>
         <p className="mt-1 leading-relaxed">
-          Customers browse 5 simplified menu groups ({CUSTOMER_CATEGORIES.join(", ")}), while Admin categories below keep kitchen sub-sections organized.
-          Any <span className="font-medium text-foreground">new category</span> you create here (for example <span className="italic">Smoothies</span>) automatically appears on the customer menu once at least one active product is moved into it.
+          Your 5 core categories (<span className="font-medium text-foreground">Food, Snacks, Coffee &amp; Tea, Drinks, Sweets</span>) and any new category you create here appear directly on the Customer menu. Move products between categories anytime from the Products tab using checkboxes.
         </p>
       </div>
 

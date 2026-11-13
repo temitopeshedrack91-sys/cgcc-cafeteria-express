@@ -1,20 +1,25 @@
 import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, Loader2, Save } from "lucide-react";
+import { CalendarDays, Loader2, RotateCcw, Save } from "lucide-react";
 import { AdminGuard, AdminShell } from "@/components/AdminShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fetchCostPrices } from "@/lib/admin-ops";
-import { loadSettings, saveSettings, useSystemSettings } from "@/lib/settings";
+import { saveSettings, useSystemSettings } from "@/lib/settings";
 import { formatNaira, useStore, type Order } from "@/lib/store";
 import { computeReport, VENDOR_LABELS, type ReportOrder, type ReportVendor } from "@/lib/reports";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/payouts")({
-  head: () => ({ meta: [...pageMeta("Vendor Payouts · CGCC Admin", "Configure payout rates and record daily payout snapshots."), { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [
+      ...pageMeta("Vendor Payouts · CGCC Admin", "Configure payout rates and record daily payout snapshots."),
+      { name: "robots", content: "noindex" },
+    ],
+  }),
   component: () => (
     <AdminGuard>
       <AdminShell>
@@ -25,6 +30,7 @@ export const Route = createFileRoute("/admin/payouts")({
 });
 
 const VENDOR_TYPES: ReportVendor[] = ["food", "snacks", "coffee", "drinks"];
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 type SnapshotRow = {
   id: string;
@@ -33,7 +39,7 @@ type SnapshotRow = {
   orders_count: number;
   items_count: number;
   gross_revenue: number;
-  cost_total: number;
+  cost_total: number | string;
   commission_percent: string | number;
   payout_amount: number;
   updated_at: string;
@@ -107,21 +113,41 @@ function PayoutsPage() {
   const perVendor = useMemo(
     () =>
       VENDOR_TYPES.map((v) => {
-        const report = computeReport({ orders: reportOrders, scope: v, from: dayStart, to: dayEnd, rangeLabel: day });
-        // Cost of goods for the scoped items in the day's orders.
+        const report = computeReport({
+          orders: reportOrders,
+          scope: v,
+          from: dayStart,
+          to: dayEnd,
+          rangeLabel: day,
+        });
+        const rate = rates[v] ?? settings.defaultVendorPayoutPercent ?? 85;
         let costTotal = 0;
+        let activeRevenue = 0;
         for (const o of report.orders) {
+          if (o.pickupStatus === "cancelled") continue;
           for (const it of o.items) {
-            if (it.preparationStatus !== undefined && o.pickupStatus === "cancelled") continue;
-            const c = costs.get(it.productId ?? "") ?? 0;
-            costTotal += c * it.qty;
+            const c = costs.get(it.productId ?? "");
+            const unitCost = c !== undefined && c > 0 ? c : round2((it.price * rate) / 100);
+            costTotal += unitCost * it.qty;
+            activeRevenue += it.price * it.qty;
           }
         }
-        const rate = rates[v] ?? 100;
-        const payout = Math.round((report.revenue * rate) / 100);
-        return { vendor: v, report, costTotal, rate, payout };
+        costTotal = round2(costTotal);
+        const gross = activeRevenue || report.revenue;
+        const payout = round2((gross * rate) / 100);
+        const churchCharge = round2(gross - payout);
+        return {
+          vendor: v,
+          report,
+          gross,
+          costTotal,
+          rate,
+          chargePercent: round2(100 - rate),
+          churchCharge,
+          payout,
+        };
       }),
-    [reportOrders, dayStart, dayEnd, day, costs, rates],
+    [reportOrders, dayStart, dayEnd, day, costs, rates, settings.defaultVendorPayoutPercent],
   );
 
   async function saveRates() {
@@ -135,7 +161,7 @@ function PayoutsPage() {
     setSavingRates(true);
     try {
       await saveSettings({ ...settings, payoutPercents: { ...rates } });
-      toast.success("Payout rates saved");
+      toast.success("Vendor payout & CGCC service charge rates saved");
     } catch (e: any) {
       toast.error(e.message ?? "Save failed");
     } finally {
@@ -153,10 +179,10 @@ function PayoutsPage() {
         _business_day: day,
         _orders_count: entry.report.ordersReceived,
         _items_count: entry.report.itemsSold,
-        _gross_revenue: entry.report.revenue,
-        _cost_total: entry.costTotal,
-        _commission_percent: 100 - entry.rate,
-        _payout_amount: entry.payout,
+        _gross_revenue: Math.round(entry.gross),
+        _cost_total: Math.round(entry.costTotal),
+        _commission_percent: entry.chargePercent,
+        _payout_amount: Math.round(entry.payout),
       });
       if (error) throw error;
       toast.success(`${VENDOR_LABELS[vendor]} snapshot saved for ${day}`);
@@ -171,35 +197,58 @@ function PayoutsPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-bold">Vendor Payouts</h1>
+        <h1 className="font-display text-2xl font-bold">Vendor Payouts & Service Charge</h1>
         <p className="text-sm text-muted-foreground">
-          Set how much of each vendor's sales goes back to the vendor, then record daily payout
-          snapshots for your records. Nothing is paid automatically — this is your calculation and history.
+          Configure how much of each vendor&apos;s sales goes to the vendor (default 85%) vs CGCC service charge (default 15%), then record daily reconciliation snapshots.
         </p>
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
-        <h2 className="font-display text-lg font-semibold">Payout rates</h2>
-        <p className="mb-3 text-xs text-muted-foreground">Percentage of each vendor's sales that is paid to the vendor.</p>
-        <div className="grid gap-3 sm:grid-cols-4">
-          {VENDOR_TYPES.map((v) => (
-            <div key={v}>
-              <Label className="text-xs">{VENDOR_LABELS[v]}</Label>
-              <div className="mt-1 flex items-center gap-1">
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={rates[v]}
-                  onChange={(e) => setRates({ ...rates, [v]: Number(e.target.value) })}
-                  className="w-24"
-                />
-                <span className="text-sm text-muted-foreground">%</span>
-              </div>
-            </div>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="font-display text-lg font-semibold">Payout & Service Charge Rates</h2>
+            <p className="text-xs text-muted-foreground">
+              Vendor receives the payout % below; CGCC retains the remaining service charge %.
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setRates({ food: 85, snacks: 85, coffee: 85, drinks: 85 })}
+          >
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Preset 85% / 15%
+          </Button>
         </div>
-        <Button className="mt-3" onClick={() => void saveRates()} disabled={savingRates}>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-4">
+          {VENDOR_TYPES.map((v) => {
+            const vendorRate = Number(rates[v] ?? 85);
+            const churchRate = Math.max(0, round2(100 - vendorRate));
+            return (
+              <div key={v} className="rounded-xl border border-border bg-muted/30 p-3">
+                <Label className="text-xs font-semibold">{VENDOR_LABELS[v]}</Label>
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.5"
+                    value={rates[v]}
+                    onChange={(e) => setRates({ ...rates, [v]: Number(e.target.value) })}
+                    className="h-9 w-24 bg-background"
+                  />
+                  <span className="text-xs font-medium text-muted-foreground">% to vendor</span>
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  CGCC service charge: <span className="font-semibold text-foreground">{churchRate}%</span>
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        <Button className="mt-4" onClick={() => void saveRates()} disabled={savingRates}>
           {savingRates ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
           Save rates
         </Button>
@@ -214,16 +263,17 @@ function PayoutsPage() {
           </div>
         </div>
         <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full min-w-[800px] text-sm">
             <thead className="bg-muted/60 text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left">Vendor</th>
                 <th className="px-3 py-2 text-right">Orders</th>
                 <th className="px-3 py-2 text-right">Items</th>
-                <th className="px-3 py-2 text-right">Sales</th>
-                <th className="px-3 py-2 text-right">Goods cost</th>
+                <th className="px-3 py-2 text-right">Selling Total</th>
+                <th className="px-3 py-2 text-right">Cost Sub Total</th>
+                <th className="px-3 py-2 text-right">CGCC Charge</th>
                 <th className="px-3 py-2 text-right">Rate</th>
-                <th className="px-3 py-2 text-right">Payout</th>
+                <th className="px-3 py-2 text-right">Vendor Payout</th>
                 <th className="px-3 py-2 text-right">Snapshot</th>
               </tr>
             </thead>
@@ -233,10 +283,13 @@ function PayoutsPage() {
                   <td className="px-3 py-2 font-semibold">{VENDOR_LABELS[p.vendor]}</td>
                   <td className="px-3 py-2 text-right">{p.report.ordersReceived}</td>
                   <td className="px-3 py-2 text-right">{p.report.itemsSold}</td>
-                  <td className="px-3 py-2 text-right">{formatNaira(p.report.revenue)}</td>
+                  <td className="px-3 py-2 text-right">{formatNaira(p.gross)}</td>
                   <td className="px-3 py-2 text-right text-muted-foreground">{formatNaira(p.costTotal)}</td>
+                  <td className="px-3 py-2 text-right text-muted-foreground">
+                    {formatNaira(p.churchCharge)} ({p.chargePercent}%)
+                  </td>
                   <td className="px-3 py-2 text-right">{p.rate}%</td>
-                  <td className="px-3 py-2 text-right font-semibold">{formatNaira(p.payout)}</td>
+                  <td className="px-3 py-2 text-right font-semibold text-primary">{formatNaira(p.payout)}</td>
                   <td className="px-3 py-2 text-right">
                     <Button size="sm" variant="outline" onClick={() => void record(p.vendor)} disabled={recording !== null}>
                       {recording === p.vendor ? <Loader2 className="h-3 w-3 animate-spin" /> : "Record"}
@@ -269,7 +322,8 @@ function PayoutsPage() {
                   <th className="px-3 py-2 text-left">Vendor</th>
                   <th className="px-3 py-2 text-right">Orders</th>
                   <th className="px-3 py-2 text-right">Sales</th>
-                  <th className="px-3 py-2 text-right">Rate</th>
+                  <th className="px-3 py-2 text-right">Vendor Rate</th>
+                  <th className="px-3 py-2 text-right">CGCC Charge</th>
                   <th className="px-3 py-2 text-right">Payout</th>
                   <th className="px-3 py-2 text-right">Saved</th>
                 </tr>
@@ -281,7 +335,8 @@ function PayoutsPage() {
                     <td className="px-3 py-2">{VENDOR_LABELS[s.vendor_type as ReportVendor] ?? s.vendor_type}</td>
                     <td className="px-3 py-2 text-right">{s.orders_count}</td>
                     <td className="px-3 py-2 text-right">{formatNaira(s.gross_revenue)}</td>
-                    <td className="px-3 py-2 text-right">{Number(s.commission_percent) ? `${100 - Number(s.commission_percent)}%` : "100%"}</td>
+                    <td className="px-3 py-2 text-right">{`${100 - Number(s.commission_percent)}%`}</td>
+                    <td className="px-3 py-2 text-right text-muted-foreground">{`${Number(s.commission_percent)}%`}</td>
                     <td className="px-3 py-2 text-right font-semibold">{formatNaira(s.payout_amount)}</td>
                     <td className="px-3 py-2 text-right text-xs text-muted-foreground">
                       {new Date(s.updated_at).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })}

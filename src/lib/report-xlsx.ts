@@ -2,8 +2,11 @@ import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import type { Report } from "./reports";
 import { VENDOR_LABELS, formatDateTime } from "./reports";
+import { currentSettings, loadSettings } from "./settings";
 
-/** Cost prices keyed by product id. Export shows 0 for unknown products. */
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** Cost prices keyed by product id. */
 async function loadCostPrices(): Promise<Map<string, number>> {
   try {
     const { data, error } = await supabase.from("menu_items").select("id, cost_price");
@@ -16,6 +19,51 @@ async function loadCostPrices(): Promise<Map<string, number>> {
 
 export async function downloadReportXlsx(report: Report) {
   const wb = XLSX.utils.book_new();
+  const [costByProduct, settings] = await Promise.all([
+    loadCostPrices(),
+    loadSettings().catch(() => currentSettings()),
+  ]);
+
+  let totalCost = 0;
+  let totalSelling = 0;
+  let id = 0;
+  const itemisedRows: (string | number)[][] = [];
+
+  for (const o of [...report.orders].sort((a, b) => a.createdAt - b.createdAt)) {
+    if (o.pickupStatus === "cancelled") continue;
+    for (const it of o.items) {
+      id += 1;
+      const code = it.productId ?? "";
+      const vKey = (it.vendorType ?? "food") as keyof typeof settings.payoutPercents;
+      const rate = settings.payoutPercents[vKey] ?? settings.defaultVendorPayoutPercent ?? 85;
+      const savedCost = code ? costByProduct.get(code) : undefined;
+      const unitCost =
+        savedCost !== undefined && savedCost > 0
+          ? round2(savedCost)
+          : round2((it.price * rate) / 100);
+      const costSub = round2(unitCost * it.qty);
+      const sellSub = round2(it.price * it.qty);
+      totalCost = round2(totalCost + costSub);
+      totalSelling = round2(totalSelling + sellSub);
+
+      itemisedRows.push([
+        id,
+        formatDateTime(o.createdAt),
+        o.customerName,
+        code,
+        it.name,
+        unitCost,
+        it.price,
+        it.qty,
+        costSub,
+        sellSub,
+        o.code,
+        it.vendorType ?? "",
+      ]);
+    }
+  }
+
+  const serviceChargeTotal = round2(totalSelling - totalCost);
 
   const summary = [
     ["CGCC Cafeteria Express — Sales Report"],
@@ -30,12 +78,14 @@ export async function downloadReportXlsx(report: Report) {
     ["Orders Pending", report.ordersPending],
     ["Cancelled Orders", report.ordersCancelled],
     ["Items Sold", report.itemsSold],
-    ["Revenue (NGN)", report.revenue],
+    ["Selling Total / Gross Revenue (NGN)", totalSelling || report.revenue],
+    ["Vendor Share / Cost Sub Total (NGN)", totalCost],
+    ["CGCC Service Charge Margin (NGN)", serviceChargeTotal],
     ["Collected", report.collected],
     ["Not Collected", report.notCollected],
   ];
   const summarySheet = XLSX.utils.aoa_to_sheet(summary);
-  summarySheet["!cols"] = [{ wch: 26 }, { wch: 30 }];
+  summarySheet["!cols"] = [{ wch: 36 }, { wch: 30 }];
   XLSX.utils.book_append_sheet(wb, summarySheet, "Summary");
 
   const ordersHeader = [
@@ -77,9 +127,6 @@ export async function downloadReportXlsx(report: Report) {
   productSheet["!cols"] = [{ wch: 32 }, { wch: 16 }, { wch: 16 }];
   XLSX.utils.book_append_sheet(wb, productSheet, "Product Summary");
 
-  // Itemised sales sheet — one row per product sold, matching the purchased
-  // workbook format. Cancelled orders are excluded.
-  const costByProduct = await loadCostPrices();
   const itemisedHeader = [
     "ID",
     "Date",
@@ -91,33 +138,31 @@ export async function downloadReportXlsx(report: Report) {
     "Quantity",
     "Cost Sub Total",
     "Selling Sub Total",
+    "Order Code",
+    "Vendor",
   ];
-  let id = 0;
-  const itemisedRows: (string | number)[][] = [];
-  for (const o of [...report.orders].sort((a, b) => a.createdAt - b.createdAt)) {
-    if (o.pickupStatus === "cancelled") continue;
-    for (const it of o.items) {
-      id += 1;
-      const code = it.productId ?? "";
-      const cost = costByProduct.get(code) ?? 0;
-      itemisedRows.push([
-        id,
-        formatDateTime(o.createdAt),
-        o.customerName,
-        code,
-        it.name,
-        cost,
-        it.price,
-        it.qty,
-        cost * it.qty,
-        it.price * it.qty,
-      ]);
-    }
-  }
-  const itemisedSheet = XLSX.utils.aoa_to_sheet([itemisedHeader, ...itemisedRows]);
+  const totalsRow =
+    itemisedRows.length > 0
+      ? [["", "", "", "", "TOTAL", "", "", "", totalCost, totalSelling, "", ""]]
+      : [];
+  const itemisedSheet = XLSX.utils.aoa_to_sheet([
+    itemisedHeader,
+    ...itemisedRows,
+    ...totalsRow,
+  ]);
   itemisedSheet["!cols"] = [
-    { wch: 6 }, { wch: 22 }, { wch: 24 }, { wch: 12 }, { wch: 26 },
-    { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 14 }, { wch: 16 },
+    { wch: 6 },
+    { wch: 24 },
+    { wch: 22 },
+    { wch: 14 },
+    { wch: 26 },
+    { wch: 12 },
+    { wch: 14 },
+    { wch: 10 },
+    { wch: 16 },
+    { wch: 16 },
+    { wch: 14 },
+    { wch: 12 },
   ];
   XLSX.utils.book_append_sheet(wb, itemisedSheet, "Itemised Sales");
 

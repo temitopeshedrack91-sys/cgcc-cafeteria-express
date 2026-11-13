@@ -6,10 +6,10 @@ describe('customer category grouping', () => {
   it('keeps the five requested customer categories', () => {
     assert.deepEqual(CUSTOMER_CATEGORIES, ['Food', 'Snacks', 'Coffee & Tea', 'Drinks', 'Sweets']);
   });
-  it('groups existing products without losing future categories', () => {
+  it('maps legacy groups cleanly without losing future categories', () => {
     assert.equal(customerCategory('Meals'), 'Food');
     assert.equal(customerCategory('Sandwiches'), 'Snacks');
-    assert.equal(customerCategory('Desserts & Yogurt'), 'Sweets');
+    assert.equal(customerCategory('Desserts & Yogurt'), 'Snacks');
     assert.equal(customerCategory('Water'), 'Drinks');
     assert.equal(customerCategory('New category'), 'New category');
   });

@@ -110,7 +110,7 @@ function Dashboard() {
     setClosing(true);
     try {
       const res = await closeBusinessDay();
-      toast.success(`Closed ${res.business_day}: ${res.orders_archived} orders, ${res.cashier_sales_archived} sales archived.`);
+      toast.success(`Closed ${res.business_day}: ${res.orders_archived} online order(s) archived.`);
     } catch (e) {
       console.error(e);
       toast.error(e instanceof Error ? e.message : "Failed to close business day");

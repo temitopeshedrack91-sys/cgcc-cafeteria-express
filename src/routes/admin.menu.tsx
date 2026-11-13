@@ -1,15 +1,20 @@
 import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AdminGuard, AdminShell } from "@/components/AdminShell";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
-import { CATEGORIES, DEFAULT_MENU } from "@/lib/menu-data";
 import { actions, formatNaira, useStore } from "@/lib/store";
+import { CUSTOMER_CATEGORIES } from "@/lib/customer-categories";
 
 export const Route = createFileRoute("/admin/menu")({
-  head: () => ({ meta: [...pageMeta("Menu Management · CGCC Admin", "Manage CGCC menu availability and ordering."), { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [
+      ...pageMeta("Menu Management · CGCC Admin", "Manage CGCC menu availability and ordering."),
+      { name: "robots", content: "noindex" },
+    ],
+  }),
   component: () => (
     <AdminGuard>
       <AdminShell>
@@ -20,9 +25,15 @@ export const Route = createFileRoute("/admin/menu")({
 });
 
 function MenuAdmin() {
+  const menu = useStore((s) => s.menu);
   const menuState = useStore((s) => s.menuState);
   const orderingOpen = useStore((s) => s.orderingOpen);
   const [q, setQ] = useState("");
+
+  const categories = useMemo(
+    () => Array.from(new Set([...CUSTOMER_CATEGORIES, ...menu.map((m) => m.category)])),
+    [menu],
+  );
 
   const filter = (name: string) =>
     !q.trim() || name.toLowerCase().includes(q.trim().toLowerCase());
@@ -32,7 +43,7 @@ function MenuAdmin() {
       <div>
         <h1 className="font-display text-3xl font-bold">Menu Management</h1>
         <p className="text-sm text-muted-foreground">
-          Toggle items as Available or Sold Out. Sold-out items can't be ordered.
+          Toggle items as Available or Sold Out. Sold-out items can&apos;t be ordered online.
         </p>
       </div>
 
@@ -41,7 +52,7 @@ function MenuAdmin() {
           <p className="font-display text-lg font-semibold">Online Ordering</p>
           <p className="text-sm text-muted-foreground">
             {orderingOpen
-              ? "Customers can place orders."
+              ? "Customers can place online pre-orders."
               : "Customers see the closed message on all pages."}
           </p>
         </div>
@@ -67,8 +78,8 @@ function MenuAdmin() {
       </div>
 
       <div className="space-y-6">
-        {CATEGORIES.map((cat) => {
-          const items = DEFAULT_MENU.filter((m) => m.category === cat && filter(m.name));
+        {categories.map((cat) => {
+          const items = menu.filter((m) => m.category === cat && filter(m.name));
           if (items.length === 0) return null;
           return (
             <section key={cat}>
@@ -81,12 +92,14 @@ function MenuAdmin() {
                       key={item.id}
                       className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-soft"
                     >
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        loading="lazy"
-                        className="h-12 w-12 rounded-lg object-cover"
-                      />
+                      {item.image ? (
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          loading="lazy"
+                          className="h-12 w-12 rounded-lg object-cover"
+                        />
+                      ) : null}
                       <div className="flex-1">
                         <p className="font-semibold">{item.name}</p>
                         <p className="text-sm text-muted-foreground">

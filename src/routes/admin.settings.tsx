@@ -229,6 +229,70 @@ function GeneralSettings() {
         </Field>
       </Section>
 
+      <Section title="Pricing & Vendor Commission">
+        <Field
+          label="Default Vendor Payout (%)"
+          hint={`Vendors receive ${cfg.defaultVendorPayoutPercent ?? 85}% and CGCC keeps ${Math.max(0, 100 - (cfg.defaultVendorPayoutPercent ?? 85))}% service charge.`}
+        >
+          <div className="space-y-2">
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              step="0.5"
+              value={String(cfg.defaultVendorPayoutPercent ?? 85)}
+              onChange={(e) => {
+                const v = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+                setCfg((c) => ({
+                  ...c,
+                  defaultVendorPayoutPercent: v,
+                  payoutPercents: { food: v, snacks: v, coffee: v, drinks: v },
+                }));
+              }}
+            />
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { label: "85% Vendor / 15% CGCC", val: 85 },
+                { label: "90% Vendor / 10% CGCC", val: 90 },
+                { label: "100% / 0%", val: 100 },
+              ].map((preset) => (
+                <Button
+                  key={preset.val}
+                  type="button"
+                  size="sm"
+                  variant={cfg.defaultVendorPayoutPercent === preset.val ? "default" : "outline"}
+                  className="h-7 rounded-full px-2.5 text-xs"
+                  onClick={() =>
+                    setCfg((c) => ({
+                      ...c,
+                      defaultVendorPayoutPercent: preset.val,
+                      payoutPercents: {
+                        food: preset.val,
+                        snacks: preset.val,
+                        coffee: preset.val,
+                        drinks: preset.val,
+                      },
+                    }))
+                  }
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </Field>
+        <Field
+          label="CGCC Service Charge (%)"
+          hint="Auto-calculated from Vendor Payout %; section-specific rates can be fine-tuned in Admin → Payouts."
+        >
+          <Input
+            readOnly
+            value={`${Math.max(0, Math.round((100 - (cfg.defaultVendorPayoutPercent ?? 85)) * 100) / 100)}%`}
+            className="bg-muted text-muted-foreground"
+          />
+        </Field>
+      </Section>
+
       <Section title="Messages">
         <Field label="Welcome Message" full>
           <Textarea rows={2} {...bind("welcomeMessage")} />

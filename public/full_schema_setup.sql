@@ -2316,7 +2316,9 @@ INSERT INTO public.system_settings (id, data) VALUES ('global', jsonb_build_obje
   'pickupIntervalMinutes',15,'maxPickupMinutes',480,
   'receiptFooterText','Thank you and God bless.',
   'welcomeMessage','🎉 Welcome to CGCC Cafeteria Express',
-  'maintenanceMessage','','announcement',''
+  'maintenanceMessage','','announcement','',
+  'defaultVendorPayoutPercent', 85,
+  'payoutPercents', jsonb_build_object('food',85,'snacks',85,'coffee',85,'drinks',85)
 )) ON CONFLICT (id) DO NOTHING;
 
 -- ============ bank_accounts ============
@@ -3446,16 +3448,18 @@ CREATE TRIGGER verified_payment_amount BEFORE UPDATE OF payment_status, payment_
 
 -- 0005: cost prices for products, configurable vendor payout rates + payout snapshot history.
 
--- 1) Cost price column (used by itemised exports and payout snapshots).
-ALTER TABLE public.menu_items ADD COLUMN IF NOT EXISTS cost_price integer NOT NULL DEFAULT 0;
-COMMENT ON COLUMN public.menu_items.cost_price IS 'Internal cost of goods per unit (NGN); used for itemised exports and payout reporting.';
+-- 1) Cost price column (supports decimals such as 212.50 / 552.50 / 382.50).
+ALTER TABLE public.menu_items ADD COLUMN IF NOT EXISTS cost_price numeric(10,2) NOT NULL DEFAULT 0;
+ALTER TABLE public.menu_items ALTER COLUMN cost_price TYPE numeric(10,2) USING cost_price::numeric(10,2);
+COMMENT ON COLUMN public.menu_items.cost_price IS 'Internal cost of goods / vendor payout share per unit (NGN); defaults to 85% of selling price.';
 
--- 2) Extend upsert_menu_item with an optional cost price.
+-- 2) Extend upsert_menu_item with numeric cost price.
 DROP FUNCTION IF EXISTS public.upsert_menu_item(text, text, text, integer, text, text, text, boolean, integer);
+DROP FUNCTION IF EXISTS public.upsert_menu_item(text, text, text, integer, text, text, text, boolean, numeric);
 CREATE OR REPLACE FUNCTION public.upsert_menu_item(
   _id text DEFAULT NULL, _name text DEFAULT NULL, _category_id text DEFAULT NULL, _price integer DEFAULT NULL, _vendor_type text DEFAULT NULL,
   _description text DEFAULT NULL, _image_url text DEFAULT NULL, _available boolean DEFAULT true,
-  _cost_price integer DEFAULT NULL
+  _cost_price numeric DEFAULT NULL
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -3479,9 +3483,9 @@ BEGIN
   SELECT * INTO existing FROM public.menu_items WHERE id = new_id;
   IF NOT FOUND THEN
     INSERT INTO public.menu_items (id, name, category_id, price, vendor_type, description, image_url, available, stock_qty, stock_online, stock_walkin, low_stock_threshold, cost_price)
-    VALUES (new_id, btrim(_name), _category_id, _price, _vendor_type, _description, _image_url, COALESCE(_available, true), 0, 0, 0, 10, COALESCE(_cost_price, 0));
+    VALUES (new_id, btrim(_name), _category_id, _price, _vendor_type, _description, _image_url, COALESCE(_available, true), 0, 0, 0, 10, COALESCE(_cost_price, ROUND(_price * 0.85, 2)));
     PERFORM public.log_audit('product.create', 'menu_item', new_id,
-      jsonb_build_object('name', _name, 'price', _price, 'vendor_type', _vendor_type, 'cost_price', COALESCE(_cost_price, 0)));
+      jsonb_build_object('name', _name, 'price', _price, 'vendor_type', _vendor_type, 'cost_price', COALESCE(_cost_price, ROUND(_price * 0.85, 2))));
   ELSE
     UPDATE public.menu_items SET
       name = btrim(_name),
@@ -3508,7 +3512,9 @@ $function$;
 DROP FUNCTION IF EXISTS public.upsert_menu_item(text, text, text, integer, text, text, text, boolean);
 
 -- 3) Admin RPC to set just the cost price of a product.
-CREATE OR REPLACE FUNCTION public.set_product_cost(_id text, _cost_price integer)
+DROP FUNCTION IF EXISTS public.set_product_cost(text, integer);
+DROP FUNCTION IF EXISTS public.set_product_cost(text, numeric);
+CREATE OR REPLACE FUNCTION public.set_product_cost(_id text, _cost_price numeric)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -3517,9 +3523,9 @@ AS $function$
 BEGIN
   IF NOT public.has_role(auth.uid(), 'admin') THEN RAISE EXCEPTION 'forbidden'; END IF;
   IF _cost_price IS NULL OR _cost_price < 0 THEN RAISE EXCEPTION 'cost price must be >= 0'; END IF;
-  UPDATE public.menu_items SET cost_price = _cost_price WHERE id = _id;
+  UPDATE public.menu_items SET cost_price = ROUND(_cost_price, 2) WHERE id = _id;
   IF NOT FOUND THEN RAISE EXCEPTION 'product not found'; END IF;
-  PERFORM public.log_audit('product.cost_change', 'menu_item', _id, jsonb_build_object('cost_price', _cost_price));
+  PERFORM public.log_audit('product.cost_change', 'menu_item', _id, jsonb_build_object('cost_price', ROUND(_cost_price, 2)));
   RETURN jsonb_build_object('ok', true);
 END
 $function$;
@@ -3532,7 +3538,7 @@ CREATE TABLE IF NOT EXISTS public.payout_snapshots (
   orders_count integer NOT NULL DEFAULT 0,
   items_count integer NOT NULL DEFAULT 0,
   gross_revenue integer NOT NULL DEFAULT 0,
-  cost_total integer NOT NULL DEFAULT 0,
+  cost_total numeric(12,2) NOT NULL DEFAULT 0,
   commission_percent numeric(5,2) NOT NULL DEFAULT 0,
   payout_amount integer NOT NULL DEFAULT 0,
   created_by uuid,
@@ -3540,6 +3546,7 @@ CREATE TABLE IF NOT EXISTS public.payout_snapshots (
   updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (vendor_type, business_day)
 );
+ALTER TABLE public.payout_snapshots ALTER COLUMN cost_total TYPE numeric(12,2) USING cost_total::numeric(12,2);
 COMMENT ON TABLE public.payout_snapshots IS 'Historical payout/commission snapshots per vendor per business day.';
 
 GRANT SELECT ON public.payout_snapshots TO authenticated;
@@ -3555,9 +3562,11 @@ CREATE POLICY "Admins can view payout snapshots"
   USING (public.has_role(auth.uid(), 'admin'));
 
 -- 5) Admin RPC to record/update a snapshot for a vendor + day.
+DROP FUNCTION IF EXISTS public.save_payout_snapshot(text, date, integer, integer, integer, integer, numeric, integer);
+DROP FUNCTION IF EXISTS public.save_payout_snapshot(text, date, integer, integer, integer, numeric, numeric, integer);
 CREATE OR REPLACE FUNCTION public.save_payout_snapshot(
   _vendor_type text, _business_day date, _orders_count integer, _items_count integer,
-  _gross_revenue integer, _cost_total integer, _commission_percent numeric, _payout_amount integer
+  _gross_revenue integer, _cost_total numeric, _commission_percent numeric, _payout_amount integer
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -3630,25 +3639,22 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- ---------------------------------------------------------------------
--- Seed Default Categories (if empty)
+-- Seed Default 5 Categories (exact 1:1 match with Customer Menu)
 -- ---------------------------------------------------------------------
 INSERT INTO public.categories (id, name, sort_order)
 VALUES
-  ('cat_meals', 'Meals', 1),
-  ('cat_proteins', 'Proteins', 2),
-  ('cat_soups', 'Soups & Sides', 3),
-  ('cat_snacks', 'Snacks & Pastries', 4),
-  ('cat_sandwiches', 'Sandwiches', 5),
-  ('cat_chops', 'Small Chops', 6),
-  ('cat_desserts', 'Desserts & Yogurt', 7),
-  ('cat_coffee', 'Coffee & Tea', 8),
-  ('cat_drinks', 'Drinks', 9),
-  ('cat_water', 'Water', 10),
-  ('cat_extras', 'Extras', 11)
-ON CONFLICT (id) DO NOTHING;
+  ('cat_food', 'Food', 1),
+  ('cat_snacks', 'Snacks', 2),
+  ('cat_coffee', 'Coffee & Tea', 3),
+  ('cat_drinks', 'Drinks', 4),
+  ('cat_sweets', 'Sweets', 5)
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, sort_order = EXCLUDED.sort_order, archived_at = NULL;
+
+-- Ensure existing 'Snacks & Pastries' ID doesn't collide if migrating from legacy 11 categories
+UPDATE public.categories SET name = 'Snacks', sort_order = 2 WHERE id = 'cat_snacks';
 
 -- ---------------------------------------------------------------------
--- Seed Default Menu Items & Inventory
+-- Seed Default Menu Items & Inventory (cost_price = 85% of price)
 -- ---------------------------------------------------------------------
 INSERT INTO public.menu_items (
   id,
@@ -3664,75 +3670,85 @@ INSERT INTO public.menu_items (
   image_url,
   sort_order
 ) VALUES
-  ('m1', 'cat_meals', 'Jollof Rice', 600, 360, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/jollof%2Crice/all?lock=101', 1),
-  ('m2', 'cat_meals', 'Fried Rice', 600, 360, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/fried%2Crice/all?lock=102', 2),
-  ('m3', 'cat_meals', 'Ofada Rice', 600, 360, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/ofada%2Crice/all?lock=103', 3),
-  ('m4', 'cat_meals', 'Coconut Rice', 700, 420, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/coconut%2Crice/all?lock=104', 4),
-  ('m5', 'cat_meals', 'Amala', 600, 360, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/amala%2Cewedu/all?lock=105', 5),
-  ('m6', 'cat_meals', 'Pounded Yam', 600, 360, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/pounded%2Cyam/all?lock=106', 6),
-  ('m7', 'cat_meals', 'Ewa Agoyin', 600, 360, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/ewa%2Cagoyin%2Cbeans/all?lock=107', 7),
-  ('m8', 'cat_meals', 'Potato Porridge', 650, 390, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/potato%2Cporridge/all?lock=108', 8),
-  ('p1', 'cat_proteins', 'Chicken (Big)', 2000, 1200, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/grilled%2Cchicken/all?lock=201', 9),
-  ('p2', 'cat_proteins', 'Chicken (Small)', 1500, 900, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/fried%2Cchicken/all?lock=202', 10),
-  ('p3', 'cat_proteins', 'Beef', 1000, 600, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/beef%2Cstew/all?lock=203', 11),
-  ('p4', 'cat_proteins', 'Hake Fish (Big)', 2000, 1200, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/fried%2Cfish/all?lock=204', 12),
-  ('p5', 'cat_proteins', 'Hake Fish (Small)', 1500, 900, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/hake%2Cfish/all?lock=205', 13),
-  ('p6', 'cat_proteins', 'Pomo', 400, 240, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/pomo%2Ccowskin/all?lock=206', 14),
-  ('s1', 'cat_soups', 'Efo Riro', 650, 390, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/efo%2Criro%2Csoup/all?lock=301', 15),
-  ('s2', 'cat_soups', 'Bitter Leaf Soup', 650, 390, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/bitterleaf%2Csoup/all?lock=302', 16),
-  ('s3', 'cat_soups', 'Ofada Sauce', 1000, 600, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/ofada%2Csauce/all?lock=303', 17),
-  ('s4', 'cat_soups', 'Moi Moi', 800, 480, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/moimoi%2Cbeans/all?lock=304', 18),
-  ('sp1', 'cat_snacks', 'Meat Pie', 1000, 600, 'snacks', true, 50, 30, 20, 'https://loremflickr.com/600/450/meat%2Cpie/all?lock=401', 19),
-  ('sp2', 'cat_snacks', 'Chicken Pie', 1000, 600, 'snacks', true, 50, 30, 20, 'https://loremflickr.com/600/450/chicken%2Cpie/all?lock=402', 20),
-  ('sp3', 'cat_snacks', 'Sausage Roll', 600, 360, 'snacks', true, 50, 30, 20, 'https://loremflickr.com/600/450/sausage%2Croll/all?lock=403', 21),
-  ('sp4', 'cat_snacks', 'Hotdog Roll', 800, 480, 'snacks', true, 50, 30, 20, 'https://loremflickr.com/600/450/hotdog%2Cbun/all?lock=404', 22),
-  ('sp5', 'cat_snacks', 'Egg Roll', 700, 420, 'snacks', true, 50, 30, 20, 'https://loremflickr.com/600/450/egg%2Croll%2Cpastry/all?lock=405', 23),
-  ('sp6', 'cat_snacks', 'Plain Doughnut', 500, 300, 'snacks', true, 50, 30, 20, 'https://loremflickr.com/600/450/plain%2Cdoughnut/all?lock=406', 24),
-  ('sp7', 'cat_snacks', 'Jam Doughnut', 500, 300, 'snacks', true, 50, 30, 20, 'https://loremflickr.com/600/450/jam%2Cdoughnut/all?lock=407', 25),
-  ('sp8', 'cat_snacks', 'Shawarma', 2500, 1500, 'snacks', true, 50, 30, 20, 'https://loremflickr.com/600/450/shawarma%2Cwrap/all?lock=408', 26),
-  ('sp9', 'cat_snacks', 'Bread Roll', 450, 270, 'snacks', true, 50, 30, 20, 'https://loremflickr.com/600/450/bread%2Croll/all?lock=409', 27),
-  ('sp10', 'cat_snacks', 'Bread Loaf', 2400, 1440, 'snacks', true, 50, 30, 20, 'https://loremflickr.com/600/450/bread%2Cloaf/all?lock=410', 28),
-  ('sw1', 'cat_sandwiches', 'Chicken Sandwich', 1500, 900, 'snacks', true, 50, 30, 20, 'https://loremflickr.com/600/450/chicken%2Csandwich/all?lock=501', 29),
-  ('sw2', 'cat_sandwiches', 'Egg Sandwich', 1500, 900, 'snacks', true, 50, 30, 20, 'https://loremflickr.com/600/450/egg%2Csandwich/all?lock=502', 30),
-  ('sc1', 'cat_chops', 'Chicken Small Chops', 3000, 1800, 'snacks', true, 50, 30, 20, 'https://loremflickr.com/600/450/chicken%2Cwings%2Cplatter/all?lock=601', 31),
-  ('sc2', 'cat_chops', 'Beef Small Chops', 2500, 1500, 'snacks', true, 50, 30, 20, 'https://loremflickr.com/600/450/beef%2Cskewers%2Cplatter/all?lock=602', 32),
-  ('d1', 'cat_desserts', 'Fruit Parfait', 4000, 2400, 'snacks', true, 50, 30, 20, 'https://loremflickr.com/600/450/fruit%2Cparfait/all?lock=701', 33),
-  ('d2', 'cat_desserts', 'Yogurt (35cl)', 1400, 840, 'snacks', true, 50, 30, 20, 'https://loremflickr.com/600/450/yogurt%2Ccup/all?lock=702', 34),
-  ('d3', 'cat_desserts', 'Yogurt (50cl)', 2500, 1500, 'snacks', true, 50, 30, 20, 'https://loremflickr.com/600/450/yogurt%2Cbottle/all?lock=703', 35),
-  ('d4', 'cat_desserts', 'Yogurt (1L)', 3500, 2100, 'snacks', true, 50, 30, 20, 'https://loremflickr.com/600/450/yogurt%2Cdrink/all?lock=704', 36),
-  ('ct1', 'cat_coffee', 'Cappuccino', 700, 420, 'coffee', true, 50, 30, 20, 'https://loremflickr.com/600/450/cappuccino/all?lock=801', 37),
-  ('ct2', 'cat_coffee', 'Caffè Latte', 700, 420, 'coffee', true, 50, 30, 20, 'https://loremflickr.com/600/450/cafe%2Clatte/all?lock=802', 38),
-  ('ct3', 'cat_coffee', 'Coffee with Cream', 650, 390, 'coffee', true, 50, 30, 20, 'https://loremflickr.com/600/450/coffee%2Ccream/all?lock=803', 39),
-  ('ct4', 'cat_coffee', 'Hot Chocolate', 650, 390, 'coffee', true, 50, 30, 20, 'https://loremflickr.com/600/450/hot%2Cchocolate/all?lock=804', 40),
-  ('ct5', 'cat_coffee', 'Hot Chocolate & Cream', 650, 390, 'coffee', true, 50, 30, 20, 'https://loremflickr.com/600/450/hot%2Cchocolate%2Ccream/all?lock=805', 41),
-  ('ct6', 'cat_coffee', 'Black Coffee', 500, 300, 'coffee', true, 50, 30, 20, 'https://loremflickr.com/600/450/black%2Ccoffee/all?lock=806', 42),
-  ('ct7', 'cat_coffee', 'Black Coffee & Cream', 650, 390, 'coffee', true, 50, 30, 20, 'https://loremflickr.com/600/450/coffee%2Ccup/all?lock=807', 43),
-  ('ct8', 'cat_coffee', 'Green Tea', 1000, 600, 'coffee', true, 50, 30, 20, 'https://loremflickr.com/600/450/green%2Ctea/all?lock=808', 44),
-  ('ct9', 'cat_coffee', 'Peppermint Tea', 1000, 600, 'coffee', true, 50, 30, 20, 'https://loremflickr.com/600/450/peppermint%2Ctea/all?lock=809', 45),
-  ('ct10', 'cat_coffee', 'Orange & Spice Tea', 1000, 600, 'coffee', true, 50, 30, 20, 'https://loremflickr.com/600/450/orange%2Cspice%2Ctea/all?lock=810', 46),
-  ('ct11', 'cat_coffee', 'Lemon Tea', 1000, 600, 'coffee', true, 50, 30, 20, 'https://loremflickr.com/600/450/lemon%2Ctea/all?lock=811', 47),
-  ('ct12', 'cat_coffee', 'Lemon Ginger Tea', 1000, 600, 'coffee', true, 50, 30, 20, 'https://loremflickr.com/600/450/lemon%2Cginger%2Ctea/all?lock=812', 48),
-  ('dr1', 'cat_drinks', 'Coca-Cola (PET)', 500, 300, 'drinks', true, 50, 30, 20, 'https://loremflickr.com/600/450/coca%2Ccola%2Cbottle/all?lock=901', 49),
-  ('dr2', 'cat_drinks', 'Pepsi (PET)', 500, 300, 'drinks', true, 50, 30, 20, 'https://loremflickr.com/600/450/pepsi%2Cbottle/all?lock=902', 50),
-  ('dr3', 'cat_drinks', 'Coca-Cola (Glass/Solo)', 300, 180, 'drinks', true, 50, 30, 20, 'https://loremflickr.com/600/450/coca%2Ccola%2Cglass/all?lock=903', 51),
-  ('dr4', 'cat_drinks', 'Malta Guinness', 800, 480, 'drinks', true, 50, 30, 20, 'https://loremflickr.com/600/450/malta%2Cguinness/all?lock=904', 52),
-  ('dr5', 'cat_drinks', 'Maltina', 800, 480, 'drinks', true, 50, 30, 20, 'https://loremflickr.com/600/450/maltina%2Cmalt/all?lock=905', 53),
-  ('dr6', 'cat_drinks', 'Amstel Malt', 800, 480, 'drinks', true, 50, 30, 20, 'https://loremflickr.com/600/450/amstel%2Cmalt/all?lock=906', 54),
-  ('dr7', 'cat_drinks', 'Schweppes', 600, 360, 'drinks', true, 50, 30, 20, 'https://loremflickr.com/600/450/schweppes%2Csoda/all?lock=907', 55),
-  ('dr8', 'cat_drinks', 'Five Alive', 700, 420, 'drinks', true, 50, 30, 20, 'https://loremflickr.com/600/450/juice%2Ccarton/all?lock=908', 56),
-  ('dr9', 'cat_drinks', 'Viju Apple', 700, 420, 'drinks', true, 50, 30, 20, 'https://loremflickr.com/600/450/apple%2Cmilk%2Cdrink/all?lock=909', 57),
-  ('dr10', 'cat_drinks', 'Viju Chocolate', 1200, 720, 'drinks', true, 50, 30, 20, 'https://loremflickr.com/600/450/chocolate%2Cmilk/all?lock=910', 58),
-  ('dr11', 'cat_drinks', 'Vita Zobo (30cl)', 600, 360, 'drinks', true, 50, 30, 20, 'https://loremflickr.com/600/450/zobo%2Chibiscus%2Cdrink/all?lock=911', 59),
-  ('dr12', 'cat_drinks', 'Vita Zobo (45cl)', 800, 480, 'drinks', true, 50, 30, 20, 'https://loremflickr.com/600/450/hibiscus%2Cdrink%2Cbottle/all?lock=912', 60),
-  ('dr13', 'cat_drinks', 'Zobo Cocktail', 700, 420, 'drinks', true, 50, 30, 20, 'https://loremflickr.com/600/450/hibiscus%2Ccocktail/all?lock=913', 61),
-  ('dr14', 'cat_drinks', 'Tigernut Milk', 1500, 900, 'drinks', true, 50, 30, 20, 'https://loremflickr.com/600/450/tigernut%2Cmilk%2Ckunu/all?lock=914', 62),
-  ('w1', 'cat_water', 'Nestlé Water', 200, 120, 'drinks', true, 50, 30, 20, 'https://loremflickr.com/600/450/bottled%2Cwater/all?lock=1001', 63),
-  ('w2', 'cat_water', 'CWAY Water', 200, 120, 'drinks', true, 50, 30, 20, 'https://loremflickr.com/600/450/water%2Cbottle/all?lock=1002', 64),
-  ('e1', 'cat_extras', 'Takeaway Pack', 250, 150, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/takeaway%2Ccontainer/all?lock=1101', 65),
-  ('e2', 'cat_extras', 'Boiled Egg', 450, 270, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/boiled%2Cegg/all?lock=1102', 66),
-  ('e3', 'cat_extras', 'Salad', 650, 390, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/green%2Csalad/all?lock=1103', 67),
-  ('e4', 'cat_extras', 'Dodo', 400, 240, 'food', true, 50, 30, 20, 'https://loremflickr.com/600/450/fried%2Cplantain/all?lock=1104', 68)
+  ('m1', 'cat_food', 'Jollof Rice', 600, 510, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/jollof%2Crice/all?lock=101', 1),
+  ('m2', 'cat_food', 'Fried Rice', 600, 510, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/fried%2Crice/all?lock=102', 2),
+  ('m3', 'cat_food', 'Ofada Rice', 600, 510, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/ofada%2Crice/all?lock=103', 3),
+  ('m4', 'cat_food', 'Coconut Rice', 700, 595, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/coconut%2Crice/all?lock=104', 4),
+  ('m5', 'cat_food', 'Amala', 600, 510, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/amala%2Cewedu/all?lock=105', 5),
+  ('m6', 'cat_food', 'Pounded Yam', 600, 510, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/pounded%2Cyam/all?lock=106', 6),
+  ('m7', 'cat_food', 'Ewa Agoyin', 600, 510, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/ewa%2Cagoyin%2Cbeans/all?lock=107', 7),
+  ('m8', 'cat_food', 'Potato Porridge', 650, 552.5, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/potato%2Cporridge/all?lock=108', 8),
+  ('p1', 'cat_food', 'Chicken (Big)', 2000, 1700, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/grilled%2Cchicken/all?lock=201', 9),
+  ('p2', 'cat_food', 'Chicken (Small)', 1500, 1275, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/fried%2Cchicken/all?lock=202', 10),
+  ('p3', 'cat_food', 'Beef', 1000, 850, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/beef%2Cstew/all?lock=203', 11),
+  ('p4', 'cat_food', 'Hake Fish (Big)', 2000, 1700, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/fried%2Cfish/all?lock=204', 12),
+  ('p5', 'cat_food', 'Hake Fish (Small)', 1500, 1275, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/hake%2Cfish/all?lock=205', 13),
+  ('p6', 'cat_food', 'Pomo', 400, 340, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/pomo%2Ccowskin/all?lock=206', 14),
+  ('s1', 'cat_food', 'Efo Riro', 650, 552.5, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/efo%2Criro%2Csoup/all?lock=301', 15),
+  ('s2', 'cat_food', 'Bitter Leaf Soup', 650, 552.5, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/bitterleaf%2Csoup/all?lock=302', 16),
+  ('s3', 'cat_food', 'Ofada Sauce', 1000, 850, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/ofada%2Csauce/all?lock=303', 17),
+  ('s4', 'cat_food', 'Moi Moi', 800, 680, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/moimoi%2Cbeans/all?lock=304', 18),
+  ('sp1', 'cat_snacks', 'Meat Pie', 1000, 850, 'snacks', true, 50, 50, 0, 'https://loremflickr.com/600/450/meat%2Cpie/all?lock=401', 19),
+  ('sp2', 'cat_snacks', 'Chicken Pie', 1000, 850, 'snacks', true, 50, 50, 0, 'https://loremflickr.com/600/450/chicken%2Cpie/all?lock=402', 20),
+  ('sp3', 'cat_snacks', 'Sausage Roll', 600, 510, 'snacks', true, 50, 50, 0, 'https://loremflickr.com/600/450/sausage%2Croll/all?lock=403', 21),
+  ('sp4', 'cat_snacks', 'Hotdog Roll', 800, 680, 'snacks', true, 50, 50, 0, 'https://loremflickr.com/600/450/hotdog%2Cbun/all?lock=404', 22),
+  ('sp5', 'cat_snacks', 'Egg Roll', 700, 595, 'snacks', true, 50, 50, 0, 'https://loremflickr.com/600/450/egg%2Croll%2Cpastry/all?lock=405', 23),
+  ('sp6', 'cat_snacks', 'Plain Doughnut', 500, 425, 'snacks', true, 50, 50, 0, 'https://loremflickr.com/600/450/plain%2Cdoughnut/all?lock=406', 24),
+  ('sp7', 'cat_snacks', 'Jam Doughnut', 500, 425, 'snacks', true, 50, 50, 0, 'https://loremflickr.com/600/450/jam%2Cdoughnut/all?lock=407', 25),
+  ('sp8', 'cat_snacks', 'Shawarma', 2500, 2125, 'snacks', true, 50, 50, 0, 'https://loremflickr.com/600/450/shawarma%2Cwrap/all?lock=408', 26),
+  ('sp9', 'cat_snacks', 'Bread Roll', 450, 382.5, 'snacks', true, 50, 50, 0, 'https://loremflickr.com/600/450/bread%2Croll/all?lock=409', 27),
+  ('sp10', 'cat_snacks', 'Bread Loaf', 2400, 2040, 'snacks', true, 50, 50, 0, 'https://loremflickr.com/600/450/bread%2Cloaf/all?lock=410', 28),
+  ('sw1', 'cat_snacks', 'Chicken Sandwich', 1500, 1275, 'snacks', true, 50, 50, 0, 'https://loremflickr.com/600/450/chicken%2Csandwich/all?lock=501', 29),
+  ('sw2', 'cat_snacks', 'Egg Sandwich', 1500, 1275, 'snacks', true, 50, 50, 0, 'https://loremflickr.com/600/450/egg%2Csandwich/all?lock=502', 30),
+  ('sc1', 'cat_snacks', 'Chicken Small Chops', 3000, 2550, 'snacks', true, 50, 50, 0, 'https://loremflickr.com/600/450/chicken%2Cwings%2Cplatter/all?lock=601', 31),
+  ('sc2', 'cat_snacks', 'Beef Small Chops', 2500, 2125, 'snacks', true, 50, 50, 0, 'https://loremflickr.com/600/450/beef%2Cskewers%2Cplatter/all?lock=602', 32),
+  ('d1', 'cat_snacks', 'Fruit Parfait', 4000, 3400, 'snacks', true, 50, 50, 0, 'https://loremflickr.com/600/450/fruit%2Cparfait/all?lock=701', 33),
+  ('d2', 'cat_snacks', 'Yogurt (35cl)', 1400, 1190, 'snacks', true, 50, 50, 0, 'https://loremflickr.com/600/450/yogurt%2Ccup/all?lock=702', 34),
+  ('d3', 'cat_snacks', 'Yogurt (50cl)', 2500, 2125, 'snacks', true, 50, 50, 0, 'https://loremflickr.com/600/450/yogurt%2Cbottle/all?lock=703', 35),
+  ('d4', 'cat_snacks', 'Yogurt (1L)', 3500, 2975, 'snacks', true, 50, 50, 0, 'https://loremflickr.com/600/450/yogurt%2Cdrink/all?lock=704', 36),
+  ('ct1', 'cat_coffee', 'Cappuccino', 700, 595, 'coffee', true, 50, 50, 0, 'https://loremflickr.com/600/450/cappuccino/all?lock=801', 37),
+  ('ct2', 'cat_coffee', 'Caffè Latte', 700, 595, 'coffee', true, 50, 50, 0, 'https://loremflickr.com/600/450/cafe%2Clatte/all?lock=802', 38),
+  ('ct3', 'cat_coffee', 'Coffee with Cream', 650, 552.5, 'coffee', true, 50, 50, 0, 'https://loremflickr.com/600/450/coffee%2Ccream/all?lock=803', 39),
+  ('ct4', 'cat_coffee', 'Hot Chocolate', 650, 552.5, 'coffee', true, 50, 50, 0, 'https://loremflickr.com/600/450/hot%2Cchocolate/all?lock=804', 40),
+  ('ct5', 'cat_coffee', 'Hot Chocolate & Cream', 650, 552.5, 'coffee', true, 50, 50, 0, 'https://loremflickr.com/600/450/hot%2Cchocolate%2Ccream/all?lock=805', 41),
+  ('ct6', 'cat_coffee', 'Black Coffee', 500, 425, 'coffee', true, 50, 50, 0, 'https://loremflickr.com/600/450/black%2Ccoffee/all?lock=806', 42),
+  ('ct7', 'cat_coffee', 'Black Coffee & Cream', 650, 552.5, 'coffee', true, 50, 50, 0, 'https://loremflickr.com/600/450/coffee%2Ccup/all?lock=807', 43),
+  ('ct8', 'cat_coffee', 'Green Tea', 1000, 850, 'coffee', true, 50, 50, 0, 'https://loremflickr.com/600/450/green%2Ctea/all?lock=808', 44),
+  ('ct9', 'cat_coffee', 'Peppermint Tea', 1000, 850, 'coffee', true, 50, 50, 0, 'https://loremflickr.com/600/450/peppermint%2Ctea/all?lock=809', 45),
+  ('ct10', 'cat_coffee', 'Orange & Spice Tea', 1000, 850, 'coffee', true, 50, 50, 0, 'https://loremflickr.com/600/450/orange%2Cspice%2Ctea/all?lock=810', 46),
+  ('ct11', 'cat_coffee', 'Lemon Tea', 1000, 850, 'coffee', true, 50, 50, 0, 'https://loremflickr.com/600/450/lemon%2Ctea/all?lock=811', 47),
+  ('ct12', 'cat_coffee', 'Lemon Ginger Tea', 1000, 850, 'coffee', true, 50, 50, 0, 'https://loremflickr.com/600/450/lemon%2Cginger%2Ctea/all?lock=812', 48),
+  ('dr1', 'cat_drinks', 'Coca-Cola (PET)', 500, 425, 'drinks', true, 50, 50, 0, 'https://loremflickr.com/600/450/coca%2Ccola%2Cbottle/all?lock=901', 49),
+  ('dr2', 'cat_drinks', 'Pepsi (PET)', 500, 425, 'drinks', true, 50, 50, 0, 'https://loremflickr.com/600/450/pepsi%2Cbottle/all?lock=902', 50),
+  ('dr3', 'cat_drinks', 'Coca-Cola (Glass/Solo)', 300, 255, 'drinks', true, 50, 50, 0, 'https://loremflickr.com/600/450/coca%2Ccola%2Cglass/all?lock=903', 51),
+  ('dr4', 'cat_drinks', 'Malta Guinness', 800, 680, 'drinks', true, 50, 50, 0, 'https://loremflickr.com/600/450/malta%2Cguinness/all?lock=904', 52),
+  ('dr5', 'cat_drinks', 'Maltina', 800, 680, 'drinks', true, 50, 50, 0, 'https://loremflickr.com/600/450/maltina%2Cmalt/all?lock=905', 53),
+  ('dr6', 'cat_drinks', 'Amstel Malt', 800, 680, 'drinks', true, 50, 50, 0, 'https://loremflickr.com/600/450/amstel%2Cmalt/all?lock=906', 54),
+  ('dr7', 'cat_drinks', 'Schweppes', 600, 510, 'drinks', true, 50, 50, 0, 'https://loremflickr.com/600/450/schweppes%2Csoda/all?lock=907', 55),
+  ('dr8', 'cat_food', 'Five Alive', 700, 595, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/juice%2Ccarton/all?lock=908', 56),
+  ('dr9', 'cat_drinks', 'Viju Apple', 700, 595, 'drinks', true, 50, 50, 0, 'https://loremflickr.com/600/450/apple%2Cmilk%2Cdrink/all?lock=909', 57),
+  ('dr10', 'cat_drinks', 'Viju Chocolate', 1200, 1020, 'drinks', true, 50, 50, 0, 'https://loremflickr.com/600/450/chocolate%2Cmilk/all?lock=910', 58),
+  ('dr11', 'cat_food', 'Vita Zobo (30cl)', 600, 510, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/zobo%2Chibiscus%2Cdrink/all?lock=911', 59),
+  ('dr12', 'cat_food', 'Vita Zobo (45cl)', 800, 680, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/hibiscus%2Cdrink%2Cbottle/all?lock=912', 60),
+  ('dr13', 'cat_food', 'Zobo Cocktail', 700, 595, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/hibiscus%2Ccocktail/all?lock=913', 61),
+  ('dr14', 'cat_food', 'Tigernut Milk', 1500, 1275, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/tigernut%2Cmilk%2Ckunu/all?lock=914', 62),
+  ('w1', 'cat_drinks', 'Nestlé Water', 200, 170, 'drinks', true, 50, 50, 0, 'https://loremflickr.com/600/450/bottled%2Cwater/all?lock=1001', 63),
+  ('w2', 'cat_drinks', 'CWAY Water', 200, 170, 'drinks', true, 50, 50, 0, 'https://loremflickr.com/600/450/water%2Cbottle/all?lock=1002', 64),
+  ('e1', 'cat_food', 'Takeaway Pack', 250, 212.5, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/takeaway%2Ccontainer/all?lock=1101', 65),
+  ('e2', 'cat_food', 'Boiled Egg', 450, 382.5, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/boiled%2Cegg/all?lock=1102', 66),
+  ('e3', 'cat_food', 'Salad', 650, 552.5, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/green%2Csalad/all?lock=1103', 67),
+  ('e4', 'cat_food', 'Dodo', 400, 340, 'food', true, 50, 50, 0, 'https://loremflickr.com/600/450/fried%2Cplantain/all?lock=1104', 68)
 ON CONFLICT (id) DO NOTHING;
+
+-- Migrate existing installations cleanly from legacy 11 categories to the 5 categories
+UPDATE public.menu_items SET category_id = 'cat_food' WHERE category_id IN ('cat_meals', 'cat_proteins', 'cat_soups', 'cat_extras');
+UPDATE public.menu_items SET category_id = 'cat_snacks' WHERE category_id IN ('cat_sandwiches', 'cat_chops', 'cat_desserts');
+UPDATE public.menu_items SET category_id = 'cat_drinks' WHERE category_id IN ('cat_water');
+UPDATE public.menu_items SET category_id = 'cat_food', vendor_type = 'food' WHERE id IN ('dr8', 'dr11', 'dr12', 'dr13', 'dr14');
+UPDATE public.menu_items SET category_id = 'cat_snacks', vendor_type = 'snacks' WHERE id IN ('d1', 'd2', 'd3', 'd4');
+UPDATE public.menu_items SET cost_price = ROUND(price * 0.85, 2) WHERE cost_price = 0 OR cost_price = ROUND(price * 0.60, 0);
+DELETE FROM public.categories WHERE id IN ('cat_meals', 'cat_proteins', 'cat_soups', 'cat_sandwiches', 'cat_chops', 'cat_desserts', 'cat_water', 'cat_extras')
+  AND NOT EXISTS (SELECT 1 FROM public.menu_items m WHERE m.category_id = categories.id);
 
 -- Refresh PostgREST schema cache so new/updated RPCs are immediately callable
 NOTIFY pgrst, 'reload schema';

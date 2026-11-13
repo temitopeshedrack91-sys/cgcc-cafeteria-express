@@ -535,7 +535,7 @@ export const actions = {
 
 // ============ Helpers ============
 export function formatNaira(amount: number) {
-  return "₦" + amount.toLocaleString("en-NG");
+  return "₦" + amount.toLocaleString("en-NG", { maximumFractionDigits: 2 });
 }
 
 export function cartTotal(cart: CartItem[], menu: MenuItem[]) {

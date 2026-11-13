@@ -28,8 +28,9 @@ export function usePWAInstall() {
   const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
+    const media = window.matchMedia("(display-mode: standalone)");
     const checkStandalone = () =>
-      window.matchMedia("(display-mode: standalone)").matches ||
+      media.matches ||
       (window.navigator as unknown as { standalone?: boolean }).standalone === true;
 
     setIsInstalled(checkStandalone());
@@ -39,6 +40,10 @@ export function usePWAInstall() {
       /iphone|ipad|ipod/.test(ua) ||
       (ua.includes("macintosh") && "ontouchend" in document);
     setIsIOS(isIOSDevice);
+
+    const onDisplayModeChange = () => {
+      setIsInstalled(checkStandalone());
+    };
 
     const onPrompt = (next: BeforeInstallPromptEvent | null) => {
       setDeferredPrompt(next);
@@ -51,10 +56,12 @@ export function usePWAInstall() {
       setDeferredPrompt(null);
     };
 
+    media.addEventListener?.("change", onDisplayModeChange);
     window.addEventListener("appinstalled", onInstalled);
 
     return () => {
       promptListeners.delete(onPrompt);
+      media.removeEventListener?.("change", onDisplayModeChange);
       window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);

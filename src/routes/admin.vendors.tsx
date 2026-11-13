@@ -217,7 +217,9 @@ function VendorManagement() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold">Vendor Management</h1>
-
+          <p className="text-sm text-muted-foreground">
+            Create multiple vendor logins under Food, Snacks, Coffee, or Drinks and control permissions from here.
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
