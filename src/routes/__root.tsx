@@ -147,9 +147,12 @@ function RootComponent() {
 
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch((err) => {
-      console.warn("[pwa] service worker registration failed", err);
-    });
+    navigator.serviceWorker
+      .register("/sw.js", { scope: "/" })
+      .then((reg) => reg.update().catch(() => undefined))
+      .catch((err) => {
+        console.warn("[pwa] service worker registration failed", err);
+      });
   }, []);
 
   return (

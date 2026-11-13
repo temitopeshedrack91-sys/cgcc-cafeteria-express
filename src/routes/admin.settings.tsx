@@ -398,6 +398,10 @@ function AdminAccountsAndSecurity() {
   } | null>(null);
   const [testEmailTo, setTestEmailTo] = useState("");
   const [testingEmail, setTestingEmail] = useState(false);
+  const [testEmailFeedback, setTestEmailFeedback] = useState<{
+    ok: boolean;
+    message: string;
+  } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -544,13 +548,18 @@ function AdminAccountsAndSecurity() {
 
   async function handleSendTestEmail() {
     setTestingEmail(true);
+    setTestEmailFeedback(null);
     try {
       const res = await sendFinanceTestEmail({
         data: { toEmail: testEmailTo.trim() || undefined },
       });
-      toast.success(`Test email sent to ${res.sentTo} via ${res.provider?.toUpperCase()}.`);
+      const msg = `Test email sent to ${res.sentTo} via ${res.provider?.toUpperCase()}.`;
+      setTestEmailFeedback({ ok: true, message: msg });
+      toast.success(msg);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not send test email.");
+      const msg = e instanceof Error ? e.message : "Could not send test email.";
+      setTestEmailFeedback({ ok: false, message: msg });
+      toast.error(msg);
     } finally {
       setTestingEmail(false);
     }
@@ -726,13 +735,15 @@ function AdminAccountsAndSecurity() {
         </div>
 
         {emailStatus?.configured ? (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-            <p className="font-semibold flex items-center gap-2">
-              <Mail className="h-4 w-4" />
-              Email delivery connected via {emailStatus.provider === "smtp" ? "Outlook / SMTP" : "Resend"}
-            </p>
-            <p className="mt-1 text-xs">Sender: {emailStatus.fromLabel}</p>
-            <div className="mt-3 flex flex-wrap gap-2">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 space-y-3">
+            <div>
+              <p className="font-semibold flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                Email delivery connected via {emailStatus.provider === "smtp" ? "SMTP" : "Resend"}
+              </p>
+              <p className="mt-1 text-xs">Sender: {emailStatus.fromLabel}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
               <Input
                 type="email"
                 value={testEmailTo}
@@ -751,6 +762,18 @@ function AdminAccountsAndSecurity() {
                 {testingEmail ? "Sending…" : "Send Test Email"}
               </Button>
             </div>
+            {testEmailFeedback && (
+              <div
+                className={
+                  "rounded-lg border p-3 text-xs " +
+                  (testEmailFeedback.ok
+                    ? "border-emerald-300 bg-white text-emerald-900"
+                    : "border-rose-300 bg-rose-50 text-rose-900")
+                }
+              >
+                {testEmailFeedback.message}
+              </div>
+            )}
           </div>
         ) : (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-950 space-y-2">
@@ -760,15 +783,21 @@ function AdminAccountsAndSecurity() {
               <strong>Vercel → Project Settings → Environment Variables</strong> and redeploy:
             </p>
             <div className="rounded-lg bg-white/80 p-3 font-mono text-[11px] leading-relaxed text-foreground">
-              <p className="font-semibold">Option A — Outlook / Microsoft 365 SMTP:</p>
+              <p className="font-semibold">Option A — Gmail App Password (easiest):</p>
+              <p>SMTP_HOST=smtp.gmail.com</p>
+              <p>SMTP_PORT=587</p>
+              <p>SMTP_USER=your-email@gmail.com</p>
+              <p>SMTP_PASS=your-16-letter-google-app-password</p>
+              <p>SMTP_FROM=CGCC Cafeteria Express &lt;your-email@gmail.com&gt;</p>
+              <p className="mt-2 font-semibold">Option B — Outlook / Microsoft 365 SMTP:</p>
               <p>SMTP_HOST=smtp.office365.com</p>
               <p>SMTP_PORT=587</p>
               <p>SMTP_USER=your-cafeteria@outlook.com</p>
               <p>SMTP_PASS=your-outlook-app-password</p>
-              <p>SMTP_FROM="CGCC Cafeteria Express &lt;your-cafeteria@outlook.com&gt;"</p>
-              <p className="mt-2 font-semibold">Option B — Resend API (recommended if Outlook blocks basic SMTP):</p>
+              <p>SMTP_FROM=CGCC Cafeteria Express &lt;your-cafeteria@outlook.com&gt;</p>
+              <p className="mt-2 font-semibold">Option C — Resend API:</p>
               <p>RESEND_API_KEY=re_...</p>
-              <p>MAIL_FROM="CGCC Cafeteria Express &lt;noreply@yourdomain.com&gt;"</p>
+              <p>MAIL_FROM=CGCC Cafeteria Express &lt;noreply@yourdomain.com&gt;</p>
             </div>
           </div>
         )}
