@@ -2,7 +2,6 @@ import { useSystemSettings } from "@/lib/settings";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowRight,
-  CheckCircle2,
   CreditCard,
   Package,
   Receipt,
@@ -11,7 +10,6 @@ import {
 } from "lucide-react";
 
 import { Logo } from "@/components/Logo";
-import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
 
@@ -52,38 +50,42 @@ const CATEGORY_EMOJI: Record<string, string> = {
 const FEATURES = [
   {
     icon: Zap,
-    emoji: "⚡",
     title: "Skip the Queue",
     desc: "Avoid long waiting lines during busy service periods.",
   },
   {
     icon: CreditCard,
-    emoji: "💳",
     title: "Easy Payment",
-    desc: "Simple bank transfer to the official cafeteria account.",
+    desc: "Pay quickly online before you arrive at the counter.",
   },
   {
     icon: Receipt,
-    emoji: "🧾",
     title: "Instant Receipt",
     desc: "Receive a downloadable receipt and unique Order Code after confirming payment.",
   },
   {
     icon: Package,
-    emoji: "📦",
     title: "Quick Pickup",
     desc: "Arrive, present your Order Code and collect your order.",
   },
 ];
 
+function cleanBannerText(raw?: string): string {
+  return (raw ?? "").replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+/u, "").trim();
+}
+
 function LandingPage() {
   const settings = useSystemSettings();
   const orderingOpen = useStore((s) => s.orderingOpen);
   const categories = useStore((s) => s.categories);
+  const customWelcome = cleanBannerText(settings.welcomeMessage);
+  const heroEyebrow =
+    customWelcome && customWelcome !== "Welcome to CGCC Cafeteria Express"
+      ? customWelcome
+      : "CGCC Cafeteria · Pre-order";
 
   return (
     <div>
-      <PWAInstallBanner />
       {(settings.maintenanceMessage || settings.announcement) && (
         <section className="mx-auto max-w-5xl space-y-3 px-4 pt-6">
           {settings.maintenanceMessage && (
@@ -105,29 +107,6 @@ function LandingPage() {
         </section>
       )}
 
-      {/* Welcome Banner */}
-      <section className="mx-auto max-w-5xl px-4 pt-6">
-        <div
-          role="status"
-          aria-live="polite"
-          className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-white p-4 shadow-soft sm:items-center sm:gap-4 sm:p-5"
-        >
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-50 ring-1 ring-emerald-200 sm:h-11 sm:w-11">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-hidden />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-display text-sm font-bold text-primary sm:text-base">
-              {settings.welcomeMessage}
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
-              Skip the queue by placing your order before arriving. We're excited to make your
-              cafeteria experience faster, easier and more convenient. Thank you for using CGCC
-              Cafeteria Express.
-            </p>
-          </div>
-        </div>
-      </section>
-
       {/* Hero */}
       <section className="relative overflow-hidden">
 
@@ -139,11 +118,10 @@ function LandingPage() {
         <div className="mx-auto max-w-5xl px-4 pb-14 pt-10 md:pt-16">
           <div className="flex flex-col items-center text-center animate-fade-in">
             <Logo className="h-14 w-auto md:h-16" />
-            <span className="mt-6 inline-flex items-center gap-2 rounded-full border border-brand/40 bg-brand/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand" />
-              CGCC Cafeteria · Pre-order
+            <span className="mt-6 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              {heroEyebrow}
             </span>
-            <h1 className="mt-5 max-w-3xl font-display text-4xl font-bold leading-[1.05] tracking-tight md:text-6xl">
+            <h1 className="mt-3 max-w-3xl font-display text-4xl font-bold leading-[1.05] tracking-tight md:text-6xl">
               Skip the Queue.{" "}
               <span className="text-brand">Enjoy More Time.</span>
             </h1>
@@ -168,7 +146,7 @@ function LandingPage() {
                 disabled={!orderingOpen}
               >
                 <Link to="/menu">
-                  🍽️ Start Your Order
+                  Start Your Order
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
@@ -183,18 +161,11 @@ function LandingPage() {
             </div>
 
             <div className="mt-8 flex items-center gap-6 text-xs text-muted-foreground">
-              <div className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Fast pickup
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Secure payment
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                No waiting
-              </div>
+              <span>Fast pickup</span>
+              <span aria-hidden>·</span>
+              <span>Secure payment</span>
+              <span aria-hidden>·</span>
+              <span>No waiting</span>
             </div>
           </div>
         </div>
@@ -224,7 +195,6 @@ function LandingPage() {
                 <f.icon className="h-5 w-5" />
               </div>
               <h3 className="font-display text-lg font-semibold">
-                <span className="mr-1.5">{f.emoji}</span>
                 {f.title}
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
@@ -292,7 +262,7 @@ function LandingPage() {
             disabled={!orderingOpen}
           >
             <Link to="/menu">
-              🍽️ Start Your Order
+              Start Your Order
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
           </Button>

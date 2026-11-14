@@ -3,7 +3,7 @@
   "name": "CGCC Cafeteria Express",
   "short_name": "CGCC Express",
   "description": "Pre-order your meals before arriving at the CGCC Cafeteria. Skip the queue. Enjoy more time.",
-  "start_url": "/?pwa=1",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",

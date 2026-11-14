@@ -42,7 +42,7 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   receiptFooterText: "Thank you and God bless.",
   refundPolicy:
     "Pre-ordered items are prepared fresh for your selected pickup time. Orders cannot be refunded after preparation begins, except when an item is unavailable or a duplicate charge occurred — present your receipt code at the cafeteria counter for resolution.",
-  welcomeMessage: "🎉 Welcome to CGCC Cafeteria Express",
+  welcomeMessage: "Welcome to CGCC Cafeteria Express",
   maintenanceMessage: "",
   announcement: "",
   payoutPercents: { food: 85, snacks: 85, coffee: 85, drinks: 85 },

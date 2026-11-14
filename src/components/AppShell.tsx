@@ -1,7 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ShoppingCart } from "lucide-react";
 import { Logo } from "./Logo";
-import { PWAInstallButton } from "./PWAInstallBanner";
 import { useStore } from "@/lib/store";
 
 export function AppHeader() {
@@ -17,7 +16,6 @@ export function AppHeader() {
           <Logo className="h-9 w-auto" />
         </Link>
         <div className="flex items-center gap-2">
-          <PWAInstallButton />
           <Link
             to="/cart"
             className="relative inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-soft transition hover:opacity-90"
