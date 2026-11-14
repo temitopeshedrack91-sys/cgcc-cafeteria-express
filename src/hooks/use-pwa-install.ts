@@ -11,8 +11,61 @@ declare global {
   }
 }
 
+const PWA_SESSION_KEY = "cgcc-pwa-standalone";
+const APP_DISPLAY_MODES = [
+  "(display-mode: standalone)",
+  "(display-mode: fullscreen)",
+  "(display-mode: minimal-ui)",
+  "(display-mode: window-controls-overlay)",
+] as const;
+
 let savedPrompt: BeforeInstallPromptEvent | null = null;
 const promptListeners = new Set<(e: BeforeInstallPromptEvent | null) => void>();
+
+export function detectInstalledPWA(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get("pwa") === "1" || sp.get("source") === "pwa") {
+      try {
+        sessionStorage.setItem(PWA_SESSION_KEY, "1");
+      } catch {
+        // Ignore sessionStorage errors
+      }
+      return true;
+    }
+
+    try {
+      if (sessionStorage.getItem(PWA_SESSION_KEY) === "1") {
+        return true;
+      }
+    } catch {
+      // Ignore sessionStorage errors
+    }
+
+    if (
+      typeof document !== "undefined" &&
+      document.referrer.startsWith("android-app://")
+    ) {
+      return true;
+    }
+
+    if ((window.navigator as unknown as { standalone?: boolean }).standalone === true) {
+      return true;
+    }
+
+    if (typeof window.matchMedia === "function") {
+      for (const query of APP_DISPLAY_MODES) {
+        if (window.matchMedia(query).matches) {
+          return true;
+        }
+      }
+    }
+  } catch {
+    // Ignore detection errors
+  }
+  return false;
+}
 
 if (typeof window !== "undefined") {
   if (window.__pwaInstallPrompt) {
@@ -44,15 +97,20 @@ export function usePWAInstall() {
   const [isInIframe, setIsInIframe] = useState(false);
 
   useEffect(() => {
-    const media =
-      typeof window.matchMedia === "function"
-        ? window.matchMedia("(display-mode: standalone)")
-        : null;
-    const checkStandalone = () =>
-      Boolean(media?.matches) ||
-      (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+    const syncInstalledState = () => {
+      const installed = detectInstalledPWA();
+      setIsInstalled(installed);
+      if (installed && typeof document !== "undefined") {
+        document.documentElement.dataset.pwaInstalled = "1";
+        try {
+          sessionStorage.setItem(PWA_SESSION_KEY, "1");
+        } catch {
+          // Ignore sessionStorage errors
+        }
+      }
+    };
 
-    setIsInstalled(checkStandalone());
+    syncInstalledState();
 
     try {
       setIsInIframe(window.self !== window.top);
@@ -75,10 +133,6 @@ export function usePWAInstall() {
       setDeferredPrompt(earlyPrompt);
     }
 
-    const onDisplayModeChange = () => {
-      setIsInstalled(checkStandalone());
-    };
-
     const onPrompt = (next: BeforeInstallPromptEvent | null) => {
       setDeferredPrompt(next);
     };
@@ -91,12 +145,20 @@ export function usePWAInstall() {
       setDeferredPrompt(null);
     };
 
-    media?.addEventListener?.("change", onDisplayModeChange);
+    const mediaQueries =
+      typeof window.matchMedia === "function"
+        ? APP_DISPLAY_MODES.map((q) => window.matchMedia(q))
+        : [];
+    for (const mq of mediaQueries) {
+      mq.addEventListener?.("change", syncInstalledState);
+    }
     window.addEventListener("appinstalled", onInstalled);
 
     return () => {
       promptListeners.delete(onPrompt);
-      media?.removeEventListener?.("change", onDisplayModeChange);
+      for (const mq of mediaQueries) {
+        mq.removeEventListener?.("change", syncInstalledState);
+      }
       window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);

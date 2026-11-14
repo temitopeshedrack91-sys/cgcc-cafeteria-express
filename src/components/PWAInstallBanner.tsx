@@ -125,14 +125,15 @@ function InstallGuideModal({
             <li className="flex items-start gap-2">
               <span className="font-bold text-primary">1.</span>
               <span>
-                This browser (such as Phoenix or an in-app browser) does not support one-tap app
-                installation.
+                If you already installed this app, open{" "}
+                <strong className="text-foreground">CGCC Express</strong> directly from your
+                phone&apos;s home screen.
               </span>
             </li>
             <li className="flex items-start gap-2">
               <span className="font-bold text-primary">2.</span>
               <span>
-                For instant installation, open this link in{" "}
+                To install for the first time, open this link in{" "}
                 <strong className="text-foreground">Google Chrome</strong> and tap{" "}
                 <strong className="text-foreground">Install App</strong>.
               </span>
@@ -140,12 +141,12 @@ function InstallGuideModal({
             <li className="flex items-start gap-2">
               <span className="font-bold text-primary">3.</span>
               <span>
-                Or tap your current browser&apos;s{" "}
+                Or tap your browser&apos;s{" "}
                 <strong className="inline-flex items-center gap-0.5 text-foreground">
                   <MoreVertical className="h-3.5 w-3.5" /> menu
                 </strong>{" "}
-                and look for <strong className="text-foreground">Add to Home screen</strong> or{" "}
-                <strong className="text-foreground">Add shortcut</strong>.
+                and select <strong className="text-foreground">Install app</strong> or{" "}
+                <strong className="text-foreground">Add to Home screen</strong>.
               </span>
             </li>
           </ol>
@@ -180,7 +181,7 @@ export function PWAInstallButton({ compact = false }: { compact?: boolean }) {
   }
 
   return (
-    <>
+    <span className="pwa-install-ui inline-flex">
       <Button
         type="button"
         size="sm"
@@ -199,7 +200,7 @@ export function PWAInstallButton({ compact = false }: { compact?: boolean }) {
           onClose={() => setShowGuide(false)}
         />
       )}
-    </>
+    </span>
   );
 }
 
@@ -220,7 +221,7 @@ export function PWAInstallBanner() {
   }
 
   return (
-    <>
+    <div className="pwa-install-ui">
       <div className="mx-auto max-w-5xl px-4 pt-4">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand/40 bg-brand/10 p-3.5 shadow-soft sm:px-5">
           <div className="flex items-center gap-3">
@@ -273,6 +274,6 @@ export function PWAInstallBanner() {
           onClose={() => setShowGuide(false)}
         />
       )}
-    </>
+    </div>
   );
 }
