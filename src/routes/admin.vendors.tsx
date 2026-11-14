@@ -1,6 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
-import { Eye, EyeOff, KeyRound, LogOut, Pencil, Power, RefreshCw, ShieldCheck, UserPlus } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Eye,
+  EyeOff,
+  KeyRound,
+  LogOut,
+  Pencil,
+  Plus,
+  Power,
+  RefreshCw,
+  ShieldCheck,
+  UserPlus,
+} from "lucide-react";
 import { AdminGuard, AdminShell } from "@/components/AdminShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,10 +34,12 @@ import {
   setVendorPassword,
   setVendorPermission,
   signOutVendorSessions,
+  updateVendorSection,
   VENDOR_TYPES,
-  VENDOR_TYPE_LABELS,
   type VendorType,
 } from "@/lib/vendors.functions";
+import { listCategories, upsertCategory, type CategoryRow } from "@/lib/admin-ops";
+import { formatVendorSectionLabel, slugifyVendorKey, vendorKeyForCategoryName } from "@/lib/customer-categories";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/vendors")({
@@ -34,9 +47,9 @@ export const Route = createFileRoute("/admin/vendors")({
     meta: [
       { title: "Vendor Management · CGCC Admin" },
       { name: "robots", content: "noindex" },
-      { name: "description", content: "Manage CGCC vendor accounts, passwords and permissions." },
+      { name: "description", content: "Manage CGCC vendor accounts, rotating brands, passwords and permissions." },
       { property: "og:title", content: "Vendor Management · CGCC Admin" },
-      { property: "og:description", content: "Manage CGCC vendor accounts, passwords and permissions." },
+      { property: "og:description", content: "Manage CGCC vendor accounts, rotating brands, passwords and permissions." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -66,25 +79,36 @@ type VendorRow = {
   created_at: string;
 };
 
-function label(v: VendorRow) {
-  return v.display_label ?? `${VENDOR_TYPE_LABELS[v.vendor_type]} Vendor`;
+function label(v: VendorRow, categories: CategoryRow[]) {
+  return v.display_label ?? `${formatVendorSectionLabel(v.vendor_type, { categories })} Vendor`;
 }
 
 function VendorManagement() {
   const [rows, setRows] = useState<VendorRow[]>([]);
+  const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+
   const [pwDialog, setPwDialog] = useState<VendorRow | null>(null);
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [showPw, setShowPw] = useState(false);
+
   const [labelDialog, setLabelDialog] = useState<VendorRow | null>(null);
   const [newLabel, setNewLabel] = useState("");
+
+  const [sectionDialog, setSectionDialog] = useState<VendorRow | null>(null);
+  const [editSection, setEditSection] = useState("");
+
   const [addOpen, setAddOpen] = useState(false);
-  const [addType, setAddType] = useState<VendorType>("food");
+  const [addType, setAddType] = useState<string>("food");
+  const [customSectionMode, setCustomSectionMode] = useState(false);
+  const [customSectionName, setCustomSectionName] = useState("");
+  const [alsoCreateCategory, setAlsoCreateCategory] = useState(true);
   const [addUsername, setAddUsername] = useState("");
   const [addEmail, setAddEmail] = useState("");
   const [addLabel, setAddLabel] = useState("");
+
   const [tempPwDialog, setTempPwDialog] = useState<{
     vendor: string;
     password: string;
@@ -93,10 +117,11 @@ function VendorManagement() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await listVendors();
+      const [data, cats] = await Promise.all([listVendors(), listCategories(false)]);
       setRows(data as VendorRow[]);
-    } catch (e: any) {
-      toast.error(e.message ?? "Failed to load vendor accounts");
+      setCategories(cats);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to load vendor accounts");
     } finally {
       setLoading(false);
     }
@@ -105,6 +130,24 @@ function VendorManagement() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const availableSections = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const vt of VENDOR_TYPES) {
+      map.set(vt, formatVendorSectionLabel(vt, { categories }));
+    }
+    for (const c of categories) {
+      const key = vendorKeyForCategoryName(c.name);
+      if (key) map.set(key, c.name);
+    }
+    for (const r of rows) {
+      const key = r.vendor_type?.trim().toLowerCase();
+      if (key && !map.has(key)) {
+        map.set(key, formatVendorSectionLabel(key, { categories }));
+      }
+    }
+    return Array.from(map.entries()).map(([key, name]) => ({ key, name }));
+  }, [categories, rows]);
 
   async function runInit() {
     setBusy(true);
@@ -116,8 +159,8 @@ function VendorManagement() {
         toast.info("All default vendor accounts already exist");
       }
       await load();
-    } catch (e: any) {
-      toast.error(e.message ?? "Setup failed");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Setup failed");
     } finally {
       setBusy(false);
     }
@@ -128,18 +171,22 @@ function VendorManagement() {
       await setVendorActive({ data: { vendorId: v.id, active: next } });
       toast.success(next ? "Account activated" : "Account deactivated");
       await load();
-    } catch (e: any) {
-      toast.error(e.message ?? "Failed");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed");
     }
   }
 
-  async function togglePermission(v: VendorRow, permission: 'can_increase_stock' | 'can_reduce_stock' | 'can_reallocate_stock' | 'can_update_preparation', next: boolean) {
+  async function togglePermission(
+    v: VendorRow,
+    permission: "can_increase_stock" | "can_reduce_stock" | "can_reallocate_stock" | "can_update_preparation",
+    next: boolean,
+  ) {
     try {
       await setVendorPermission({ data: { vendorId: v.id, permission, enabled: next } });
       toast.success("Permission updated");
       await load();
-    } catch (e: any) {
-      toast.error(e.message ?? "Could not update permission");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Could not update permission");
     }
   }
 
@@ -160,8 +207,8 @@ function VendorManagement() {
       setNewPw("");
       setConfirmPw("");
       setShowPw(false);
-    } catch (e: any) {
-      toast.error(e.message ?? "Failed");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed");
     }
   }
 
@@ -176,39 +223,74 @@ function VendorManagement() {
       toast.success("Name updated");
       setLabelDialog(null);
       await load();
-    } catch (e: any) {
-      toast.error(e.message ?? "Failed");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  }
+
+  async function saveSection() {
+    if (!sectionDialog) return;
+    const clean = slugifyVendorKey(editSection);
+    if (clean.length < 2) {
+      toast.error("Select or enter a valid section key");
+      return;
+    }
+    try {
+      await updateVendorSection({ data: { vendorId: sectionDialog.id, vendorType: clean } });
+      toast.success("Vendor section updated");
+      setSectionDialog(null);
+      await load();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to update section");
     }
   }
 
   async function resetPassword(v: VendorRow) {
     try {
       const res = await resetVendorPassword({ data: { vendorId: v.id } });
-      setTempPwDialog({ vendor: label(v), password: res.temporaryPassword });
-    } catch (e: any) {
-      toast.error(e.message ?? "Failed");
+      setTempPwDialog({ vendor: label(v, categories), password: res.temporaryPassword });
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed");
     }
   }
 
   async function forceSignOutVendor(v: VendorRow) {
     try {
       await signOutVendorSessions({ data: { vendorId: v.id } });
-      toast.success(`${label(v)} signed out across all devices.`);
-    } catch (e: any) {
-      toast.error(e.message ?? "Failed to sign out vendor");
+      toast.success(`${label(v, categories)} signed out across all devices.`);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to sign out vendor");
     }
   }
 
   async function submitAdd() {
+    const resolvedSection = customSectionMode
+      ? slugifyVendorKey(customSectionName)
+      : addType.trim().toLowerCase();
+
+    if (resolvedSection.length < 2) {
+      toast.error("Select an existing section or enter a new section name");
+      return;
+    }
     if (addUsername.trim().length < 2 || !addEmail.includes("@") || addLabel.trim().length < 2) {
-      toast.error("Fill in name, username and a valid email");
+      toast.error("Fill in brand/display name, username and a valid email");
       return;
     }
     setBusy(true);
     try {
+      if (customSectionMode && alsoCreateCategory && customSectionName.trim().length >= 2) {
+        const exists = categories.some(
+          (c) =>
+            c.name.trim().toLowerCase() === customSectionName.trim().toLowerCase() ||
+            vendorKeyForCategoryName(c.name) === resolvedSection,
+        );
+        if (!exists) {
+          await upsertCategory({ name: customSectionName.trim() });
+        }
+      }
       const res = await createVendorAccount({
         data: {
-          vendorType: addType,
+          vendorType: resolvedSection,
           username: addUsername.trim(),
           email: addEmail.trim(),
           label: addLabel.trim(),
@@ -218,10 +300,12 @@ function VendorManagement() {
       setAddUsername("");
       setAddEmail("");
       setAddLabel("");
+      setCustomSectionMode(false);
+      setCustomSectionName("");
       setTempPwDialog({ vendor: `${addLabel.trim()} (${res.email})`, password: res.temporaryPassword });
       await load();
-    } catch (e: any) {
-      toast.error(e.message ?? "Failed to create account");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to create account");
     } finally {
       setBusy(false);
     }
@@ -237,7 +321,7 @@ function VendorManagement() {
         <div>
           <h1 className="font-display text-3xl font-bold">Vendor Management</h1>
           <p className="text-sm text-muted-foreground">
-            Create multiple vendor logins under Food, Snacks, Coffee, or Drinks and control permissions from here.
+            Create unlimited vendor logins across any category or custom section (e.g. Queen&apos;s Ward, Snack Vendor 2), rotate monthly brands with Active/Inactive switches, and manage permissions.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -264,114 +348,137 @@ function VendorManagement() {
       ) : rows.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-6 text-center shadow-soft">
           <p className="text-sm text-muted-foreground">
-            No vendor accounts yet. Use "Add Vendor Account" above.
+            No vendor accounts yet. Use &quot;Add Vendor Account&quot; above.
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {rows.map((v) => (
-            <div
-              key={v.id}
-              className="rounded-2xl border border-border bg-card p-4 shadow-soft"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-display text-lg font-bold">{label(v)}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {VENDOR_TYPE_LABELS[v.vendor_type]} section · Username:{" "}
-                    <span className="font-mono">{v.username}</span>
-                  </p>
-                  {v.login_email && (
-                    <p className="text-xs text-muted-foreground">
-                      Login email: <span className="font-mono">{v.login_email}</span>
+          {rows.map((v) => {
+            const sectionLabel = formatVendorSectionLabel(v.vendor_type, { categories, vendors: rows });
+            return (
+              <div
+                key={v.id}
+                className="rounded-2xl border border-border bg-card p-4 shadow-soft"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-display text-lg font-bold">{label(v, categories)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Section: <span className="font-medium text-foreground">{sectionLabel}</span> · Username:{" "}
+                      <span className="font-mono">{v.username}</span>
                     </p>
-                  )}
-                </div>
-                <span
-                  className={
-                    "rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase " +
-                    (v.active
-                      ? "bg-emerald-100 text-emerald-900 border-emerald-300"
-                      : "bg-destructive/20 text-destructive border-destructive/40")
-                  }
-                >
-                  {v.active ? "Active" : "Inactive"}
-                </span>
-              </div>
-
-              <dl className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                <div>
-                  <dt className="uppercase">Created</dt>
-                  <dd className="text-foreground">
-                    {new Date(v.created_at).toLocaleDateString()}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="uppercase">Last login</dt>
-                  <dd className="text-foreground">
-                    {v.last_login ? new Date(v.last_login).toLocaleString() : "Never"}
-                  </dd>
-                </div>
-                {([
-                  ['can_increase_stock', 'Increase stock'],
-                  ['can_reduce_stock', 'Reduce stock'],
-                  ['can_update_preparation', 'Update preparation status'],
-                ] as const).map(([permission, title]) => (
-                  <div key={permission} className="col-span-2 flex items-center justify-between gap-3 border-t border-border py-2">
-                    <dt className="text-foreground">{title}</dt>
-                    <Switch
-                      checked={v[permission] && (permission === 'can_update_preparation' || v.can_manage_stock)}
-                      onCheckedChange={(next) => void togglePermission(v, permission, Boolean(next))}
-                      aria-label={`${title} for ${label(v)}`}
-                    />
+                    {v.login_email && (
+                      <p className="text-xs text-muted-foreground">
+                        Login email: <span className="font-mono">{v.login_email}</span>
+                      </p>
+                    )}
                   </div>
-                ))}
-              </dl>
+                  <span
+                    className={
+                      "rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase " +
+                      (v.active
+                        ? "bg-emerald-100 text-emerald-900 border-emerald-300"
+                        : "bg-destructive/20 text-destructive border-destructive/40")
+                    }
+                  >
+                    {v.active ? "Active" : "Inactive"}
+                  </span>
+                </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={() => { setLabelDialog(v); setNewLabel(label(v)); }}>
-                  <Pencil className="mr-1 h-3.5 w-3.5" /> Rename
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setPwDialog(v);
-                    setNewPw("");
-                    setConfirmPw("");
-                    setShowPw(false);
-                  }}
-                >
-                  <KeyRound className="mr-1 h-3.5 w-3.5" /> Change Password
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void resetPassword(v)}
-                >
-                  Reset Password
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void forceSignOutVendor(v)}
-                >
-                  <LogOut className="mr-1 h-3.5 w-3.5" /> Log Out
-                </Button>
-                <Button
-                  size="sm"
-                  variant={v.active ? "destructive" : "default"}
-                  onClick={() => void toggleActive(v, !v.active)}
-                >
-                  <Power className="mr-1 h-3.5 w-3.5" />
-                  {v.active ? "Deactivate" : "Activate"}
-                </Button>
+                <dl className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                  <div>
+                    <dt className="uppercase">Created</dt>
+                    <dd className="text-foreground">
+                      {new Date(v.created_at).toLocaleDateString()}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="uppercase">Last login</dt>
+                    <dd className="text-foreground">
+                      {v.last_login ? new Date(v.last_login).toLocaleString() : "Never"}
+                    </dd>
+                  </div>
+                  {(
+                    [
+                      ["can_increase_stock", "Increase stock"],
+                      ["can_reduce_stock", "Reduce stock"],
+                      ["can_update_preparation", "Update preparation status"],
+                    ] as const
+                  ).map(([permission, title]) => (
+                    <div key={permission} className="col-span-2 flex items-center justify-between gap-3 border-t border-border py-2">
+                      <dt className="text-foreground">{title}</dt>
+                      <Switch
+                        checked={v[permission] && (permission === "can_update_preparation" || v.can_manage_stock)}
+                        onCheckedChange={(next) => void togglePermission(v, permission, Boolean(next))}
+                        aria-label={`${title} for ${label(v, categories)}`}
+                      />
+                    </div>
+                  ))}
+                </dl>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setLabelDialog(v);
+                      setNewLabel(label(v, categories));
+                    }}
+                  >
+                    <Pencil className="mr-1 h-3.5 w-3.5" /> Rename
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setSectionDialog(v);
+                      setEditSection(v.vendor_type);
+                    }}
+                  >
+                    Change Section
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setPwDialog(v);
+                      setNewPw("");
+                      setConfirmPw("");
+                      setShowPw(false);
+                    }}
+                  >
+                    <KeyRound className="mr-1 h-3.5 w-3.5" /> Change Password
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void resetPassword(v)}
+                  >
+                    Reset Password
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void forceSignOutVendor(v)}
+                  >
+                    <LogOut className="mr-1 h-3.5 w-3.5" /> Log Out
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={v.active ? "destructive" : "default"}
+                    onClick={() => void toggleActive(v, !v.active)}
+                  >
+                    <Power className="mr-1 h-3.5 w-3.5" />
+                    {v.active ? "Deactivate" : "Activate"}
+                  </Button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
+      {/* Change Password Dialog */}
       <Dialog
         open={pwDialog !== null}
         onOpenChange={(o) => {
@@ -386,7 +493,7 @@ function VendorManagement() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Change password{pwDialog ? ` · ${label(pwDialog)}` : ""}
+              Change password{pwDialog ? ` · ${label(pwDialog, categories)}` : ""}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
@@ -433,21 +540,21 @@ function VendorManagement() {
         </DialogContent>
       </Dialog>
 
+      {/* Rename Dialog */}
       <Dialog open={labelDialog !== null} onOpenChange={(o) => !o && setLabelDialog(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Rename vendor account</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="lbl">Display name</Label>
+            <Label htmlFor="lbl">Display / Brand name</Label>
             <Input
               id="lbl"
               type="text"
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
-              placeholder="e.g. Food Vendor"
+              placeholder="e.g. Queen's Ward Snacks"
             />
-
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setLabelDialog(null)}>
@@ -458,57 +565,147 @@ function VendorManagement() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={addOpen} onOpenChange={(o) => !o && setAddOpen(false)}>
+      {/* Change Section Dialog */}
+      <Dialog open={sectionDialog !== null} onOpenChange={(o) => !o && setSectionDialog(null)}>
         <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign Vendor Section</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Choose which category/section products and orders this vendor account can manage and export.
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-sec-select">Existing Section</Label>
+              <select
+                id="edit-sec-select"
+                value={availableSections.some((s) => s.key === editSection) ? editSection : "__custom"}
+                onChange={(e) => {
+                  if (e.target.value !== "__custom") setEditSection(e.target.value);
+                }}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                {availableSections.map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {s.name} ({s.key})
+                  </option>
+                ))}
+                <option value="__custom">Custom section key…</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-sec-key">Section Key</Label>
+              <Input
+                id="edit-sec-key"
+                value={editSection}
+                onChange={(e) => setEditSection(e.target.value)}
+                placeholder="e.g. snacks or queens_ward"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSectionDialog(null)}>
+              Cancel
+            </Button>
+            <Button onClick={saveSection}>Update Section</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Vendor Account Dialog */}
+      <Dialog open={addOpen} onOpenChange={(o) => !o && setAddOpen(false)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add vendor account</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-2">
-              <Label>Section</Label>
-              <div className="flex flex-wrap gap-2">
-                {VENDOR_TYPES.map((vt) => (
-                  <Button
-                    key={vt}
-                    size="sm"
-                    variant={addType === vt ? "default" : "outline"}
-                    onClick={() => setAddType(vt)}
-                  >
-                    {VENDOR_TYPE_LABELS[vt]}
-                  </Button>
-                ))}
+              <div className="flex items-center justify-between">
+                <Label>Category / Vendor Section</Label>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary underline"
+                  onClick={() => setCustomSectionMode((v) => !v)}
+                >
+                  <Plus className="h-3 w-3" />
+                  {customSectionMode ? "Pick existing section" : "Create new section"}
+                </button>
               </div>
+              {!customSectionMode ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {availableSections.map((sec) => (
+                    <Button
+                      key={sec.key}
+                      type="button"
+                      size="sm"
+                      variant={addType === sec.key ? "default" : "outline"}
+                      onClick={() => setAddType(sec.key)}
+                    >
+                      {sec.name}
+                    </Button>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+                  <div>
+                    <Label htmlFor="new-sec-name" className="text-xs">
+                      New Vendor / Category Section Name
+                    </Label>
+                    <Input
+                      id="new-sec-name"
+                      value={customSectionName}
+                      onChange={(e) => setCustomSectionName(e.target.value)}
+                      placeholder="e.g. Queen's Ward, Grill, or Sweets"
+                      className="mt-1"
+                    />
+                    {customSectionName.trim() && (
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Section key: <span className="font-mono">{slugifyVendorKey(customSectionName)}</span>
+                      </p>
+                    )}
+                  </div>
+                  <label className="flex items-center gap-2 text-xs text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={alsoCreateCategory}
+                      onChange={(e) => setAlsoCreateCategory(e.target.checked)}
+                    />
+                    Also add as a Category on the Customer Menu
+                  </label>
+                </div>
+              )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-label">Display name</Label>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="add-label">Vendor / Brand Display Name</Label>
               <Input
                 id="add-label"
                 value={addLabel}
                 onChange={(e) => setAddLabel(e.target.value)}
-                placeholder="e.g. Drinks Vendor 2"
+                placeholder="e.g. Queen's Ward (Snacks)"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-username">Username</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="add-username">Login Username</Label>
               <Input
                 id="add-username"
                 value={addUsername}
                 onChange={(e) => setAddUsername(e.target.value)}
-                placeholder="e.g. drinks2"
+                placeholder="e.g. queensward"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-email">Login email</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="add-email">Login Email</Label>
               <Input
                 id="add-email"
                 type="email"
                 value={addEmail}
                 onChange={(e) => setAddEmail(e.target.value)}
-                placeholder="e.g. drinks2@cgcc.local"
+                placeholder="e.g. queensward@cgcc.local"
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              A temporary password is generated when the account is created — share it with the vendor.
+              A temporary password is generated when the account is created — share it with the vendor. For rotating vendors, deactivate old accounts anytime without deleting past sales history.
             </p>
           </div>
           <DialogFooter>
@@ -522,6 +719,7 @@ function VendorManagement() {
         </DialogContent>
       </Dialog>
 
+      {/* Temp Password Dialog */}
       <Dialog
         open={tempPwDialog !== null}
         onOpenChange={(o) => !o && setTempPwDialog(null)}

@@ -22,7 +22,7 @@ export type SystemSettings = {
   welcomeMessage: string;
   maintenanceMessage: string;
   announcement: string;
-  payoutPercents: { food: number; snacks: number; coffee: number; drinks: number };
+  payoutPercents: Record<string, number>;
   defaultVendorPayoutPercent: number;
 };
 

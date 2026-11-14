@@ -48,7 +48,14 @@ import {
 } from "@/lib/admin-ops";
 import { formatNaira } from "@/lib/store";
 import { useSystemSettings } from "@/lib/settings";
-import { customerCategory } from "@/lib/customer-categories";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  customerCategory,
+  formatVendorSectionLabel,
+  slugifyVendorKey,
+  vendorKeyForCategoryName,
+} from "@/lib/customer-categories";
+import { collectVendorScopes, type VendorScopeMeta } from "@/lib/reports";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/products")({
@@ -62,7 +69,6 @@ export const Route = createFileRoute("/admin/products")({
   ),
 });
 
-const VENDORS = ["food", "snacks", "coffee", "drinks"] as const;
 type SortKey = "name" | "price" | "stock" | "vendor";
 
 type FormState = {
@@ -92,16 +98,22 @@ function ProductsPage() {
   const [view, setView] = useState<"products" | "categories">("products");
   const [rows, setRows] = useState<ProductRow[]>([]);
   const [cats, setCats] = useState<CategoryRow[]>([]);
+  const [vendors, setVendors] = useState<VendorScopeMeta[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [p, c] = await Promise.all([listProducts(true), listCategories(true)]);
+      const [p, c, vRes] = await Promise.all([
+        listProducts(true),
+        listCategories(true),
+        supabase.from("vendors").select("vendor_type, display_label, active").order("created_at"),
+      ]);
       setRows(p);
       setCats(c);
-    } catch (e: any) {
-      toast.error(e.message ?? "Failed to load products");
+      setVendors((vRes.data ?? []) as VendorScopeMeta[]);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to load products");
     } finally {
       setLoading(false);
     }
@@ -117,8 +129,8 @@ function ProductsPage() {
         <div>
           <h1 className="font-display text-3xl font-bold">Product Management</h1>
           <p className="text-sm text-muted-foreground">
-            Create, edit, duplicate, archive and bulk-manage products and categories. Historical orders keep their original
-            prices.
+            Create, edit, duplicate, archive and bulk-manage products, categories and vendor sections. Historical orders
+            keep their original prices.
           </p>
         </div>
         <div className="flex gap-1">
@@ -131,7 +143,7 @@ function ProductsPage() {
       </div>
 
       {view === "products" ? (
-        <ProductsTab rows={rows} cats={cats} loading={loading} reload={load} />
+        <ProductsTab rows={rows} cats={cats} vendors={vendors} loading={loading} reload={load} />
       ) : (
         <CategoriesTab cats={cats} rows={rows} loading={loading} reload={load} />
       )}
@@ -144,11 +156,13 @@ function ProductsPage() {
 function ProductsTab({
   rows,
   cats,
+  vendors,
   loading,
   reload,
 }: {
   rows: ProductRow[];
   cats: CategoryRow[];
+  vendors: VendorScopeMeta[];
   loading: boolean;
   reload: () => Promise<void>;
 }) {
@@ -173,8 +187,25 @@ function ProductsTab({
   const [confirmDelete, setConfirmDelete] = useState<ProductRow | null>(null);
   const [bulkPrice, setBulkPrice] = useState("");
   const [bulkPercent, setBulkPercent] = useState("");
+  const [customVendorMode, setCustomVendorMode] = useState(false);
+  const [customVendorInput, setCustomVendorInput] = useState("");
+  const [vendorTouched, setVendorTouched] = useState(false);
 
   const activeCats = useMemo(() => cats.filter((c) => !c.archived_at), [cats]);
+  const vendorOptions = useMemo(() => {
+    const keys = collectVendorScopes({
+      vendors,
+      extraKeys: [
+        ...activeCats.map((c) => vendorKeyForCategoryName(c.name)),
+        ...rows.map((r) => r.vendor_type),
+      ],
+    });
+    return keys.map((key) => ({
+      key,
+      label: formatVendorSectionLabel(key, { vendors, categories: activeCats }),
+    }));
+  }, [vendors, activeCats, rows]);
+
   const catName = useCallback(
     (id: string | null) => cats.find((c) => c.id === id)?.name ?? id ?? "—",
     [cats],
@@ -224,7 +255,15 @@ function ProductsTab({
   };
 
   function openCreate() {
-    setForm({ ...empty, category_id: activeCats[0]?.id ?? "" });
+    const firstCat = activeCats[0];
+    setForm({
+      ...empty,
+      category_id: firstCat?.id ?? "",
+      vendor_type: firstCat ? vendorKeyForCategoryName(firstCat.name) : "food",
+    });
+    setCustomVendorMode(false);
+    setCustomVendorInput("");
+    setVendorTouched(false);
     setDialogOpen(true);
   }
   function openEdit(p: ProductRow) {
@@ -239,6 +278,9 @@ function ProductsTab({
       image_url: p.image_url ?? "",
       available: p.available,
     });
+    setCustomVendorMode(false);
+    setCustomVendorInput("");
+    setVendorTouched(true);
     setDialogOpen(true);
   }
 
@@ -253,8 +295,8 @@ function ProductsTab({
       const url = await uploadProductImage(file);
       setForm((f) => ({ ...f, image_url: url }));
       toast.success("Image uploaded");
-    } catch (e: any) {
-      toast.error(e.message ?? "Upload failed");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -263,7 +305,14 @@ function ProductsTab({
 
   async function save() {
     const price = parseInt(form.price, 10);
-    const rate = vendorPayoutRate(form.vendor_type);
+    const resolvedVendor = customVendorMode
+      ? slugifyVendorKey(customVendorInput)
+      : slugifyVendorKey(form.vendor_type);
+    if (!resolvedVendor) {
+      toast.error("Please select or enter a valid vendor section");
+      return;
+    }
+    const rate = vendorPayoutRate(resolvedVendor);
     const costPrice =
       form.cost_price.trim() === ""
         ? round2((price * rate) / 100)
@@ -280,7 +329,7 @@ function ProductsTab({
         category_id: form.category_id || null,
         price,
         cost_price: costPrice,
-        vendor_type: form.vendor_type,
+        vendor_type: resolvedVendor,
         description: form.description || null,
         image_url: form.image_url || null,
         available: form.available,
@@ -288,8 +337,8 @@ function ProductsTab({
       toast.success(form.id ? "Product updated" : "Product created");
       setDialogOpen(false);
       await reload();
-    } catch (e: any) {
-      toast.error(e.message ?? "Save failed");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
     } finally {
       setSaving(false);
     }
@@ -300,8 +349,8 @@ function ProductsTab({
       await fn();
       toast.success(ok);
       await reload();
-    } catch (e: any) {
-      toast.error(e.message ?? "Action failed");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Action failed");
     }
   }
 
@@ -309,14 +358,14 @@ function ProductsTab({
     const ids = [...selected];
     if (ids.length === 0) return;
     try {
-      const res: any = await bulkUpdateProducts(ids, action, value);
+      const res = (await bulkUpdateProducts(ids, action, value)) as { updated?: number } | null;
       toast.success(`Updated ${res?.updated ?? ids.length} product(s)`);
       setSelected(new Set());
       setBulkPrice("");
       setBulkPercent("");
       await reload();
-    } catch (e: any) {
-      toast.error(e.message ?? "Bulk action failed");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Bulk action failed");
     }
   }
 
@@ -328,8 +377,8 @@ function ProductsTab({
       toast.success("Products moved");
       setSelected(new Set());
       await reload();
-    } catch (e: any) {
-      toast.error(e.message ?? "Move failed");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Move failed");
     }
   }
 
@@ -345,7 +394,7 @@ function ProductsTab({
     available: boolean;
   };
 
-  function pick(row: Record<string, any>, ...keys: string[]): string {
+  function pick(row: Record<string, unknown>, ...keys: string[]): string {
     for (const k of keys) {
       const v = row[k] ?? row[k.replace(/_/g, " ")] ?? row[k.replace(/_/g, "")];
       if (v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim();
@@ -353,7 +402,7 @@ function ProductsTab({
     return "";
   }
 
-  function parseImportRows(sheetRows: Record<string, any>[]): { rows: ImportRow[]; errors: string[] } {
+  function parseImportRows(sheetRows: Record<string, unknown>[]): { rows: ImportRow[]; errors: string[] } {
     const catByName = new Map(cats.filter((c) => !c.archived_at).map((c) => [c.name.toLowerCase(), c.id]));
     const errors: string[] = [];
     const rows: ImportRow[] = [];
@@ -370,12 +419,14 @@ function ProductsTab({
         return;
       }
       const costRaw = pick(raw, "Cost Price", "Cost", "cost_price").replace(/[^0-9.]/g, "");
-      const vendorRaw = pick(raw, "Vendor", "vendor_type", "vendor").toLowerCase();
-      const vendorType = (["food", "snacks", "coffee", "drinks"] as const).find((v) => v === vendorRaw) ?? "food";
-      const rate = vendorPayoutRate(vendorType);
-      const costPrice = costRaw === "" ? round2((price * rate) / 100) : round2(parseFloat(costRaw));
       const catRaw = pick(raw, "Category", "category").toLowerCase();
       const categoryId = catRaw ? catByName.get(catRaw) ?? null : null;
+      const vendorRaw = pick(raw, "Vendor", "vendor_type", "vendor");
+      const vendorType =
+        slugifyVendorKey(vendorRaw) ||
+        (catRaw ? vendorKeyForCategoryName(catRaw) : "food");
+      const rate = vendorPayoutRate(vendorType);
+      const costPrice = costRaw === "" ? round2((price * rate) / 100) : round2(parseFloat(costRaw));
       if (catRaw && !categoryId) errors.push(`Row ${line}: ${name} — category "${pick(raw, "Category", "category")}" not found (will be left uncategorised)`);
       rows.push({
         name,
@@ -404,8 +455,8 @@ function ProductsTab({
       }
       setImportPreview(parsed.rows);
       setImportErrors(parsed.errors);
-    } catch (e: any) {
-      toast.error(e.message ?? "Could not read the file");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Could not read the file");
     } finally {
       setImporting(false);
       if (importFileRef.current) importFileRef.current.value = "";
@@ -434,8 +485,8 @@ function ProductsTab({
       setImportPreview(null);
       setImportErrors([]);
       await reload();
-    } catch (e: any) {
-      toast.error(e.message ?? `Import stopped after ${ok} product(s)`);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : `Import stopped after ${ok} product(s)`);
     } finally {
       setImporting(false);
     }
@@ -471,9 +522,9 @@ function ProductsTab({
           onChange={(e) => setVendorFilter(e.target.value)}
         >
           <option value="">All vendors</option>
-          {VENDORS.map((v) => (
-            <option key={v} value={v}>
-              {v}
+          {vendorOptions.map((v) => (
+            <option key={v.key} value={v.key}>
+              {v.label}
             </option>
           ))}
         </select>
@@ -577,9 +628,9 @@ function ProductsTab({
             onChange={(e) => e.target.value && void doBulkMove(e.target.value, undefined)}
           >
             <option value="">Move to vendor…</option>
-            {VENDORS.map((v) => (
-              <option key={v} value={v}>
-                {v}
+            {vendorOptions.map((v) => (
+              <option key={v.key} value={v.key}>
+                {v.label}
               </option>
             ))}
           </select>
@@ -623,8 +674,8 @@ function ProductsTab({
                 toast.success(`Updated cost prices for ${ids.length} product(s)`);
                 setSelected(new Set());
                 await reload();
-              } catch (e: any) {
-                toast.error(e.message ?? "Could not recalculate cost prices");
+              } catch (e: unknown) {
+                toast.error(e instanceof Error ? e.message : "Could not recalculate cost prices");
               }
             }}
           >
@@ -689,14 +740,13 @@ function ProductsTab({
                         <div className="font-semibold">{p.name}</div>
                         <div className="text-[10px] uppercase text-muted-foreground">
                           {catName(p.category_id)}
-                          {p.category_id && customerCategory(catName(p.category_id)) !== catName(p.category_id)
-                            ? ` → Customer: ${customerCategory(catName(p.category_id))}`
-                            : ""}
                         </div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-xs uppercase">{p.vendor_type}</td>
+                  <td className="px-3 py-2 text-xs font-medium">
+                    {formatVendorSectionLabel(p.vendor_type ?? "food", { vendors, categories: cats })}
+                  </td>
                   <td className="px-3 py-2 text-right font-semibold">{formatNaira(p.price)}</td>
                   <td className="px-3 py-2 text-right text-muted-foreground">{formatNaira(p.cost_price ?? 0)}</td>
                   <td className="px-3 py-2 text-center font-medium tabular-nums">
@@ -822,26 +872,63 @@ function ProductsTab({
                 />
               </div>
               <div>
-                <Label>Vendor</Label>
+                <Label>Vendor Section</Label>
                 <select
                   className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  value={form.vendor_type}
-                  onChange={(e) => setForm({ ...form, vendor_type: e.target.value })}
+                  value={customVendorMode ? "__custom__" : form.vendor_type}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setVendorTouched(true);
+                    if (val === "__custom__") {
+                      setCustomVendorMode(true);
+                    } else {
+                      setCustomVendorMode(false);
+                      setForm((f) => ({ ...f, vendor_type: val }));
+                    }
+                  }}
                 >
-                  {VENDORS.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
+                  {vendorOptions.map((v) => (
+                    <option key={v.key} value={v.key}>
+                      {v.label}
                     </option>
                   ))}
+                  <option value="__custom__">+ New vendor section…</option>
                 </select>
               </div>
             </div>
+            {customVendorMode ? (
+              <div>
+                <Label>New Vendor Section Name</Label>
+                <Input
+                  className="mt-1"
+                  value={customVendorInput}
+                  onChange={(e) => setCustomVendorInput(e.target.value)}
+                  placeholder="e.g. Sweets, Grill, Pastry"
+                />
+                {slugifyVendorKey(customVendorInput) ? (
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Section key: <span className="font-mono">{slugifyVendorKey(customVendorInput)}</span>
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             <div>
               <Label>Category</Label>
               <select
                 className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 value={form.category_id}
-                onChange={(e) => setForm({ ...form, category_id: e.target.value })}
+                onChange={(e) => {
+                  const nextCatId = e.target.value;
+                  const matchedCat = activeCats.find((c) => c.id === nextCatId);
+                  setForm((f) => ({
+                    ...f,
+                    category_id: nextCatId,
+                    vendor_type:
+                      !f.id && !vendorTouched && matchedCat
+                        ? vendorKeyForCategoryName(matchedCat.name)
+                        : f.vendor_type,
+                  }));
+                }}
               >
                 {activeCats.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -1015,8 +1102,8 @@ function CategoriesTab({
       await fn();
       toast.success(ok);
       await reload();
-    } catch (e: any) {
-      toast.error(e.message ?? "Action failed");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Action failed");
     }
   }
 
@@ -1033,9 +1120,10 @@ function CategoriesTab({
   return (
     <>
       <div className="rounded-2xl border border-border bg-muted/40 p-3.5 text-xs text-muted-foreground">
-        <p className="font-semibold text-foreground">Categories match the Customer menu 1:1</p>
+        <p className="font-semibold text-foreground">Categories sync 1:1 with the Customer Menu</p>
         <p className="mt-1 leading-relaxed">
-          Your 5 core categories (<span className="font-medium text-foreground">Food, Snacks, Coffee &amp; Tea, Drinks, Sweets</span>) and any new category you create here appear directly on the Customer menu. Move products between categories anytime from the Products tab using checkboxes.
+          Every active category you create, rename, or reorder here appears directly on the Customer Menu in this exact
+          order. Archiving or deleting a category removes it from the storefront immediately.
         </p>
       </div>
 

@@ -1,15 +1,23 @@
 // Pure reporting helpers used by vendor + admin dashboards.
 
-export type ReportVendor = "food" | "snacks" | "coffee" | "drinks";
+export type ReportVendor = string;
 export type CategoryScope = `cat:${string}`;
-export type ReportScope = ReportVendor | "all" | CategoryScope;
+export type ReportScope = "all" | CategoryScope | ReportVendor;
 
-export const VENDOR_LABELS: Record<ReportVendor | "all", string> = {
+export const DEFAULT_VENDOR_KEYS = ["food", "snacks", "coffee", "drinks"] as const;
+
+export const VENDOR_LABELS: Record<string, string> = {
   food: "Food Vendor",
   snacks: "Snacks Vendor",
   coffee: "Coffee Vendor",
   drinks: "Drinks (Cafeteria Management)",
   all: "All Vendors",
+};
+
+export type VendorScopeMeta = {
+  vendor_type: string;
+  display_label?: string | null;
+  active?: boolean;
 };
 
 export function isCategoryScope(scope: ReportScope): scope is CategoryScope {
@@ -20,21 +28,58 @@ export function categoryIdFromScope(scope: ReportScope): string | null {
   return isCategoryScope(scope) ? scope.slice(4) : null;
 }
 
+export function prettifyVendorKey(key: string): string {
+  return key
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 export function getReportScopeLabel(
   scope: ReportScope,
   categories?: { id: string; name: string }[],
   explicitLabel?: string,
+  vendors?: VendorScopeMeta[],
 ): string {
   if (explicitLabel?.trim()) return explicitLabel.trim();
+  if (scope === "all") return VENDOR_LABELS.all;
+  if (isCategoryScope(scope)) {
+    const catId = categoryIdFromScope(scope);
+    if (catId && categories) {
+      const found = categories.find((c) => c.id === catId);
+      if (found) return `${found.name} Category`;
+    }
+    return "Category Report";
+  }
+  const activeVendor = vendors?.find((v) => v.vendor_type === scope && v.active !== false);
+  if (activeVendor?.display_label?.trim()) {
+    return activeVendor.display_label.trim();
+  }
   if (scope in VENDOR_LABELS) {
-    return VENDOR_LABELS[scope as ReportVendor | "all"];
+    return VENDOR_LABELS[scope];
   }
-  const catId = categoryIdFromScope(scope);
-  if (catId && categories) {
-    const found = categories.find((c) => c.id === catId);
-    if (found) return `${found.name} Category`;
+  const anyVendor = vendors?.find((v) => v.vendor_type === scope);
+  if (anyVendor?.display_label?.trim()) {
+    return anyVendor.display_label.trim();
   }
-  return "Category Report";
+  return `${prettifyVendorKey(scope)} Vendor`;
+}
+
+export function collectVendorScopes(input: {
+  vendors?: VendorScopeMeta[];
+  extraKeys?: Iterable<string | null | undefined>;
+}): string[] {
+  const seen = new Set<string>(DEFAULT_VENDOR_KEYS);
+  for (const v of input.vendors ?? []) {
+    const k = v.vendor_type?.trim().toLowerCase();
+    if (k) seen.add(k);
+  }
+  for (const raw of input.extraKeys ?? []) {
+    const k = raw?.trim().toLowerCase();
+    if (k) seen.add(k);
+  }
+  return Array.from(seen);
 }
 
 export type ReportItem = {

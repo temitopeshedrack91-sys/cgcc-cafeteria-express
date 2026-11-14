@@ -15,7 +15,7 @@ import { fetchOrderByCode, formatNaira } from "@/lib/store";
 import { toast } from "sonner";
 import { useNotificationSound } from "@/hooks/use-notification-sound";
 import { ReportDialog } from "@/components/ReportDialog";
-import type { ReportOrder, ReportScope } from "@/lib/reports";
+import { getReportScopeLabel, type ReportOrder, type ReportScope } from "@/lib/reports";
 import { downloadReceiptPdf } from "@/lib/receipt-pdf";
 import { InventoryPanel } from "@/components/InventoryPanel";
 import { BusinessDayFilter } from "@/components/BusinessDayFilter";
@@ -52,24 +52,20 @@ type VendorOrderItem = {
 type VendorOrder = {
   id: string;
   code: string;
+  receipt_no: string | null;
   customer_name: string;
   phone: string;
   note: string | null;
   order_type: "dine-in" | "takeaway";
   pickup_time: string | null;
   payment_status: "paid" | "unpaid";
+  payment_provider: string | null;
+  payment_reference: string | null;
   pickup_status: string;
   created_at: string;
   business_day: string | null;
   archived_at: string | null;
   items: VendorOrderItem[];
-};
-
-const VENDOR_LABELS: Record<string, string> = {
-  food: "Food Vendor",
-  snacks: "Snacks Vendor",
-  coffee: "Coffee Vendor",
-  drinks: "Drinks (Cafeteria Management)",
 };
 
 const NEXT_STATUS: Record<PrepStatus, PrepStatus | null> = {
@@ -111,6 +107,7 @@ function formatDayLine(iso: string) {
 function VendorDashboard() {
   const navigate = useNavigate();
   const [vendorType, setVendorType] = useState<string | null>(null);
+  const [vendorLabel, setVendorLabel] = useState<string | null>(null);
   const [permissions, setPermissions] = useState({ increase: false, reduce: false, reallocate: false, preparation: false });
   const [orders, setOrders] = useState<VendorOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,26 +128,32 @@ function VendorDashboard() {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, code, customer_name, phone, note, order_type, pickup_time, payment_status, pickup_status, created_at, business_day, archived_at, order_items ( id, order_id, menu_item_id, name, qty, price, preparation_status, vendor_type )",
+          "id, code, receipt_no, customer_name, phone, note, order_type, pickup_time, payment_status, payment_provider, payment_reference, pickup_status, created_at, business_day, archived_at, order_items ( id, order_id, menu_item_id, name, qty, price, preparation_status, vendor_type )",
         )
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
-      const rows = (data ?? []).map((o: any) => ({
-        id: o.id,
-        code: o.code,
-        customer_name: o.customer_name,
-        phone: o.phone,
-        note: o.note,
-        order_type: o.order_type,
-        pickup_time: o.pickup_time,
-        payment_status: o.payment_status,
-        pickup_status: o.pickup_status,
-        created_at: o.created_at,
-        business_day: o.business_day ?? null,
-        archived_at: o.archived_at ?? null,
-        items: (o.order_items ?? []) as VendorOrderItem[],
-      })) as VendorOrder[];
+      const rows = (data ?? []).map((o) => {
+        const rec = o as unknown as VendorOrder & { order_items?: VendorOrderItem[] };
+        return {
+          id: rec.id,
+          code: rec.code,
+          receipt_no: rec.receipt_no ?? null,
+          customer_name: rec.customer_name,
+          phone: rec.phone,
+          note: rec.note,
+          order_type: rec.order_type,
+          pickup_time: rec.pickup_time,
+          payment_status: rec.payment_status,
+          payment_provider: rec.payment_provider ?? null,
+          payment_reference: rec.payment_reference ?? null,
+          pickup_status: rec.pickup_status,
+          created_at: rec.created_at,
+          business_day: rec.business_day ?? null,
+          archived_at: rec.archived_at ?? null,
+          items: (rec.order_items ?? []) as VendorOrderItem[],
+        };
+      });
       // RLS already filters items to this vendor's type
       const visible = rows.filter((o) => o.items.length > 0);
 
@@ -176,14 +179,16 @@ function VendorDashboard() {
                   body: `${o.customer_name}${o.pickup_time ? " · Pickup " + o.pickup_time : ""}`,
                   tag: o.id,
                 });
-              } catch {}
+              } catch {
+                // Ignore Notification errors on unsupported platforms
+              }
             }
           }
         }
       }
       knownIdsRef.current = new Set(visible.map((o) => o.id));
       setOrders(visible);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[vendor] load failed", e);
       toast.error("Failed to load orders");
     } finally {
@@ -203,7 +208,7 @@ function VendorDashboard() {
       }
       const { data: v } = await supabase
         .from("vendors")
-        .select("vendor_type, active, can_manage_stock, can_increase_stock, can_reduce_stock, can_reallocate_stock, can_update_preparation")
+        .select("vendor_type, display_label, active, can_manage_stock, can_increase_stock, can_reduce_stock, can_reallocate_stock, can_update_preparation")
         .eq("user_id", user.id)
         .maybeSingle();
       if (!v || !v.active) {
@@ -213,6 +218,7 @@ function VendorDashboard() {
       }
       if (cancelled) return;
       setVendorType(v.vendor_type);
+      setVendorLabel(v.display_label ?? null);
       setPermissions({ increase: v.can_manage_stock && v.can_increase_stock, reduce: v.can_manage_stock && v.can_reduce_stock, reallocate: v.can_manage_stock && v.can_reallocate_stock, preparation: v.can_update_preparation });
       await load();
     })();
@@ -274,6 +280,7 @@ function VendorDashboard() {
     () =>
       scoped.map((o) => ({
         code: o.code,
+        receiptNo: o.receipt_no ?? undefined,
         customerName: o.customer_name,
         phone: o.phone,
         createdAt: new Date(o.created_at).getTime(),
@@ -349,6 +356,7 @@ function VendorDashboard() {
   }
 
   const scope = (vendorType ?? "food") as ReportScope;
+  const resolvedLabel = vendorLabel?.trim() || getReportScopeLabel(scope);
 
   return (
     <div className="min-h-screen bg-muted/40">
@@ -357,7 +365,7 @@ function VendorDashboard() {
           <Link to="/vendor" className="flex items-center gap-3">
             <Logo className="h-8 w-auto" />
             <span className="font-display text-sm font-semibold">
-              {vendorType ? VENDOR_LABELS[vendorType] : "Vendor"}
+              {resolvedLabel}
             </span>
           </Link>
           <div className="flex items-center gap-2">
@@ -494,10 +502,10 @@ function VendorDashboard() {
                   {formatDayLine(o.created_at)}
                 </p>
 
-                <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-bold uppercase">
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                   <span
                     className={
-                      "rounded-full border px-2 py-0.5 " +
+                      "inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase " +
                       (o.payment_status === "paid"
                         ? "bg-emerald-100 text-emerald-900 border-emerald-300"
                         : "bg-amber-100 text-amber-900 border-amber-300")
@@ -505,9 +513,22 @@ function VendorDashboard() {
                   >
                     Payment: {o.payment_status}
                   </span>
-                  <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-muted-foreground">
+                  <span className="inline-flex items-center rounded-md border border-border bg-muted px-2 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
                     Order: {o.pickup_status}
                   </span>
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border bg-muted/30 px-2.5 py-1.5 text-[11px] text-muted-foreground font-mono tabular-nums">
+                  <span>Order ID: <strong className="text-foreground">{o.code}</strong></span>
+                  {o.receipt_no && (
+                    <span>Receipt: <strong className="text-foreground">{o.receipt_no}</strong></span>
+                  )}
+                  {o.payment_reference && (
+                    <span>
+                      Txn ID{o.payment_provider ? ` (${o.payment_provider})` : ""}:{" "}
+                      <strong className="text-foreground">{o.payment_reference}</strong>
+                    </span>
+                  )}
                 </div>
 
                 {o.note && (
@@ -584,6 +605,7 @@ function VendorDashboard() {
         open={reportOpen}
         onOpenChange={setReportOpen}
         scope={scope}
+        scopeLabel={resolvedLabel}
         orders={reportOrders}
       />
     </div>

@@ -13,9 +13,7 @@ import {
 import { Logo } from "@/components/Logo";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import { Button } from "@/components/ui/button";
-import { CATEGORIES } from "@/lib/menu-data";
 import { useStore } from "@/lib/store";
-import { CUSTOMER_CATEGORIES } from '@/lib/customer-categories';
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -81,8 +79,7 @@ const FEATURES = [
 function LandingPage() {
   const settings = useSystemSettings();
   const orderingOpen = useStore((s) => s.orderingOpen);
-  const menu = useStore((s) => s.menu);
-  const categories = Array.from(new Set([...CUSTOMER_CATEGORIES, ...menu.map((m) => m.category)]));
+  const categories = useStore((s) => s.categories);
 
   return (
     <div>

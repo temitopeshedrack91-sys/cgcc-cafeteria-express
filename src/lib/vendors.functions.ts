@@ -2,25 +2,33 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-export type VendorType = "food" | "snacks" | "coffee" | "drinks";
+export type VendorType = string;
 
-export const VENDOR_TYPES: VendorType[] = ["food", "snacks", "coffee", "drinks"];
+export const VENDOR_TYPES = ["food", "snacks", "coffee", "drinks"] as const;
 
-export const VENDOR_TYPE_LABELS: Record<VendorType, string> = {
+export const VENDOR_TYPE_LABELS: Record<string, string> = {
   food: "Food",
   snacks: "Snacks",
   coffee: "Coffee",
   drinks: "Drinks",
 };
 
-const DEFAULTS: Record<VendorType, { username: string; email: string }> = {
+const LEGACY_VENDOR_SET = new Set<string>(VENDOR_TYPES);
+
+const DEFAULTS: Record<(typeof VENDOR_TYPES)[number], { username: string; email: string }> = {
   food: { username: "food", email: "food@vendor.cgcc.local" },
   snacks: { username: "snacks", email: "snacks@vendor.cgcc.local" },
   coffee: { username: "coffee", email: "coffee@vendor.cgcc.local" },
   drinks: { username: "drinks", email: "drinks@vendor.cgcc.local" },
 };
 
-const vendorTypeSchema = z.enum(["food", "snacks", "coffee", "drinks"]);
+const vendorTypeSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(2)
+  .max(48)
+  .regex(/^[a-z0-9_-]+$/, "Use letters, numbers, underscores or dashes");
 
 function randomPassword(): string {
   const bytes = new Uint8Array(24);
@@ -28,8 +36,11 @@ function randomPassword(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function assertAdmin(context: { supabase: any; userId: string }) {
-  const { data, error } = await context.supabase.rpc("has_role", {
+type AdminSupabase = typeof import("@/integrations/supabase/client.server").supabaseAdmin;
+
+async function assertAdmin(context: { supabase: unknown; userId: string }) {
+  const client = context.supabase as { rpc: (fn: string, args: Record<string, string>) => Promise<{ data: unknown; error: unknown }> };
+  const { data, error } = await client.rpc("has_role", {
     _user_id: context.userId,
     _role: "admin",
   });
@@ -38,7 +49,7 @@ async function assertAdmin(context: { supabase: any; userId: string }) {
   }
 }
 
-async function findVendor(supabaseAdmin: any, vendorId: string) {
+async function findVendor(supabaseAdmin: AdminSupabase, vendorId: string) {
   const { data: v, error } = await supabaseAdmin
     .from("vendors")
     .select("id, user_id, vendor_type, username")
@@ -70,7 +81,7 @@ export const initVendors = createServerFn({ method: "POST" })
 
     const { data: existing, error: existingError } = await supabaseAdmin.from("vendors").select("vendor_type");
     if (existingError) throw existingError;
-    const have = new Set((existing ?? []).map((v: any) => v.vendor_type));
+    const have = new Set((existing ?? []).map((v: { vendor_type: string }) => v.vendor_type));
 
     const created: VendorType[] = [];
     for (const vt of VENDOR_TYPES) {
@@ -87,10 +98,10 @@ export const initVendors = createServerFn({ method: "POST" })
       if (createRes.error || !userId) throw new Error(`Could not create the ${VENDOR_TYPE_LABELS[vt]} login. Existing logins are never reused.`);
 
       // Grant vendor role
-      const roleName = `${vt}_vendor` as const;
+      const roleName = `${vt}_vendor` as "food_vendor" | "snacks_vendor" | "coffee_vendor" | "drinks_vendor";
       const { error: roleError } = await supabaseAdmin
         .from("user_roles")
-        .upsert({ user_id: userId, role: roleName as any }, { onConflict: "user_id,role" });
+        .upsert({ user_id: userId, role: roleName }, { onConflict: "user_id,role" });
       if (roleError) {
         await supabaseAdmin.auth.admin.deleteUser(userId);
         throw new Error('Could not assign vendor access. The new login was rolled back.');
@@ -112,16 +123,16 @@ export const initVendors = createServerFn({ method: "POST" })
     return { created };
   });
 
-/** Add an extra staff account under one of the four sections. */
+/** Add a staff or brand account under any existing or custom vendor section. */
 export const createVendorAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
         vendorType: vendorTypeSchema,
-        username: z.string().min(2).max(40).regex(/^[a-z0-9_.-]+$/i, "Letters, numbers, dot, dash, underscore only"),
+        username: z.string().trim().min(2).max(40).regex(/^[a-z0-9_.-]+$/i, "Letters, numbers, dot, dash, underscore only"),
         email: z.string().email().max(120),
-        label: z.string().min(2).max(60),
+        label: z.string().trim().min(2).max(60),
       })
       .parse(d),
   )
@@ -130,37 +141,39 @@ export const createVendorAccount = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const email = data.email.trim().toLowerCase();
+    const username = data.username.trim().toLowerCase();
+    const vendorType = data.vendorType.trim().toLowerCase();
     const temp = randomPassword().slice(0, 12);
 
     const createRes = await supabaseAdmin.auth.admin.createUser({
       email,
       password: temp,
       email_confirm: true,
-      user_metadata: { vendor_type: data.vendorType, username: data.username },
+      user_metadata: { vendor_type: vendorType, username },
     });
     const userId = createRes.data?.user?.id;
     if (createRes.error || !userId) throw new Error("Could not create this login. Use an unused email address.");
 
-    const roleName = `${data.vendorType}_vendor` as const;
+    const roleName = LEGACY_VENDOR_SET.has(vendorType) ? `${vendorType}_vendor` : "vendor";
     const { error: roleError } = await supabaseAdmin
       .from("user_roles")
-      .upsert({ user_id: userId, role: roleName as any }, { onConflict: "user_id,role" });
+      .upsert({ user_id: userId, role: roleName as never }, { onConflict: "user_id,role" });
     if (roleError) {
       await supabaseAdmin.auth.admin.deleteUser(userId);
-      throw new Error("Could not assign vendor access. No account was added.");
+      throw new Error("Could not assign vendor access (run latest SQL update if adding custom vendor sections). No account was added.");
     }
 
     const { error } = await supabaseAdmin.from("vendors").insert({
       user_id: userId,
-      vendor_type: data.vendorType,
-      username: data.username.trim(),
+      vendor_type: vendorType,
+      username,
       display_label: data.label.trim(),
       login_email: email,
       active: true,
     });
     if (error) {
       await supabaseAdmin.auth.admin.deleteUser(userId);
-      throw new Error("Could not save the vendor account. Check that the username is unused.");
+      throw new Error("Could not save the vendor account. Check that the username is unused and latest SQL update is applied.");
     }
     return { ok: true, temporaryPassword: temp, email };
   });
@@ -283,4 +296,40 @@ export const setVendorPermission = createServerFn({ method: "POST" })
     const { error } = await context.supabase.from('vendors').update(update).eq('id', data.vendorId);
     if (error) throw error;
     return { ok: true };
+  });
+
+export const updateVendorSection = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ vendorId: z.string().uuid(), vendorType: vendorTypeSchema }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("vendors")
+      .update({ vendor_type: data.vendorType })
+      .eq("id", data.vendorId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const resolveVendorLoginEmail = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ username: z.string().trim().min(1).max(80) }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const uname = data.username.trim().toLowerCase();
+    const { data: row, error } = await supabaseAdmin
+      .from("vendors")
+      .select("active, login_email, username")
+      .ilike("username", uname)
+      .maybeSingle();
+    if (error || !row) {
+      return { found: false as const, active: false, loginEmail: null };
+    }
+    return {
+      found: true as const,
+      active: Boolean(row.active),
+      loginEmail: row.login_email ?? `${row.username}@vendor.cgcc.local`,
+    };
   });

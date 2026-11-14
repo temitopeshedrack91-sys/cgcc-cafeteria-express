@@ -1,12 +1,11 @@
 import { pageMeta } from "@/lib/page-meta";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { AdminGuard, AdminShell } from "@/components/AdminShell";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { actions, formatNaira, useStore } from "@/lib/store";
-import { CUSTOMER_CATEGORIES } from "@/lib/customer-categories";
 
 export const Route = createFileRoute("/admin/menu")({
   head: () => ({
@@ -26,14 +25,10 @@ export const Route = createFileRoute("/admin/menu")({
 
 function MenuAdmin() {
   const menu = useStore((s) => s.menu);
+  const categories = useStore((s) => s.categories);
   const menuState = useStore((s) => s.menuState);
   const orderingOpen = useStore((s) => s.orderingOpen);
   const [q, setQ] = useState("");
-
-  const categories = useMemo(
-    () => Array.from(new Set([...CUSTOMER_CATEGORIES, ...menu.map((m) => m.category)])),
-    [menu],
-  );
 
   const filter = (name: string) =>
     !q.trim() || name.toLowerCase().includes(q.trim().toLowerCase());

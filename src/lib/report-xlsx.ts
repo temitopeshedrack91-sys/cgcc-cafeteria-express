@@ -1,8 +1,8 @@
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
-import type { Report, ReportOrder, ReportScope, ReportVendor } from "./reports";
+import type { Report, ReportOrder, ReportScope, VendorScopeMeta } from "./reports";
 import {
-  VENDOR_LABELS,
+  collectVendorScopes,
   formatDateTime,
   getReportScopeLabel,
   isPaidOrder,
@@ -100,7 +100,7 @@ export function buildItemisedExportData(input: {
       if (!scopeMatches(it, input.scope, catMap)) continue;
       const code = it.productId ?? "";
       const meta = code ? input.productMeta.get(code) : undefined;
-      const vKey = (it.vendorType ?? meta?.vendorType ?? "food") as keyof typeof input.settings.payoutPercents;
+      const vKey = (it.vendorType ?? meta?.vendorType ?? "food") as string;
       const rate =
         input.settings.payoutPercents[vKey] ??
         input.settings.defaultVendorPayoutPercent ??
@@ -164,12 +164,13 @@ export function buildReportWorkbook(input: {
   report: Report;
   productMeta: Map<string, ProductExportMeta>;
   categories: CategoryExportMeta[];
+  vendors?: VendorScopeMeta[];
   settings: SystemSettings;
 }): XLSX.WorkBook {
-  const { report, productMeta, categories, settings } = input;
+  const { report, productMeta, categories, vendors, settings } = input;
   const wb = XLSX.utils.book_new();
   const usedSheetNames = new Set<string>();
-  const scopeLabel = getReportScopeLabel(report.scope, categories, report.scopeLabel);
+  const scopeLabel = getReportScopeLabel(report.scope, categories, report.scopeLabel, vendors);
 
   // Sheet 1 (Primary): Exact 10-column A-J layout matching CGCC template
   const primaryData = buildItemisedExportData({
@@ -187,8 +188,13 @@ export function buildReportWorkbook(input: {
   // When downloading Overall Report, also include one formatted 10-column sheet
   // per Vendor and per active Category that has paid sales in range.
   if (report.scope === "all") {
-    const vendors: ReportVendor[] = ["food", "snacks", "coffee", "drinks"];
-    for (const v of vendors) {
+    const productVendors = Array.from(productMeta.values()).map((m) => m.vendorType);
+    const orderVendors = report.orders.flatMap((o) => o.items.map((i) => i.vendorType));
+    const vendorKeys = collectVendorScopes({
+      vendors,
+      extraKeys: [...productVendors, ...orderVendors],
+    });
+    for (const v of vendorKeys) {
       const vData = buildItemisedExportData({
         orders: report.orders,
         scope: v,
@@ -196,10 +202,11 @@ export function buildReportWorkbook(input: {
         settings,
       });
       if (vData.rows.length > 0) {
+        const vLabel = getReportScopeLabel(v, categories, undefined, vendors);
         XLSX.utils.book_append_sheet(
           wb,
           makeItemisedWorksheet(vData),
-          sanitizeSheetName(VENDOR_LABELS[v], usedSheetNames),
+          sanitizeSheetName(vLabel, usedSheetNames),
         );
       }
     }
@@ -319,15 +326,20 @@ export function buildReportWorkbook(input: {
 async function loadExportMetadata(): Promise<{
   productMeta: Map<string, ProductExportMeta>;
   categories: CategoryExportMeta[];
+  vendors: VendorScopeMeta[];
 }> {
   try {
-    const [itemsRes, catsRes] = await Promise.all([
+    const [itemsRes, catsRes, vendorsRes] = await Promise.all([
       supabase.from("menu_items").select("id, cost_price, category_id, vendor_type"),
       supabase
         .from("categories")
         .select("id, name, sort_order")
         .is("archived_at", null)
         .order("sort_order"),
+      supabase
+        .from("vendors")
+        .select("vendor_type, display_label, active")
+        .order("created_at"),
     ]);
     const productMeta = new Map<string, ProductExportMeta>(
       (
@@ -353,14 +365,15 @@ async function loadExportMetadata(): Promise<{
       name: c.name,
       sortOrder: Number(c.sort_order) || 0,
     }));
-    return { productMeta, categories };
+    const vendors: VendorScopeMeta[] = (vendorsRes.data ?? []) as VendorScopeMeta[];
+    return { productMeta, categories, vendors };
   } catch {
-    return { productMeta: new Map(), categories: [] };
+    return { productMeta: new Map(), categories: [], vendors: [] };
   }
 }
 
 export async function downloadReportXlsx(report: Report) {
-  const [{ productMeta, categories }, settings] = await Promise.all([
+  const [{ productMeta, categories, vendors }, settings] = await Promise.all([
     loadExportMetadata(),
     loadSettings().catch(() => currentSettings()),
   ]);
@@ -369,11 +382,12 @@ export async function downloadReportXlsx(report: Report) {
     report,
     productMeta,
     categories,
+    vendors,
     settings,
   });
 
   const stamp = new Date().toISOString().slice(0, 10);
-  const labelSlug = getReportScopeLabel(report.scope, categories, report.scopeLabel)
+  const labelSlug = getReportScopeLabel(report.scope, categories, report.scopeLabel, vendors)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");

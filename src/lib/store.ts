@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { DEFAULT_MENU, type MenuItem } from "./menu-data";
+import { CATEGORIES, DEFAULT_MENU, type MenuItem } from "./menu-data";
 import { supabase } from "@/integrations/supabase/client";
 import { rememberOrder } from "./history";
 import { customerCategory } from './customer-categories';
@@ -61,6 +61,7 @@ type MenuState = Record<string, MenuStockInfo>;
 
 type AppState = {
   cart: CartItem[];
+  categories: string[];
   menu: MenuItem[];
   menuState: MenuState;
   orders: Order[];
@@ -91,13 +92,16 @@ function persistLocal() {
   if (!isBrowser) return;
   try {
     localStorage.setItem(LOCAL_KEY, JSON.stringify({ cart: state.cart }));
-  } catch {}
+  } catch {
+    // Ignore storage quota errors in restricted environments
+  }
 }
 
 // ============ State ============
 const initialLocal = loadLocal();
 let state: AppState = {
   cart: initialLocal.cart,
+  categories: CATEGORIES,
   menu: DEFAULT_MENU,
   menuState: Object.fromEntries(
     DEFAULT_MENU.map((m) => [m.id, { available: true, stockOnline: 0, stockWalkin: 0, stockQty: 0 }]),
@@ -245,16 +249,18 @@ export async function fetchOrderByCode(
 }
 
 async function fetchMenu() {
-  const [{ data, error }, categories] = await Promise.all([
+  const [{ data, error }, categoriesRes] = await Promise.all([
     supabase.from('menu_items').select('id, name, price, image_url, category_id, archived_at, available, stock_online, stock_walkin, stock_qty').is('archived_at', null).order('sort_order'),
-    supabase.from('categories').select('id, name, archived_at'),
+    supabase.from('categories').select('id, name, sort_order, archived_at').is('archived_at', null).order('sort_order'),
   ]);
   if (error) {
     console.error("[store] fetchMenu failed", error);
     return;
   }
-  if (categories.error) { console.error('[store] category load failed', categories.error); return; }
-  const categoryNames = new Map((categories.data ?? []).filter((c) => !c.archived_at).map((c) => [c.id, customerCategory(c.name)]));
+  if (categoriesRes.error) { console.error('[store] category load failed', categoriesRes.error); return; }
+  const activeCats = (categoriesRes.data ?? []).filter((c) => !c.archived_at);
+  const categoryNames = new Map(activeCats.map((c) => [c.id, customerCategory(c.name)]));
+  const orderedCategoryNames = Array.from(new Set(activeCats.map((c) => customerCategory(c.name))));
   const visible = (data ?? []).filter((row) => categoryNames.has(row.category_id));
   const menu: MenuItem[] = visible.map((row) => ({ id: row.id, name: row.name, price: row.price, image: row.image_url ?? '', category: categoryNames.get(row.category_id) ?? 'Food' }));
   const menuState: MenuState = {};
@@ -266,7 +272,7 @@ async function fetchMenu() {
       stockQty: row.stock_qty ?? 0,
     };
   }
-  set({ menu, menuState });
+  set({ categories: orderedCategoryNames, menu, menuState });
 }
 
 async function fetchSettings() {
@@ -346,6 +352,11 @@ function init() {
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "menu_items" },
+      () => void fetchMenu(),
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "categories" },
       () => void fetchMenu(),
     )
     .on(

@@ -3833,5 +3833,144 @@ CREATE TRIGGER orders_restore_stock_on_cancel
   AFTER UPDATE OF payment_status, pickup_status ON public.orders
   FOR EACH ROW EXECUTE FUNCTION public.restore_stock_on_order_cancel();
 
+-- ---------------------------------------------------------------------
+-- Migration 39: Unlimited dynamic vendor sections & unified categories
+-- ---------------------------------------------------------------------
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'vendor';
+
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT c.conrelid::regclass AS tbl, c.conname
+      FROM pg_constraint c
+      JOIN pg_class t ON t.oid = c.conrelid
+      JOIN pg_namespace n ON n.oid = t.relnamespace
+     WHERE n.nspname = 'public'
+       AND t.relname IN ('vendors', 'menu_items', 'order_items')
+       AND c.contype = 'c'
+       AND pg_get_constraintdef(c.oid) ILIKE '%vendor_type%'
+  LOOP
+    EXECUTE format('ALTER TABLE %s DROP CONSTRAINT IF EXISTS %I', r.tbl, r.conname);
+  END LOOP;
+END $$;
+
+ALTER TABLE public.vendors
+  ADD CONSTRAINT vendors_vendor_type_nonempty CHECK (length(btrim(vendor_type)) > 0);
+ALTER TABLE public.menu_items
+  ADD CONSTRAINT menu_items_vendor_type_nonempty CHECK (length(btrim(vendor_type)) > 0);
+ALTER TABLE public.order_items
+  ADD CONSTRAINT order_items_vendor_type_nonempty CHECK (vendor_type IS NULL OR length(btrim(vendor_type)) > 0);
+
+CREATE OR REPLACE FUNCTION public.upsert_menu_item(
+  _id text DEFAULT NULL, _name text DEFAULT NULL, _category_id text DEFAULT NULL, _price integer DEFAULT NULL, _vendor_type text DEFAULT NULL,
+  _description text DEFAULT NULL, _image_url text DEFAULT NULL, _available boolean DEFAULT true,
+  _cost_price numeric DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE existing public.menu_items%ROWTYPE; new_id TEXT; clean_vendor TEXT;
+BEGIN
+  IF NOT public.has_role(auth.uid(), 'admin') THEN RAISE EXCEPTION 'forbidden'; END IF;
+  IF _name IS NULL OR length(btrim(_name)) = 0 THEN RAISE EXCEPTION 'name required'; END IF;
+  IF _price IS NULL OR _price < 0 THEN RAISE EXCEPTION 'price must be >= 0'; END IF;
+  IF _cost_price IS NOT NULL AND _cost_price < 0 THEN RAISE EXCEPTION 'cost price must be >= 0'; END IF;
+  clean_vendor := lower(btrim(COALESCE(_vendor_type, '')));
+  IF length(clean_vendor) = 0 THEN RAISE EXCEPTION 'vendor_type required'; END IF;
+
+  IF _id IS NULL OR length(btrim(_id)) = 0 THEN
+    new_id := 'p_' || substr(md5(random()::text || clock_timestamp()::text), 1, 10);
+  ELSE
+    new_id := btrim(_id);
+  END IF;
+
+  SELECT * INTO existing FROM public.menu_items WHERE id = new_id;
+  IF NOT FOUND THEN
+    INSERT INTO public.menu_items (id, name, category_id, price, vendor_type, description, image_url, available, stock_qty, stock_online, stock_walkin, low_stock_threshold, cost_price)
+    VALUES (new_id, btrim(_name), _category_id, _price, clean_vendor, _description, _image_url, COALESCE(_available, true), 0, 0, 0, 10, COALESCE(_cost_price, ROUND(_price * 0.85, 2)));
+    PERFORM public.log_audit('product.create', 'menu_item', new_id,
+      jsonb_build_object('name', _name, 'price', _price, 'vendor_type', clean_vendor, 'cost_price', COALESCE(_cost_price, ROUND(_price * 0.85, 2))));
+  ELSE
+    UPDATE public.menu_items SET
+      name = btrim(_name),
+      category_id = COALESCE(_category_id, category_id),
+      price = _price,
+      vendor_type = clean_vendor,
+      description = _description,
+      image_url = _image_url,
+      available = COALESCE(_available, available),
+      cost_price = COALESCE(_cost_price, existing.cost_price)
+    WHERE id = new_id;
+    IF existing.price <> _price THEN
+      PERFORM public.log_audit('product.price_change', 'menu_item', new_id,
+        jsonb_build_object('from', existing.price, 'to', _price, 'name', _name));
+    END IF;
+    PERFORM public.log_audit('product.update', 'menu_item', new_id,
+      jsonb_build_object('name', _name, 'price', _price, 'vendor_type', clean_vendor, 'cost_price', COALESCE(_cost_price, existing.cost_price)));
+  END IF;
+
+  RETURN jsonb_build_object('ok', true, 'id', new_id);
+END
+$function$;
+
+CREATE OR REPLACE FUNCTION public.bulk_move_products(_ids text[], _vendor_type text DEFAULT NULL, _category_id text DEFAULT NULL)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+DECLARE n INTEGER := 0; clean_vendor TEXT;
+BEGIN
+  IF NOT public.has_role(auth.uid(),'admin') THEN RAISE EXCEPTION 'forbidden'; END IF;
+  IF _ids IS NULL OR array_length(_ids,1) IS NULL THEN RAISE EXCEPTION 'no products selected'; END IF;
+  clean_vendor := NULLIF(lower(btrim(COALESCE(_vendor_type, ''))), '');
+  UPDATE public.menu_items
+     SET vendor_type = COALESCE(clean_vendor, vendor_type),
+         category_id = COALESCE(_category_id, category_id)
+   WHERE id = ANY(_ids);
+  GET DIAGNOSTICS n = ROW_COUNT;
+  PERFORM public.log_audit('product.bulk_move','menu_item',NULL,
+    jsonb_build_object('count',n,'vendor_type',clean_vendor,'category_id',_category_id,'ids',_ids));
+  RETURN jsonb_build_object('ok', true, 'updated', n);
+END $$;
+
+CREATE OR REPLACE FUNCTION public.save_payout_snapshot(
+  _vendor_type text, _business_day date, _orders_count integer, _items_count integer,
+  _gross_revenue integer, _cost_total numeric, _commission_percent numeric, _payout_amount integer
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE clean_vendor TEXT;
+BEGIN
+  IF NOT public.has_role(auth.uid(), 'admin') THEN RAISE EXCEPTION 'forbidden'; END IF;
+  clean_vendor := lower(btrim(COALESCE(_vendor_type, '')));
+  IF length(clean_vendor) = 0 THEN RAISE EXCEPTION 'vendor_type required'; END IF;
+  IF _business_day IS NULL THEN RAISE EXCEPTION 'business_day required'; END IF;
+  IF _commission_percent IS NULL OR _commission_percent < 0 OR _commission_percent > 100 THEN RAISE EXCEPTION 'commission percent must be between 0 and 100'; END IF;
+
+  INSERT INTO public.payout_snapshots (
+    vendor_type, business_day, orders_count, items_count, gross_revenue, cost_total,
+    commission_percent, payout_amount, created_by
+  ) VALUES (
+    clean_vendor, _business_day, COALESCE(_orders_count, 0), COALESCE(_items_count, 0),
+    COALESCE(_gross_revenue, 0), COALESCE(_cost_total, 0), _commission_percent, COALESCE(_payout_amount, 0), auth.uid()
+  )
+  ON CONFLICT (vendor_type, business_day) DO UPDATE SET
+    orders_count = EXCLUDED.orders_count,
+    items_count = EXCLUDED.items_count,
+    gross_revenue = EXCLUDED.gross_revenue,
+    cost_total = EXCLUDED.cost_total,
+    commission_percent = EXCLUDED.commission_percent,
+    payout_amount = EXCLUDED.payout_amount,
+    created_by = auth.uid(),
+    updated_at = now();
+
+  RETURN jsonb_build_object('ok', true);
+END
+$function$;
+
 -- Refresh PostgREST schema cache so new/updated RPCs are immediately callable
 NOTIFY pgrst, 'reload schema';

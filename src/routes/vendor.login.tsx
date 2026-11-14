@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
 import { supabase } from "@/integrations/supabase/client";
-import { touchVendorLogin } from "@/lib/vendors.functions";
+import { resolveVendorLoginEmail, touchVendorLogin } from "@/lib/vendors.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/vendor/login")({
@@ -41,22 +41,20 @@ function VendorLogin() {
     setSubmitting(true);
     try {
       const uname = username.trim().toLowerCase();
-      // Resolve the login email from the vendor record so newly added
-      // vendors (not just the four legacy usernames) can sign in.
-      const { data: row, error: lookupError } = await supabase
-        .from("vendors")
-        .select("active, login_email")
-        .eq("username", uname)
-        .maybeSingle();
-      if (lookupError || !row) {
+      const lookup = await resolveVendorLoginEmail({ data: { username: uname } });
+      if (!lookup.found) {
         toast.error("Unknown vendor username");
         return;
       }
-      if (!row.login_email) {
+      if (!lookup.active) {
+        toast.error("This vendor account is currently inactive. Contact the administrator.");
+        return;
+      }
+      if (!lookup.loginEmail) {
         toast.error("This vendor account has no login email set. Contact the administrator.");
         return;
       }
-      const email = row.login_email;
+      const email = lookup.loginEmail;
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error || !data.user) {
         toast.error(error?.message ?? "Sign in failed");
@@ -75,7 +73,9 @@ function VendorLogin() {
       }
       try {
         await touchVendorLogin();
-      } catch {}
+      } catch {
+        // Non-blocking audit timestamp
+      }
       toast.success(`Welcome, ${uname} vendor`);
       navigate({ to: "/vendor" });
     } finally {
@@ -103,7 +103,7 @@ function VendorLogin() {
             <Input
               id="username"
               type="text"
-              placeholder="food, snacks, coffee, drinks"
+              placeholder="Enter your vendor username"
               className="mt-1.5"
               value={username}
               onChange={(e) => setUsername(e.target.value)}

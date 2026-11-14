@@ -1,7 +1,13 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as XLSX from "xlsx";
-import { computeReport, type ReportOrder } from "./reports";
+import {
+  collectVendorScopes,
+  computeReport,
+  getReportScopeLabel,
+  type ReportOrder,
+  type VendorScopeMeta,
+} from "./reports";
 import {
   ITEMISED_HEADERS,
   buildItemisedExportData,
@@ -23,6 +29,7 @@ const productMeta = new Map<string, ProductExportMeta>([
   ["dr1", { costPrice: 425, categoryId: "cat_drinks", vendorType: "drinks" }],
   ["w1", { costPrice: 170, categoryId: "cat_drinks", vendorType: "drinks" }],
   ["sw_custom", { costPrice: 425, categoryId: "cat_sweets", vendorType: "snacks" }],
+  ["qw1", { costPrice: 1200, categoryId: "cat_grill", vendorType: "queens_ward" }],
 ]);
 
 const categories: CategoryExportMeta[] = [
@@ -31,6 +38,15 @@ const categories: CategoryExportMeta[] = [
   { id: "cat_coffee", name: "Coffee & Tea", sortOrder: 3 },
   { id: "cat_drinks", name: "Drinks", sortOrder: 4 },
   { id: "cat_sweets", name: "Sweets", sortOrder: 5 },
+  { id: "cat_grill", name: "Grill & Shawarma", sortOrder: 6 },
+];
+
+const vendorMeta: VendorScopeMeta[] = [
+  { vendor_type: "food", display_label: "Food Vendor", active: true },
+  { vendor_type: "snacks", display_label: "Snacks Vendor", active: true },
+  { vendor_type: "coffee", display_label: "Coffee Vendor", active: true },
+  { vendor_type: "drinks", display_label: "Drinks (Cafeteria Management)", active: true },
+  { vendor_type: "queens_ward", display_label: "Queen's Ward Grill", active: true },
 ];
 
 const t1 = Date.UTC(2026, 10, 1, 10, 15, 5); // 2026-11-01 11:15:05 Africa/Lagos (UTC+1)
@@ -50,6 +66,7 @@ const sampleOrders: ReportOrder[] = [
       { productId: "sp1", name: "Meat Pie", qty: 1, price: 1000, vendorType: "snacks", categoryId: "cat_snacks" },
       { productId: "dr1", name: "Coca-Cola (PET)", qty: 2, price: 500, vendorType: "drinks", categoryId: "cat_drinks" },
       { productId: "sw_custom", name: "Chin-Chin Pack", qty: 3, price: 500, vendorType: "snacks", categoryId: "cat_sweets" },
+      { productId: "qw1", name: "Chicken Shawarma", qty: 1, price: 1500, vendorType: "queens_ward", categoryId: "cat_grill" },
     ],
   },
   {
@@ -117,6 +134,25 @@ describe("Paid-only vendor and dynamic category reporting", () => {
     assert.deepEqual(sweets.productSummary, [{ name: "Chin-Chin Pack", qty: 3, revenue: 1500 }]);
   });
 
+  it("supports unlimited custom vendor scopes and resolves custom display labels", () => {
+    const scopes = collectVendorScopes({ vendors: vendorMeta });
+    assert.ok(scopes.includes("queens_ward"));
+    assert.equal(getReportScopeLabel("queens_ward", categories, undefined, vendorMeta), "Queen's Ward Grill");
+    assert.equal(getReportScopeLabel("pastry_corner", categories), "Pastry Corner Vendor");
+
+    const customReport = computeReport({
+      orders: sampleOrders,
+      scope: "queens_ward",
+      scopeLabel: getReportScopeLabel("queens_ward", categories, undefined, vendorMeta),
+      from,
+      to,
+      rangeLabel: "Sunday",
+    });
+    assert.equal(customReport.ordersReceived, 1);
+    assert.equal(customReport.itemsSold, 1);
+    assert.equal(customReport.revenue, 1500);
+  });
+
   it("formats timestamps as YYYY-MM-DD HH:mm:ss in Africa/Lagos", () => {
     assert.equal(formatExcelDateTime(t2), "2026-11-01 12:57:02");
   });
@@ -158,6 +194,7 @@ describe("Paid-only vendor and dynamic category reporting", () => {
       report: overall,
       productMeta,
       categories,
+      vendors: vendorMeta,
       settings: DEFAULT_SETTINGS,
     });
     assert.equal(wb.SheetNames[0], "Overall Sales");
@@ -165,7 +202,9 @@ describe("Paid-only vendor and dynamic category reporting", () => {
     assert.ok(wb.SheetNames.includes("Snacks Vendor"));
     assert.ok(wb.SheetNames.includes("Coffee Vendor"));
     assert.ok(wb.SheetNames.includes("Drinks (Cafeteria Management)"));
+    assert.ok(wb.SheetNames.includes("Queen's Ward Grill"));
     assert.ok(wb.SheetNames.includes("Cat - Sweets"));
+    assert.ok(wb.SheetNames.includes("Cat - Grill & Shawarma"));
 
     const firstSheet = XLSX.utils.sheet_to_json<(string | number)[]>(wb.Sheets[wb.SheetNames[0]], {
       header: 1,

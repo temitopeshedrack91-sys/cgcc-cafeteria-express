@@ -3,11 +3,10 @@ import { useState } from "react";
 import { z } from "zod";
 import { Search, ShoppingCart } from "lucide-react";
 import { MenuItemCard } from "@/components/MenuItemCard";
-import { CATEGORIES, DEFAULT_MENU, type MenuCategory } from "@/lib/menu-data";
+import type { MenuCategory } from "@/lib/menu-data";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CUSTOMER_CATEGORIES } from '@/lib/customer-categories';
 
 const searchSchema = z.object({
   cat: z.string().max(100).optional(),
@@ -33,7 +32,7 @@ function MenuPage() {
   const orderingOpen = useStore((s) => s.orderingOpen);
   const menu = useStore((s) => s.menu);
   const loaded = useStore((s) => s.loaded);
-  const categories = Array.from(new Set([...CUSTOMER_CATEGORIES, ...menu.map((m) => m.category)]));
+  const categories = useStore((s) => s.categories);
   
   const cartCount = useStore((s) => s.cart.reduce((n, c) => n + c.qty, 0));
   const activeCat: MenuCategory = cat ?? 'All';
