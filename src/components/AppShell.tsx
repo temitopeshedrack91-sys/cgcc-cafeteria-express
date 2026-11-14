@@ -44,11 +44,6 @@ export function AppFooter() {
         <p className="mt-1 text-primary-foreground/60">
           © {new Date().getFullYear()} The Citadel Global Community Church
         </p>
-        <div className="mt-3">
-          <Link to="/schema-setup" className="text-xs text-brand/90 hover:underline">
-            Database Setup SQL Script
-          </Link>
-        </div>
       </div>
     </footer>
   );

@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { AppFooter, AppHeader } from "@/components/AppShell";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 
 function NotFoundComponent() {
   return (
@@ -187,6 +188,11 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var p=new URLSearchParams(location.search);var q=p.get("pwa")==="1"||p.get("source")==="pwa";if(q){try{sessionStorage.setItem("cgcc-pwa-standalone","1")}catch(e){}}var s=false;try{s=sessionStorage.getItem("cgcc-pwa-standalone")==="1"}catch(e){}var m=["standalone","fullscreen","minimal-ui","window-controls-overlay"].some(function(d){return window.matchMedia&&window.matchMedia("(display-mode: "+d+")").matches});if(q||s||m||navigator.standalone===true||document.referrer.indexOf("android-app://")===0){document.documentElement.dataset.pwaInstalled="1"}}catch(e){}})();window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__pwaInstallPrompt=e;});window.addEventListener("appinstalled",function(){window.__pwaInstallPrompt=null;});`,
+          }}
+        />
       </head>
       <body>
         {children}
@@ -238,6 +244,7 @@ function RootComponent() {
         </main>
         <AppFooter />
       </div>
+      <PWAInstallPrompt />
       <Toaster position="top-center" richColors />
     </QueryClientProvider>
   );

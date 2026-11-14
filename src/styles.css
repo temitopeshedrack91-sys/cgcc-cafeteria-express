@@ -155,3 +155,7 @@
 @utility shadow-soft {
   box-shadow: var(--shadow-soft);
 }
+
+[data-pwa-installed="1"] .pwa-install-ui {
+  display: none !important;
+}

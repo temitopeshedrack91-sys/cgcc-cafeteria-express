@@ -59,6 +59,7 @@ const PAYMENT_METHODS: CashierPaymentMethod[] = ["cash", "pos", "transfer", "opa
 
 function CashierSales() {
   const [items, setItems] = useState<LiveItem[]>([]);
+  const [categories, setCategories] = useState<string[]>(CATEGORIES);
   const [cat, setCat] = useState<MenuCategory | "All">("All");
   const [q, setQ] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -73,14 +74,27 @@ function CashierSales() {
   const [closing, setClosing] = useState(false);
 
   const loadMenu = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("menu_items")
-      .select("id, name, price, available, stock_qty, stock_walkin, stock_online")
-      .order("name");
+    const [{ data, error }, catRes] = await Promise.all([
+      supabase
+        .from("menu_items")
+        .select("id, name, price, category_id, archived_at, available, stock_qty, stock_walkin, stock_online")
+        .is("archived_at", null)
+        .order("name"),
+      supabase
+        .from("categories")
+        .select("id, name, sort_order, archived_at")
+        .is("archived_at", null)
+        .order("sort_order"),
+    ]);
     if (error) {
       toast.error("Failed to load menu");
       return;
     }
+    const dbCats = new Map<string, string>(
+      (catRes.data ?? []).filter((c) => !c.archived_at).map((c) => [c.id, c.name]),
+    );
+    const orderedCats = Array.from(new Set((catRes.data ?? []).filter((c) => !c.archived_at).map((c) => c.name)));
+    if (orderedCats.length > 0) setCategories(orderedCats);
     const catMap = new Map<string, MenuCategory>();
     for (const m of DEFAULT_MENU) catMap.set(m.id, m.category);
     setItems(
@@ -88,7 +102,7 @@ function CashierSales() {
         id: r.id,
         name: r.name,
         price: r.price,
-        category: catMap.get(r.id) ?? "Meals",
+        category: dbCats.get(r.category_id) ?? catMap.get(r.id) ?? "Food",
         available: r.available !== false,
         stock_qty: r.stock_qty ?? 0,
         stock_walkin: r.stock_walkin ?? 0,
@@ -250,7 +264,7 @@ function CashierSales() {
                 <Button size="sm" variant={cat === "All" ? "default" : "outline"} onClick={() => setCat("All")}>
                   All
                 </Button>
-                {CATEGORIES.map((c) => (
+                {categories.map((c) => (
                   <Button
                     key={c}
                     size="sm"
