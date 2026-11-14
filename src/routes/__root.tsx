@@ -37,34 +37,93 @@ function NotFoundComponent() {
   );
 }
 
+async function clearPwaCachesAndUpdate() {
+  if (typeof window === "undefined") return;
+  try {
+    if ("caches" in window) {
+      const keys = await window.caches.keys();
+      await Promise.all(keys.map((k) => window.caches.delete(k)));
+    }
+    if ("serviceWorker" in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.update().catch(() => undefined)));
+    }
+  } catch {
+    // Best-effort cleanup
+  }
+}
+
+function isChunkOrModuleError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error ?? "");
+  return /dynamically imported module|loading chunk|loading css chunk|failed to fetch|import.*module/i.test(
+    msg,
+  );
+}
+
 function ErrorComponent({ error, reset }: ErrorComponentProps) {
   console.error(error);
   const router = useRouter();
+  const isStaleBundle = isChunkOrModuleError(error);
+
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
+    if (isStaleBundle && typeof window !== "undefined") {
+      try {
+        const last = Number(sessionStorage.getItem("cgcc-pwa-recover-at") || "0");
+        if (Date.now() - last > 15_000) {
+          sessionStorage.setItem("cgcc-pwa-recover-at", String(Date.now()));
+          void clearPwaCachesAndUpdate().then(() => window.location.reload());
+        }
+      } catch {
+        // Ignore sessionStorage restrictions
+      }
+    }
+  }, [error, isStaleBundle]);
+
+  async function handleRetry() {
+    await clearPwaCachesAndUpdate();
+    if (isStaleBundle && typeof window !== "undefined") {
+      window.location.reload();
+      return;
+    }
+    router.invalidate();
+    reset();
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    }
+  }
+
+  async function handleGoHome() {
+    await clearPwaCachesAndUpdate();
+    if (typeof window !== "undefined") {
+      window.location.replace("/");
+    }
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight">This page didn't load</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Something went wrong.</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {isStaleBundle
+            ? "A newer version of the app is available. Tap Try again to refresh."
+            : "Something went wrong."}
+        </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
-            onClick={() => {
-              router.invalidate();
-              reset();
-            }}
+            type="button"
+            onClick={() => void handleRetry()}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90"
           >
             Try again
           </button>
-          <a
-            href="/"
+          <button
+            type="button"
+            onClick={() => void handleGoHome()}
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             Go home
-          </a>
+          </button>
         </div>
       </div>
     </div>
@@ -146,13 +205,33 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   useEffect(() => {
-    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
-    navigator.serviceWorker
-      .register("/sw.js", { scope: "/" })
-      .then((reg) => reg.update().catch(() => undefined))
-      .catch((err) => {
-        console.warn("[pwa] service worker registration failed", err);
-      });
+    if (typeof window === "undefined") return;
+
+    const onPreloadError = () => {
+      try {
+        const last = Number(sessionStorage.getItem("cgcc-pwa-recover-at") || "0");
+        if (Date.now() - last > 15_000) {
+          sessionStorage.setItem("cgcc-pwa-recover-at", String(Date.now()));
+          void clearPwaCachesAndUpdate().then(() => window.location.reload());
+        }
+      } catch {
+        window.location.reload();
+      }
+    };
+    window.addEventListener("vite:preloadError", onPreloadError);
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .register("/sw.js", { scope: "/", updateViaCache: "none" })
+        .then((reg) => reg.update().catch(() => undefined))
+        .catch((err) => {
+          console.warn("[pwa] service worker registration failed", err);
+        });
+    }
+
+    return () => {
+      window.removeEventListener("vite:preloadError", onPreloadError);
+    };
   }, []);
 
   return (

@@ -82,7 +82,17 @@ function loadLocal(): LocalSlice {
   try {
     const raw = localStorage.getItem(LOCAL_KEY);
     if (!raw) return base;
-    return { ...base, ...(JSON.parse(raw) as Partial<LocalSlice>) };
+    const parsed = JSON.parse(raw) as Partial<LocalSlice> | null;
+    const rawCart = Array.isArray(parsed?.cart) ? parsed.cart : [];
+    const safeCart = rawCart.filter(
+      (item): item is CartItem =>
+        Boolean(item) &&
+        typeof item.itemId === "string" &&
+        typeof item.qty === "number" &&
+        Number.isFinite(item.qty) &&
+        item.qty > 0,
+    );
+    return { cart: safeCart };
   } catch {
     return base;
   }

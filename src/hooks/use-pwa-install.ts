@@ -44,9 +44,12 @@ export function usePWAInstall() {
   const [isInIframe, setIsInIframe] = useState(false);
 
   useEffect(() => {
-    const media = window.matchMedia("(display-mode: standalone)");
+    const media =
+      typeof window.matchMedia === "function"
+        ? window.matchMedia("(display-mode: standalone)")
+        : null;
     const checkStandalone = () =>
-      media.matches ||
+      Boolean(media?.matches) ||
       (window.navigator as unknown as { standalone?: boolean }).standalone === true;
 
     setIsInstalled(checkStandalone());
@@ -88,12 +91,12 @@ export function usePWAInstall() {
       setDeferredPrompt(null);
     };
 
-    media.addEventListener?.("change", onDisplayModeChange);
+    media?.addEventListener?.("change", onDisplayModeChange);
     window.addEventListener("appinstalled", onInstalled);
 
     return () => {
       promptListeners.delete(onPrompt);
-      media.removeEventListener?.("change", onDisplayModeChange);
+      media?.removeEventListener?.("change", onDisplayModeChange);
       window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);
